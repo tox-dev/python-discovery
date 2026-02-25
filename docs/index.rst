@@ -1,5 +1,5 @@
 python-discovery
-============
+================
 
 You may have multiple Python versions installed on your machine -- system Python, versions from
 `pyenv <https://github.com/pyenv/pyenv>`_, `mise <https://mise.jdx.dev/>`_,
