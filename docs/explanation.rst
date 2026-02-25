@@ -2,7 +2,7 @@ How it works
 ============
 
 Where does python-discovery look?
--------------------------------
+---------------------------------
 
 When you call :func:`~python_discovery.get_interpreter`, the library checks several locations in
 order. It stops as soon as it finds an interpreter that matches your spec.
