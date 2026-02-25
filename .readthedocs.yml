@@ -4,5 +4,5 @@ build:
   tools:
     python: "3.12"
   commands:
-  - pip install tox
-  - tox r -e docs -- "${READTHEDOCS_OUTPUT}"/html
+    - pip install tox
+    - tox r -e docs -- "${READTHEDOCS_OUTPUT}"/html
