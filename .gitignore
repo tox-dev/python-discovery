@@ -1,9 +1,5 @@
-*.py[cod]
-*.swp
-__pycache__
-/src/py_discovery/_version.py
-build
-dist
+*.pyc
 *.egg-info
-.tox
-/.*_cache
+dist/
+.tox/
+/src/python_discovery/_version.py

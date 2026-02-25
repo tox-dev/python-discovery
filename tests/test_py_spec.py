@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import sys
-from copy import copy
-from typing import TYPE_CHECKING, Tuple, cast
+from typing import TYPE_CHECKING
 
 import pytest
 
-from py_discovery import PythonSpec
+from python_discovery import PythonSpec
+from python_discovery._py_info import normalize_isa
+from python_discovery._specifier import SimpleSpecifierSet as SpecifierSet
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -35,7 +36,7 @@ def test_spec_satisfies_path_ok() -> None:
     assert spec.satisfies(spec) is True
 
 
-def test_spec_satisfies_path_nok(tmp_path: Path) -> None:
+def test_spec_satisfies_path_nok(tmp_path: pytest.TempPathFactory) -> None:
     spec = PythonSpec.from_string_spec(sys.executable)
     of = PythonSpec.from_string_spec(str(tmp_path))
     assert spec.satisfies(of) is False
@@ -47,6 +48,16 @@ def test_spec_satisfies_arch() -> None:
 
     assert spec_1.satisfies(spec_1) is True
     assert spec_2.satisfies(spec_1) is False
+
+
+def test_spec_satisfies_free_threaded() -> None:
+    spec_1 = PythonSpec.from_string_spec("python3.13t")
+    spec_2 = PythonSpec.from_string_spec("python3.13")
+
+    assert spec_1.satisfies(spec_1) is True
+    assert spec_1.free_threaded is True
+    assert spec_2.satisfies(spec_1) is False
+    assert spec_2.free_threaded is False
 
 
 @pytest.mark.parametrize(
@@ -70,13 +81,18 @@ def test_spec_satisfies_implementation_nok() -> None:
 def _version_satisfies_pairs() -> list[tuple[str, str]]:
     target: set[tuple[str, str]] = set()
     version = tuple(str(i) for i in sys.version_info[0:3])
-    for i in range(len(version) + 1):
-        req = ".".join(version[0:i])
-        for j in range(i + 1):
-            sat = ".".join(version[0:j])
-            # can be satisfied in both directions
-            target.add((req, sat))
-            target.add((sat, req))
+    for threading in (False, True):
+        for depth in range(len(version) + 1):
+            req = ".".join(version[0:depth])
+            for sub in range(depth + 1):
+                sat = ".".join(version[0:sub])
+                if sat:
+                    target.add((req, sat))
+                target.add((sat, req))
+                if threading and sat and req:
+                    target.add((f"{req}t", f"{sat}t"))
+                    target.add((f"{sat}t", f"{req}t"))
+
     return sorted(target)
 
 
@@ -89,18 +105,19 @@ def test_version_satisfies_ok(req: str, spec: str) -> None:
 
 def _version_not_satisfies_pairs() -> list[tuple[str, str]]:
     target: set[tuple[str, str]] = set()
-    version = tuple(str(i) for i in cast(Tuple[int, ...], sys.version_info[0:3]))
+    version = tuple(str(i) for i in sys.version_info[0:3])
     for major in range(len(version)):
         req = ".".join(version[0 : major + 1])
         for minor in range(major + 1):
-            sat_ver = list(cast(Tuple[int, ...], sys.version_info[0 : minor + 1]))
+            sat_ver: list[int] = [int(v) for v in sys.version_info[0 : minor + 1]]
             for patch in range(minor + 1):
-                for o in [1, -1]:
-                    temp = copy(sat_ver)
-                    temp[patch] += o
-                    if temp[patch] >= 0:  # pragma: no branch
-                        sat = ".".join(str(i) for i in temp)
-                        target.add((req, sat))
+                for offset in [1, -1]:
+                    temp = sat_ver.copy()
+                    temp[patch] += offset
+                    if temp[patch] < 0:
+                        continue  # pragma: no cover
+                    sat = ".".join(str(i) for i in temp)
+                    target.add((req, sat))
     return sorted(target)
 
 
@@ -116,3 +133,105 @@ def test_relative_spec(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     a_relative_path = str((tmp_path / "a" / "b").relative_to(tmp_path))
     spec = PythonSpec.from_string_spec(a_relative_path)
     assert spec.path == a_relative_path
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (">=3.12", ">=3.12"),
+        ("python>=3.12", ">=3.12"),
+        ("cpython!=3.11.*", "!=3.11.*"),
+        ("<=3.13,>=3.12", "<=3.13,>=3.12"),
+    ],
+)
+def test_specifier_parsing(text: str, expected: str) -> None:
+    spec = PythonSpec.from_string_spec(text)
+    assert spec.version_specifier == SpecifierSet.from_string(expected)
+
+
+def test_specifier_with_implementation() -> None:
+    spec = PythonSpec.from_string_spec("cpython>=3.12")
+    assert spec.implementation == "cpython"
+    assert spec.version_specifier == SpecifierSet.from_string(">=3.12")
+
+
+def test_specifier_satisfies_with_partial_information() -> None:
+    spec = PythonSpec.from_string_spec(">=3.12")
+    candidate = PythonSpec.from_string_spec("python3.12")
+    assert candidate.satisfies(spec) is True
+
+
+@pytest.mark.parametrize(
+    ("spec_str", "expected_machine"),
+    [
+        pytest.param("cpython3.12-64-arm64", "arm64", id="arm64"),
+        pytest.param("cpython3.12-64-x86_64", "x86_64", id="x86_64"),
+        pytest.param("cpython3.12-32-x86", "x86", id="x86"),
+        pytest.param("cpython3.12-64-aarch64", "arm64", id="aarch64"),
+        pytest.param("cpython3.12-64-ppc64le", "ppc64le", id="ppc64le"),
+        pytest.param("cpython3.12-64-s390x", "s390x", id="s390x"),
+        pytest.param("cpython3.12-64-riscv64", "riscv64", id="riscv64"),
+        pytest.param("cpython3.12-64", None, id="no-machine"),
+        pytest.param("cpython3.12", None, id="no-arch-no-machine"),
+        pytest.param("python3.12-64-arm64", "arm64", id="python-impl"),
+    ],
+)
+def test_spec_parse_machine(spec_str: str, expected_machine: str | None) -> None:
+    spec = PythonSpec.from_string_spec(spec_str)
+    assert spec.machine == expected_machine
+
+
+@pytest.mark.parametrize(
+    ("spec_str", "expected_arch", "expected_machine"),
+    [
+        pytest.param("cpython3.12-64-arm64", 64, "arm64", id="64bit-arm64"),
+        pytest.param("cpython3.12-32-x86", 32, "x86", id="32bit-x86"),
+        pytest.param("cpython3.12-64", 64, None, id="64bit-no-machine"),
+    ],
+)
+def test_spec_parse_arch_and_machine_together(spec_str: str, expected_arch: int, expected_machine: str | None) -> None:
+    spec = PythonSpec.from_string_spec(spec_str)
+    assert spec.architecture == expected_arch
+    assert spec.machine == expected_machine
+
+
+@pytest.mark.parametrize(
+    ("left", "right", "expected"),
+    [
+        pytest.param("cpython3.12-64-arm64", "cpython3.12-64-arm64", True, id="same-machine"),
+        pytest.param("cpython3.12-64-arm64", "cpython3.12-64-x86_64", False, id="different-machine"),
+        pytest.param("cpython3.12-64-arm64", "cpython3.12-64", True, id="none-matches-any"),
+        pytest.param("cpython3.12-64-amd64", "cpython3.12-64-x86_64", True, id="amd64-eq-x86_64"),
+        pytest.param("cpython3.12-64-aarch64", "cpython3.12-64-arm64", True, id="aarch64-eq-arm64"),
+    ],
+)
+def test_spec_satisfies_machine(left: str, right: str, expected: bool) -> None:
+    assert PythonSpec.from_string_spec(left).satisfies(PythonSpec.from_string_spec(right)) is expected
+
+
+@pytest.mark.parametrize(
+    ("isa", "normalized"),
+    [
+        pytest.param("amd64", "x86_64", id="amd64"),
+        pytest.param("aarch64", "arm64", id="aarch64"),
+        pytest.param("x86_64", "x86_64", id="x86_64"),
+        pytest.param("arm64", "arm64", id="arm64"),
+        pytest.param("x86", "x86", id="x86"),
+        pytest.param("ppc64le", "ppc64le", id="ppc64le"),
+        pytest.param("riscv64", "riscv64", id="riscv64"),
+        pytest.param("s390x", "s390x", id="s390x"),
+    ],
+)
+def test_normalize_isa(isa: str, normalized: str) -> None:
+    assert normalize_isa(isa) == normalized
+
+
+@pytest.mark.parametrize(
+    ("spec_str", "in_repr"),
+    [
+        pytest.param("cpython3.12-64-arm64", "machine=arm64", id="with-machine"),
+        pytest.param("cpython3.12-64", "architecture=64", id="without-machine"),
+    ],
+)
+def test_spec_repr_machine(spec_str: str, in_repr: str) -> None:
+    assert in_repr in repr(PythonSpec.from_string_spec(spec_str))
