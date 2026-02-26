@@ -8,6 +8,7 @@ from ._cache import ContentStore, DiskCache, PyInfoCache
 from ._discovery import get_interpreter
 from ._py_info import PythonInfo
 from ._py_spec import PythonSpec
+from ._specifier import SimpleSpecifier, SimpleSpecifierSet, SimpleVersion
 
 __version__ = version("python-discovery")
 
@@ -17,6 +18,9 @@ __all__ = [
     "PyInfoCache",
     "PythonInfo",
     "PythonSpec",
+    "SimpleSpecifier",
+    "SimpleSpecifierSet",
+    "SimpleVersion",
     "__version__",
     "get_interpreter",
 ]

@@ -409,3 +409,38 @@ def test_shim_colon_separated_pyenv_version_picks_first_match(
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(second_binary)
+
+
+def test_predicate_filters_interpreters(session_cache: DiskCache) -> None:
+    result = get_interpreter(sys.executable, [], session_cache, predicate=lambda _: False)
+    assert result is None
+
+
+def test_predicate_accepts_interpreter(session_cache: DiskCache) -> None:
+    result = get_interpreter(sys.executable, [], session_cache, predicate=lambda _: True)
+    assert result is not None
+    assert result.executable == sys.executable
+
+
+def test_predicate_none_is_noop(session_cache: DiskCache) -> None:
+    result = get_interpreter(sys.executable, [], session_cache, predicate=None)
+    assert result is not None
+    assert result.executable == sys.executable
+
+
+def test_predicate_with_fallback_specs(session_cache: DiskCache) -> None:
+    current = PythonInfo.current_system(session_cache)
+    major, minor = current.version_info.major, current.version_info.minor
+    accepted_exe: str | None = None
+
+    def reject_first(info: PythonInfo) -> bool:
+        nonlocal accepted_exe
+        if accepted_exe is None:
+            accepted_exe = str(info.executable)
+            return False
+        return True
+
+    result = get_interpreter([f"{major}.{minor}", sys.executable], [], session_cache, predicate=reject_first)
+    assert accepted_exe is not None
+    assert result is not None
+    assert str(result.executable) != accepted_exe

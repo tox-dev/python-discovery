@@ -52,6 +52,11 @@ class SimpleVersion:
 
     @classmethod
     def from_string(cls, version_str: str) -> SimpleVersion:
+        """
+        Parse a PEP 440 version string (e.g. ``3.12.1``).
+
+        :param version_str: the version string to parse.
+        """
         stripped = version_str.strip()
         if not (match := _VERSION_RE.match(stripped)):
             msg = f"Invalid version: {version_str}"
@@ -123,6 +128,11 @@ class SimpleSpecifier:
 
     @classmethod
     def from_string(cls, spec_str: str) -> SimpleSpecifier:
+        """
+        Parse a single PEP 440 specifier (e.g. ``>=3.10``).
+
+        :param spec_str: the specifier string to parse.
+        """
         stripped = spec_str.strip()
         if not (match := _SPECIFIER_RE.match(stripped)):
             msg = f"Invalid specifier: {spec_str}"
@@ -148,7 +158,11 @@ class SimpleSpecifier:
         )
 
     def contains(self, version_str: str) -> bool:
-        """Check if a version string satisfies this specifier."""
+        """
+        Check if a version string satisfies this specifier.
+
+        :param version_str: the version string to test.
+        """
         try:
             candidate = SimpleVersion.from_string(version_str) if isinstance(version_str, str) else version_str
         except ValueError:
@@ -223,6 +237,11 @@ class SimpleSpecifierSet:
 
     @classmethod
     def from_string(cls, specifiers_str: str = "") -> SimpleSpecifierSet:
+        """
+        Parse a comma-separated PEP 440 specifier string (e.g. ``>=3.10,<4``).
+
+        :param specifiers_str: the specifier string to parse.
+        """
         stripped = specifiers_str.strip()
         specs: list[SimpleSpecifier] = []
         if stripped:
@@ -234,7 +253,11 @@ class SimpleSpecifierSet:
         return cls(specifiers_str=stripped, specifiers=tuple(specs))
 
     def contains(self, version_str: str) -> bool:
-        """Check if a version satisfies all specifiers in the set."""
+        """
+        Check if a version satisfies all specifiers in the set.
+
+        :param version_str: the version string to test.
+        """
         if not self.specifiers:
             return True
         return all(spec.contains(version_str) for spec in self.specifiers)

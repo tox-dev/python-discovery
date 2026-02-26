@@ -153,6 +153,7 @@ class PythonSpec:
 
     @property
     def is_abs(self) -> bool:
+        """``True`` if the spec refers to an absolute filesystem path."""
         return self.path is not None and pathlib.Path(self.path).is_absolute()
 
     def _check_version_specifier(self, spec: PythonSpec) -> bool:

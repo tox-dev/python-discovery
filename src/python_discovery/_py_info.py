@@ -483,9 +483,11 @@ class PythonInfo:  # noqa: PLR0904
         return cls._current_system
 
     def to_json(self) -> str:
+        """Serialize this interpreter information to a JSON string."""
         return json.dumps(self.to_dict(), indent=2)
 
     def to_dict(self) -> dict[str, object]:
+        """Convert this interpreter information to a plain dictionary."""
         data = {var: (getattr(self, var) if var != "_creators" else None) for var in vars(self)}
         version_info = data["version_info"]
         data["version_info"] = version_info._asdict() if hasattr(version_info, "_asdict") else version_info
@@ -520,11 +522,21 @@ class PythonInfo:  # noqa: PLR0904
 
     @classmethod
     def from_json(cls, payload: str) -> PythonInfo:
+        """
+        Deserialize interpreter information from a JSON string.
+
+        :param payload: JSON produced by :meth:`to_json`.
+        """
         raw = json.loads(payload)
         return cls.from_dict(raw.copy())
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> PythonInfo:
+        """
+        Reconstruct a :class:`PythonInfo` from a plain dictionary.
+
+        :param data: dictionary produced by :meth:`to_dict`.
+        """
         data["version_info"] = VersionInfo(**data["version_info"])  # restore this to a named tuple structure
         result = cls()
         result.__dict__ = data.copy()
@@ -532,6 +544,12 @@ class PythonInfo:  # noqa: PLR0904
 
     @classmethod
     def resolve_to_system(cls, cache: PyInfoCache | None, target: PythonInfo) -> PythonInfo:
+        """
+        Walk virtualenv/venv prefix chains to find the underlying system interpreter.
+
+        :param cache: interpreter metadata cache; when ``None`` results are not cached.
+        :param target: the interpreter to resolve.
+        """
         start_executable = target.executable
         prefixes = OrderedDict()
         while target.system_executable is None:
