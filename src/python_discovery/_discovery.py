@@ -27,10 +27,26 @@ def get_interpreter(
     try_first_with: Iterable[str] | None = None,
     cache: PyInfoCache | None = None,
     env: Mapping[str, str] | None = None,
+    predicate: Callable[[PythonInfo], bool] | None = None,
 ) -> PythonInfo | None:
+    """
+    Find a Python interpreter matching *key*.
+
+    Iterates over one or more specification strings and returns the first interpreter that satisfies the spec and passes
+    the optional *predicate*.
+
+    :param key: interpreter specification string(s) — an absolute path, a version (``3.12``), an implementation prefix
+        (``cpython3.12``), or a PEP 440 specifier (``>=3.10``). When a sequence is given each entry is tried in order.
+    :param try_first_with: executables to probe before the normal discovery search.
+    :param cache: interpreter metadata cache; when ``None`` results are not cached.
+    :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    :param predicate: optional callback applied after an interpreter matches the spec. Return ``True`` to accept the
+        interpreter, ``False`` to skip it and continue searching.
+    :return: the first matching interpreter, or ``None`` if no match is found.
+    """
     specs = [key] if isinstance(key, str) else key
     for spec_str in specs:
-        if result := _find_interpreter(spec_str, try_first_with or (), cache, env):
+        if result := _find_interpreter(spec_str, try_first_with or (), cache, env, predicate):
             return result
     return None
 
@@ -40,6 +56,7 @@ def _find_interpreter(
     try_first_with: Iterable[str],
     cache: PyInfoCache | None = None,
     env: Mapping[str, str] | None = None,
+    predicate: Callable[[PythonInfo], bool] | None = None,
 ) -> PythonInfo | None:
     spec = PythonSpec.from_string_spec(key)
     _LOGGER.info("find interpreter for spec %r", spec)
@@ -52,7 +69,9 @@ def _find_interpreter(
         if proposed_key in proposed_paths:
             continue
         _LOGGER.info("proposed %s", interpreter)
-        if interpreter.satisfies(spec, impl_must_match=impl_must_match):
+        if interpreter.satisfies(spec, impl_must_match=impl_must_match) and (
+            predicate is None or predicate(interpreter)
+        ):
             _LOGGER.debug("accepted %s", interpreter)
             return interpreter
         proposed_paths.add(proposed_key)
@@ -88,6 +107,14 @@ def propose_interpreters(
     cache: PyInfoCache | None = None,
     env: Mapping[str, str] | None = None,
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
+    """
+    Yield ``(interpreter, impl_must_match)`` candidates for *spec*.
+
+    :param spec: the parsed interpreter specification to match against.
+    :param try_first_with: executable paths to probe before the standard search.
+    :param cache: interpreter metadata cache; when ``None`` results are not cached.
+    :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    """
     env = os.environ if env is None else env
     tested_exes: set[str] = set()
     if spec.is_abs and spec.path is not None:

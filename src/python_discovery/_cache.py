@@ -19,25 +19,47 @@ _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 class ContentStore(Protocol):
     """A store for reading and writing cached content."""
 
-    def exists(self) -> bool: ...
+    def exists(self) -> bool:
+        """Return whether the cached content exists."""
+        ...
 
-    def read(self) -> dict | None: ...
+    def read(self) -> dict | None:
+        """Read the cached content, or ``None`` if unavailable or corrupt."""
+        ...
 
-    def write(self, content: dict) -> None: ...
+    def write(self, content: dict) -> None:
+        """
+        Persist *content* to the store.
 
-    def remove(self) -> None: ...
+        :param content: interpreter metadata to cache.
+        """
+        ...
+
+    def remove(self) -> None:
+        """Delete the cached content."""
+        ...
 
     @contextmanager
-    def locked(self) -> Generator[None]: ...
+    def locked(self) -> Generator[None]:
+        """Context manager that acquires an exclusive lock on this store."""
+        ...
 
 
 @runtime_checkable
 class PyInfoCache(Protocol):
     """Cache interface for Python interpreter information."""
 
-    def py_info(self, path: Path) -> ContentStore: ...
+    def py_info(self, path: Path) -> ContentStore:
+        """
+        Return the content store for the interpreter at *path*.
 
-    def py_info_clear(self) -> None: ...
+        :param path: absolute path to a Python executable.
+        """
+        ...
+
+    def py_info_clear(self) -> None:
+        """Remove all cached interpreter information."""
+        ...
 
 
 class DiskContentStore:
@@ -101,10 +123,16 @@ class DiskCache:
         return self._root / "py_info" / "4"
 
     def py_info(self, path: Path) -> DiskContentStore:
+        """
+        Return the content store for the interpreter at *path*.
+
+        :param path: absolute path to a Python executable.
+        """
         key = sha256(str(path).encode("utf-8")).hexdigest()
         return DiskContentStore(self._py_info_dir, key)
 
     def py_info_clear(self) -> None:
+        """Remove all cached interpreter information."""
         folder = self._py_info_dir
         if folder.exists():
             for entry in folder.iterdir():
