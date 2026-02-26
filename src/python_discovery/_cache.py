@@ -113,7 +113,11 @@ class DiskContentStore:
 
 
 class DiskCache:
-    """File-system based Python interpreter info cache (``<root>/py_info/4/<sha256>.json``)."""
+    """
+    File-system based Python interpreter info cache (``<root>/py_info/4/<sha256>.json``).
+
+    :param root: root directory for the on-disk cache.
+    """
 
     def __init__(self, root: Path) -> None:
         self._root = root
