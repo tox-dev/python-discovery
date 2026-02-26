@@ -40,7 +40,17 @@ _PRE_ORDER: Final[dict[str, int]] = {"a": 1, "b": 2, "rc": 3}
 
 @dataclass(**_DC_KW)
 class SimpleVersion:
-    """Simple PEP 440-like version parser using only standard library."""
+    """
+    Simple PEP 440-like version parser using only standard library.
+
+    :param version_str: the original version string.
+    :param major: major version number.
+    :param minor: minor version number.
+    :param micro: micro (patch) version number.
+    :param pre_type: pre-release label (``"a"``, ``"b"``, or ``"rc"``), or ``None``.
+    :param pre_num: pre-release sequence number, or ``None``.
+    :param release: the ``(major, minor, micro)`` tuple.
+    """
 
     version_str: str
     major: int
@@ -117,7 +127,16 @@ class SimpleVersion:
 
 @dataclass(**_DC_KW)
 class SimpleSpecifier:
-    """Simple PEP 440-like version specifier using only standard library."""
+    """
+    Simple PEP 440-like version specifier using only standard library.
+
+    :param spec_str: the original specifier string (e.g. ``>=3.10``).
+    :param operator: the comparison operator (``==``, ``>=``, ``<``, etc.).
+    :param version_str: the version portion of the specifier, without the operator.
+    :param is_wildcard: ``True`` if the specifier uses a wildcard suffix (``.*``).
+    :param wildcard_precision: number of version components before the wildcard, or ``None``.
+    :param version: the parsed version, or ``None`` if parsing failed.
+    """
 
     spec_str: str
     operator: str
@@ -230,7 +249,12 @@ class SimpleSpecifier:
 
 @dataclass(**_DC_KW)
 class SimpleSpecifierSet:
-    """Simple PEP 440-like specifier set using only standard library."""
+    """
+    Simple PEP 440-like specifier set using only standard library.
+
+    :param specifiers_str: the original comma-separated specifier string.
+    :param specifiers: the parsed individual specifiers.
+    """
 
     specifiers_str: str
     specifiers: tuple[SimpleSpecifier, ...]

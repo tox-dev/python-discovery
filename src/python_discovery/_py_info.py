@@ -245,7 +245,11 @@ class PythonInfo:  # noqa: PLR0904
         return None  # in this case we just can't tell easily without poking around FS and calling them, bail
 
     def install_path(self, key: str) -> str:
-        """Return the relative installation path for a given installation scheme *key*."""
+        """
+        Return the relative installation path for a given installation scheme *key*.
+
+        :param key: sysconfig installation scheme key (e.g. ``"scripts"``, ``"purelib"``).
+        """
         result = self.distutils_install.get(key)
         if result is None:  # pragma: >=3.11 cover # distutils is empty when "venv" scheme is available
             # set prefixes to empty => result is relative from cwd
@@ -308,7 +312,13 @@ class PythonInfo:  # noqa: PLR0904
         return self.base_prefix is not None
 
     def sysconfig_path(self, key: str, config_var: dict[str, str] | None = None, sep: str = os.sep) -> str:
-        """Return the sysconfig install path for a scheme *key*, optionally substituting config variables."""
+        """
+        Return the sysconfig install path for a scheme *key*, optionally substituting config variables.
+
+        :param key: sysconfig path key (e.g. ``"purelib"``, ``"include"``).
+        :param config_var: replacement mapping for sysconfig variables; when ``None`` uses the interpreter's own values.
+        :param sep: path separator to use in the result.
+        """
         pattern = self.sysconfig_paths.get(key)
         if pattern is None:
             return ""
@@ -406,14 +416,23 @@ class PythonInfo:  # noqa: PLR0904
 
     @classmethod
     def clear_cache(cls, cache: PyInfoCache) -> None:
-        """Clear all cached interpreter information from *cache*."""
+        """
+        Clear all cached interpreter information from *cache*.
+
+        :param cache: the cache store to clear.
+        """
         from ._cached_py_info import clear  # noqa: PLC0415
 
         clear(cache)
         cls._cache_exe_discovery.clear()
 
     def satisfies(self, spec: PythonSpec, *, impl_must_match: bool) -> bool:  # noqa: PLR0911
-        """Check if a given specification can be satisfied by this python interpreter instance."""
+        """
+        Check if a given specification can be satisfied by this python interpreter instance.
+
+        :param spec: the specification to check against.
+        :param impl_must_match: when ``True``, the implementation name must match exactly.
+        """
         if spec.path and not self._satisfies_path(spec):
             return False
         if impl_must_match and not self._satisfies_implementation(spec):
@@ -462,7 +481,11 @@ class PythonInfo:  # noqa: PLR0904
 
     @classmethod
     def current(cls, cache: PyInfoCache | None = None) -> PythonInfo:
-        """Locate the current host interpreter information."""
+        """
+        Locate the current host interpreter information.
+
+        :param cache: interpreter metadata cache; when ``None`` results are not cached.
+        """
         if cls._current is None:
             result = cls.from_exe(sys.executable, cache, raise_on_error=True, resolve_to_host=False)
             if result is None:
@@ -473,7 +496,11 @@ class PythonInfo:  # noqa: PLR0904
 
     @classmethod
     def current_system(cls, cache: PyInfoCache | None = None) -> PythonInfo:
-        """Locate the current system interpreter information, resolving through any virtualenv layers."""
+        """
+        Locate the current system interpreter information, resolving through any virtualenv layers.
+
+        :param cache: interpreter metadata cache; when ``None`` results are not cached.
+        """
         if cls._current_system is None:
             result = cls.from_exe(sys.executable, cache, raise_on_error=True, resolve_to_host=True)
             if result is None:
@@ -504,7 +531,16 @@ class PythonInfo:  # noqa: PLR0904
         resolve_to_host: bool = True,
         env: Mapping[str, str] | None = None,
     ) -> PythonInfo | None:
-        """Get the python information for a given executable path."""
+        """
+        Get the python information for a given executable path.
+
+        :param exe: path to the Python executable.
+        :param cache: interpreter metadata cache; when ``None`` results are not cached.
+        :param raise_on_error: raise on failure instead of returning ``None``.
+        :param ignore_cache: bypass the cache and re-query the interpreter.
+        :param resolve_to_host: resolve through virtualenv layers to the system interpreter.
+        :param env: environment mapping; defaults to :data:`os.environ`.
+        """
         from ._cached_py_info import from_exe  # noqa: PLC0415
 
         env = os.environ if env is None else env
@@ -583,7 +619,14 @@ class PythonInfo:  # noqa: PLR0904
         exact: bool = True,
         env: Mapping[str, str] | None = None,
     ) -> PythonInfo:
-        """Discover a matching Python executable under a given *prefix* directory."""
+        """
+        Discover a matching Python executable under a given *prefix* directory.
+
+        :param cache: interpreter metadata cache.
+        :param prefix: directory prefix to search under.
+        :param exact: when ``True``, require an exact version match.
+        :param env: environment mapping; defaults to :data:`os.environ`.
+        """
         key = prefix, exact
         if key in self._cache_exe_discovery and prefix:
             _LOGGER.debug("discover exe from cache %s - exact %s: %r", prefix, exact, self._cache_exe_discovery[key])

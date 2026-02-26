@@ -99,7 +99,20 @@ def _parse_specifier(string_spec: str) -> PythonSpec | None:
 
 
 class PythonSpec:
-    """Contains specification about a Python Interpreter."""
+    """
+    Contains specification about a Python Interpreter.
+
+    :param str_spec: the raw specification string as provided by the caller.
+    :param implementation: interpreter implementation name (e.g. ``"cpython"``, ``"pypy"``), or ``None`` for any.
+    :param major: required major version, or ``None`` for any.
+    :param minor: required minor version, or ``None`` for any.
+    :param micro: required micro (patch) version, or ``None`` for any.
+    :param architecture: required pointer-size bitness (``32`` or ``64``), or ``None`` for any.
+    :param path: filesystem path to a specific interpreter, or ``None``.
+    :param free_threaded: whether a free-threaded build is required, or ``None`` for any.
+    :param machine: required ISA (e.g. ``"arm64"``), or ``None`` for any.
+    :param version_specifier: PEP 440 version constraints, or ``None``.
+    """
 
     def __init__(  # noqa: PLR0913, PLR0917
         self,
@@ -128,7 +141,12 @@ class PythonSpec:
 
     @classmethod
     def from_string_spec(cls, string_spec: str) -> PythonSpec:
-        """Parse a string specification into a PythonSpec."""
+        """
+        Parse a string specification into a :class:`PythonSpec`.
+
+        :param string_spec: an interpreter spec — an absolute path, a version string, an implementation prefix,
+            or a PEP 440 specifier.
+        """
         if pathlib.Path(string_spec).is_absolute():
             return cls(string_spec, None, None, None, None, None, string_spec)
         if result := _parse_spec_pattern(string_spec):
@@ -138,7 +156,11 @@ class PythonSpec:
         return cls(string_spec, None, None, None, None, None, string_spec)
 
     def generate_re(self, *, windows: bool) -> re.Pattern:
-        """Generate a regular expression for matching against a filename."""
+        """
+        Generate a regular expression for matching interpreter filenames.
+
+        :param windows: if ``True``, require a ``.exe`` suffix.
+        """
         version = r"{}(\.{}(\.{})?)?".format(
             *(r"\d+" if v is None else v for v in (self.major, self.minor, self.micro)),
         )
@@ -189,7 +211,11 @@ class PythonSpec:
         return None
 
     def satisfies(self, spec: PythonSpec) -> bool:  # noqa: PLR0911
-        """Check if this spec is compatible with the given *spec* (e.g. PEP-514 on Windows)."""
+        """
+        Check if this spec is compatible with the given *spec* (e.g. PEP-514 on Windows).
+
+        :param spec: the requirement to check against.
+        """
         if spec.is_abs and self.is_abs and self.path != spec.path:
             return False
         if (
