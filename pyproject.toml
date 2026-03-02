@@ -129,31 +129,20 @@ count = true
 [tool.pyproject-fmt]
 max_supported_python = "3.14"
 
-[tool.pytest.ini_options]
-markers = [ "graalpy" ]
+[tool.pytest]
+ini_options.markers = [ "graalpy" ]
 
 [tool.coverage]
-run.source = [
-  "python_discovery",
-  "tests",
-]
-run.dynamic_context = "test_function"
 run.branch = true
+run.dynamic_context = "test_function"
 run.parallel = true
 run.plugins = [
   "covdefaults",
 ]
-report.fail_under = 100
-report.show_missing = true
-report.partial_branches = [
-  "assert any\\(",
+run.source = [
+  "python_discovery",
+  "tests",
 ]
-report.omit = [
-  "src/python_discovery/_windows/*",
-  "tests/windows/*",
-]
-html.show_contexts = true
-html.skip_covered = false
 paths.source = [
   "src",
   ".tox*/*/lib/python*/site-packages",
@@ -162,6 +151,17 @@ paths.source = [
   "*/src",
   "*\\src",
 ]
+report.fail_under = 100
+report.omit = [
+  "src/python_discovery/_windows/*",
+  "tests/windows/*",
+]
+report.partial_branches = [
+  "assert any\\(",
+]
+report.show_missing = true
+html.show_contexts = true
+html.skip_covered = false
 
 [tool.ty]
 src.exclude = [ "tests/windows/winreg_mock_values.py" ]
