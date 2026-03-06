@@ -15,7 +15,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from pathlib import Path
 from shlex import quote
-from subprocess import Popen  # noqa: S404
+from subprocess import Popen, TimeoutExpired  # noqa: S404
 from typing import TYPE_CHECKING, Final
 
 from ._cache import NoOpCache
@@ -206,8 +206,11 @@ def _run_subprocess(
                 encoding="utf-8",
                 errors="backslashreplace",
             )
-            out, err = process.communicate()
+            out, err = process.communicate(timeout=5)
             code = process.returncode
+        except TimeoutExpired:
+            process.kill()
+            out, err, code = "", "timed out", -1
         except OSError as os_error:
             out, err, code = "", os_error.strerror, os_error.errno
     if code != 0:
