@@ -276,25 +276,29 @@ def test_satisfies_version_specifier_fails() -> None:
     assert CURRENT.satisfies(spec, impl_must_match=False) is False
 
 
-def test_satisfies_prerelease_version() -> None:
+@pytest.mark.parametrize(
+    ("version_info", "spec_str", "expected"),
+    [
+        pytest.param(VersionInfo(3, 14, 0, "alpha", 1), ">=3.14.0a1", True, id="alpha_match_exact"),
+        pytest.param(VersionInfo(3, 14, 0, "beta", 1), ">=3.14.0b1", True, id="beta_match_exact"),
+        pytest.param(VersionInfo(3, 14, 0, "candidate", 1), ">=3.14.0rc1", True, id="rc_match_exact"),
+        pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15", True, id="prerelease_match_major_minor"),
+        pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15.0", False, id="prerelease_not_match_full_precision"),
+        pytest.param(VersionInfo(3, 15, 0, "alpha", 5), "<3.15.0a6", True, id="earlier_prerelease_less_than"),
+        pytest.param(VersionInfo(3, 15, 0, "alpha", 6), "<3.15.0a6", False, id="prerelease_not_less_than_itself"),
+        pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15.0a6", True, id="prerelease_match_itself"),
+        pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15.0a7", False, id="prerelease_not_match_later"),
+        pytest.param(VersionInfo(3, 15, 0, "final", 0), ">=3.15.0a6", True, id="final_greater_than_prerelease"),
+        pytest.param(VersionInfo(3, 15, 0, "final", 0), "<3.15.0a6", False, id="final_not_less_than_prerelease"),
+        pytest.param(VersionInfo(3, 15, 0, "final", 0), ">=3.15", True, id="final_match_major_minor"),
+        pytest.param(VersionInfo(3, 15, 1, "alpha", 1), ">=3.15.0", True, id="later_micro_prerelease_match"),
+    ],
+)
+def test_satisfies_version_specifier_prerelease(version_info: VersionInfo, spec_str: str, expected: bool) -> None:
     info = copy.deepcopy(CURRENT)
-    info.version_info = VersionInfo(3, 14, 0, "alpha", 1)
-    spec = PythonSpec.from_string_spec(">=3.14.0a1")
-    assert info.satisfies(spec, impl_must_match=False) is True
-
-
-def test_satisfies_prerelease_beta() -> None:
-    info = copy.deepcopy(CURRENT)
-    info.version_info = VersionInfo(3, 14, 0, "beta", 1)
-    spec = PythonSpec.from_string_spec(">=3.14.0b1")
-    assert info.satisfies(spec, impl_must_match=False) is True
-
-
-def test_satisfies_prerelease_candidate() -> None:
-    info = copy.deepcopy(CURRENT)
-    info.version_info = VersionInfo(3, 14, 0, "candidate", 1)
-    spec = PythonSpec.from_string_spec(">=3.14.0rc1")
-    assert info.satisfies(spec, impl_must_match=False) is True
+    info.version_info = version_info
+    spec = PythonSpec.from_string_spec(spec_str)
+    assert info.satisfies(spec, impl_must_match=False) is expected
 
 
 def test_satisfies_path_not_abs_basename_match() -> None:

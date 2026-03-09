@@ -469,12 +469,24 @@ class PythonInfo:  # noqa: PLR0904
         if spec.version_specifier is None:  # pragma: no cover
             return True
         version_info = self.version_info
-        release = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
-        if version_info.releaselevel != "final":
-            suffix = {"alpha": "a", "beta": "b", "candidate": "rc"}.get(version_info.releaselevel)
-            if suffix is not None:  # pragma: no branch # releaselevel is always alpha/beta/candidate here
+        for specifier in spec.version_specifier:
+            assert specifier.version is not None  # noqa: S101
+            numeric_version = specifier.version_str
+            for prefix in ("rc", "b", "a"):
+                if prefix in numeric_version:
+                    numeric_version = numeric_version.split(prefix)[0]
+                    break
+            precision = numeric_version.count(".") + 1
+            release = ".".join(str(c) for c in [version_info.major, version_info.minor, version_info.micro][:precision])
+            if (
+                version_info.releaselevel != "final"
+                and (precision == 3 or specifier.version.pre_type is not None)  # noqa: PLR2004
+                and (suffix := {"alpha": "a", "beta": "b", "candidate": "rc"}.get(version_info.releaselevel))
+            ):
                 release = f"{release}{suffix}{version_info.serial}"
-        return spec.version_specifier.contains(release)
+            if not specifier.contains(release):
+                return False
+        return True
 
     _current_system = None
     _current = None
