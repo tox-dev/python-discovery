@@ -210,6 +210,7 @@ def _run_subprocess(
             code = process.returncode
         except TimeoutExpired:
             process.kill()
+            process.communicate()
             out, err, code = "", "timed out", -1
         except OSError as os_error:
             out, err, code = "", os_error.strerror, os_error.errno

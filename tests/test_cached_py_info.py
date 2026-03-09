@@ -113,13 +113,14 @@ def test_run_subprocess_with_cookies(mocker: MockerFixture) -> None:
 
 def test_run_subprocess_timeout(mocker: MockerFixture) -> None:
     mock_process = MagicMock()
-    mock_process.communicate.side_effect = TimeoutExpired(cmd="python", timeout=30)
+    mock_process.communicate.side_effect = [TimeoutExpired(cmd="python", timeout=30), ("", "")]
     mocker.patch("python_discovery._cached_py_info.Popen", return_value=mock_process)
     failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
     assert failure is not None
     assert "timed out" in str(failure)
     assert result is None
     mock_process.kill.assert_called_once()
+    assert mock_process.communicate.call_count == 2
 
 
 def test_run_subprocess_nonzero_exit(mocker: MockerFixture) -> None:
