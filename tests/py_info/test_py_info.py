@@ -338,7 +338,7 @@ def test_py_info_machine_property() -> None:
     assert machine is not None
     assert isinstance(machine, str)
     assert len(machine) > 0
-    known_isas = {"arm64", "i686", "ppc64", "ppc64le", "riscv64", "s390x", "x86", "x86_64"}
+    known_isas = {"arm64", "i686", "loongarch64", "ppc64", "ppc64le", "riscv64", "s390x", "x86", "x86_64"}
     assert machine in known_isas, f"unexpected machine value: {machine}"
 
 
