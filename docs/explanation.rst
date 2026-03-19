@@ -90,6 +90,26 @@ with `filelock <https://py-filelock.readthedocs.io/>`_-based locking for safe co
 can also pass ``cache=None`` to disable caching, or implement your own backend (see
 :doc:`/how-to/standalone-usage`).
 
+Subprocess timeout behavior
+----------------------------
+
+When python-discovery verifies an interpreter candidate, it runs a subprocess to query its metadata.
+On slow systems (especially Windows), Python startup can take significant time. The default timeout
+is **15 seconds** to balance responsiveness with accommodation for real-world conditions.
+
+If your system consistently hits timeouts, you can customize the timeout via the
+``PY_DISCOVERY_TIMEOUT`` environment variable (in seconds):
+
+.. code-block:: console
+
+   # Increase timeout to 30 seconds
+   export PY_DISCOVERY_TIMEOUT=30
+   python -c "from python_discovery import get_interpreter; get_interpreter('python3.12')"
+
+The timeout applies to each individual interpreter being queried. If you set a value that is too low,
+legitimate interpreters may be skipped; if too high, the discovery process may take longer to fail
+when encountering problematic interpreters.
+
 Spec format reference
 -----------------------
 

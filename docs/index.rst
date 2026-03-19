@@ -40,6 +40,7 @@ repeated lookups are fast.
    :hidden:
 
    reference/api
+   reference/environment-variables
 
 .. toctree::
    :caption: Explanation
