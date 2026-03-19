@@ -189,6 +189,7 @@ def _run_subprocess(
 ) -> tuple[Exception | None, PythonInfo | None]:
     start_cookie = gen_cookie()
     end_cookie = gen_cookie()
+    timeout = float(env.get("PY_DISCOVERY_TIMEOUT", "15"))
     with _resolve_py_info_script() as py_info_script:
         cmd = [exe, str(py_info_script), start_cookie, end_cookie]
         env = dict(env)
@@ -206,7 +207,7 @@ def _run_subprocess(
                 encoding="utf-8",
                 errors="backslashreplace",
             )
-            out, err = process.communicate(timeout=5)
+            out, err = process.communicate(timeout=timeout)
             code = process.returncode
         except TimeoutExpired:
             process.kill()

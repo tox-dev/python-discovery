@@ -123,6 +123,17 @@ def test_run_subprocess_timeout(mocker: MockerFixture) -> None:
     assert mock_process.communicate.call_count == 2
 
 
+def test_run_subprocess_custom_timeout(mocker: MockerFixture) -> None:
+    mock_process = MagicMock()
+    mock_process.communicate.return_value = (json.dumps(PythonInfo().to_dict()), "")
+    mock_process.returncode = 0
+    mocker.patch("python_discovery._cached_py_info.Popen", return_value=mock_process)
+    env = dict(os.environ)
+    env["PY_DISCOVERY_TIMEOUT"] = "30"
+    _run_subprocess(PythonInfo, sys.executable, env)
+    mock_process.communicate.assert_called_once_with(timeout=30.0)
+
+
 def test_run_subprocess_nonzero_exit(mocker: MockerFixture) -> None:
     mock_process = MagicMock()
     mock_process.communicate.return_value = ("some output", "some error")
