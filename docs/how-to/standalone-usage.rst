@@ -42,6 +42,26 @@ shell. You can override these to control exactly where the library looks.
    env = {**os.environ, "PATH": "/usr/local/bin:/usr/bin"}
    result = get_interpreter("python3.12", env=env)
 
+Customize interpreter query timeout
+-------------------------------------
+
+On slower systems (especially Windows), Python startup can take more than the default 15 seconds.
+If your discovery process times out when looking for interpreters, you can extend the timeout via
+the ``PY_DISCOVERY_TIMEOUT`` environment variable.
+
+.. code-block:: python
+
+   import os
+
+   from python_discovery import get_interpreter
+
+   # Increase timeout to 30 seconds for slow environments
+   env = {**os.environ, "PY_DISCOVERY_TIMEOUT": "30"}
+   result = get_interpreter("python3.12", env=env)
+
+The timeout value should be a number in seconds. Each interpreter candidate is given this much time
+to respond. If a timeout occurs, the candidate is skipped and the search continues with the next one.
+
 Read interpreter metadata
 ---------------------------
 

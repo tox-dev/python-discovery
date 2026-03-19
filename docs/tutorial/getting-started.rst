@@ -178,3 +178,30 @@ Every call will run a subprocess to query the interpreter, so this is slower for
    from python_discovery import get_interpreter
 
    result = get_interpreter("python3.12")
+
+Handling slow interpreter queries
+----------------------------------
+
+On some systems (especially Windows with antivirus or other tools), Python startup is slow. If discovery
+times out, increase the timeout using the ``PY_DISCOVERY_TIMEOUT`` environment variable.
+
+.. code-block:: python
+
+   import os
+
+   from python_discovery import get_interpreter
+
+   # Allow up to 30 seconds per interpreter
+   os.environ["PY_DISCOVERY_TIMEOUT"] = "30"
+   result = get_interpreter("python3.12", cache=cache)
+
+Or, pass it directly in a custom environment dict:
+
+.. code-block:: python
+
+   import os
+
+   from python_discovery import get_interpreter
+
+   env = {**os.environ, "PY_DISCOVERY_TIMEOUT": "30"}
+   result = get_interpreter("python3.12", env=env, cache=cache)
