@@ -129,6 +129,23 @@ count = true
 [tool.pyproject-fmt]
 max_supported_python = "3.14"
 
+[tool.ty]
+src.exclude = [ "tests/windows/winreg_mock_values.py" ]
+
+[[tool.ty.overrides]]
+include = [ "src/python_discovery/_py_info.py", "src/python_discovery/_py_spec.py" ]
+rules.unused-ignore-comment = "ignore"
+rules.invalid-argument-type = "ignore"
+rules.invalid-return-type = "ignore"
+rules.no-matching-overload = "ignore"
+
+[[tool.ty.overrides]]
+include = [ "tests/**/*.py" ]
+rules.unused-ignore-comment = "ignore"
+rules.invalid-argument-type = "ignore"
+rules.no-matching-overload = "ignore"
+rules.unresolved-attribute = "ignore"
+
 [tool.pytest]
 ini_options.markers = [ "graalpy" ]
 
@@ -162,20 +179,3 @@ report.partial_branches = [
 report.show_missing = true
 html.show_contexts = true
 html.skip_covered = false
-
-[tool.ty]
-src.exclude = [ "tests/windows/winreg_mock_values.py" ]
-
-[[tool.ty.overrides]]
-include = [ "src/python_discovery/_py_info.py", "src/python_discovery/_py_spec.py" ]
-rules.unused-ignore-comment = "ignore"
-rules.invalid-argument-type = "ignore"
-rules.invalid-return-type = "ignore"
-rules.no-matching-overload = "ignore"
-
-[[tool.ty.overrides]]
-include = [ "tests/**/*.py" ]
-rules.unused-ignore-comment = "ignore"
-rules.invalid-argument-type = "ignore"
-rules.no-matching-overload = "ignore"
-rules.unresolved-attribute = "ignore"
