@@ -6,13 +6,14 @@ from importlib.metadata import version
 
 from ._cache import ContentStore, DiskCache, PyInfoCache
 from ._discovery import get_interpreter
-from ._py_info import PythonInfo
+from ._py_info import KNOWN_ARCHITECTURES, PythonInfo
 from ._py_spec import PythonSpec
 from ._specifier import SimpleSpecifier, SimpleSpecifierSet, SimpleVersion
 
 __version__ = version("python-discovery")
 
 __all__ = [
+    "KNOWN_ARCHITECTURES",
     "ContentStore",
     "DiskCache",
     "PyInfoCache",
