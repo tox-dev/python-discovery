@@ -768,9 +768,23 @@ class PythonInfo:  # noqa: PLR0904
                     yield upper
 
 
+KNOWN_ARCHITECTURES: frozenset[str] = frozenset({
+    "arm64",
+    "i686",
+    "loongarch64",
+    "ppc64",
+    "ppc64le",
+    "riscv64",
+    "s390x",
+    "x86",
+    "x86_64",
+})
+"""Known CPU architecture (ISA) values after normalization."""
+
+
 def normalize_isa(isa: str) -> str:
     low = isa.lower()
-    return {"amd64": "x86_64", "aarch64": "arm64"}.get(low, low)
+    return {"amd64": "x86_64", "aarch64": "arm64", "i386": "x86", "i586": "x86"}.get(low, low)
 
 
 def _main() -> None:  # pragma: no cover

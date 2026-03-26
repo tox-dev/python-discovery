@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import pytest
 from setuptools.dist import Distribution
 
-from python_discovery import DiskCache, PythonInfo, PythonSpec
+from python_discovery import KNOWN_ARCHITECTURES, DiskCache, PythonInfo, PythonSpec
 from python_discovery import _cached_py_info as cached_py_info
 from python_discovery._py_info import VersionInfo
 
@@ -338,8 +338,7 @@ def test_py_info_machine_property() -> None:
     assert machine is not None
     assert isinstance(machine, str)
     assert len(machine) > 0
-    known_isas = {"arm64", "i686", "loongarch64", "ppc64", "ppc64le", "riscv64", "s390x", "x86", "x86_64"}
-    assert machine in known_isas, f"unexpected machine value: {machine}"
+    assert machine in KNOWN_ARCHITECTURES, f"unexpected machine value: {machine}"
 
 
 def test_py_info_machine_in_spec() -> None:
