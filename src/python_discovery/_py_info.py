@@ -779,10 +779,19 @@ KNOWN_ARCHITECTURES: frozenset[str] = frozenset({
     "x86",
     "x86_64",
 })
-"""Known CPU architecture (ISA) values after normalization."""
+"""Known CPU architecture (ISA) values after normalization.
+
+.. deprecated::
+    Use :func:`normalize_isa` instead, which handles both known and unknown architectures.
+"""
 
 
 def normalize_isa(isa: str) -> str:
+    """Normalize an ISA (instruction set architecture) string to a canonical form.
+
+    Known aliases are mapped (e.g. ``amd64`` → ``x86_64``, ``aarch64`` → ``arm64``).
+    Unrecognized values are lowercased and returned as-is.
+    """
     low = isa.lower()
     return {"amd64": "x86_64", "aarch64": "arm64", "i386": "x86", "i586": "x86"}.get(low, low)
 

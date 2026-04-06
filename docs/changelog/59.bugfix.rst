@@ -1,0 +1,1 @@
+export normalize_isa and deprecate KNOWN_ARCHITECTURES - by :user:`rahuldevikar`.
