@@ -787,7 +787,8 @@ KNOWN_ARCHITECTURES: frozenset[str] = frozenset({
 
 
 def normalize_isa(isa: str) -> str:
-    """Normalize an ISA (instruction set architecture) string to a canonical form.
+    """
+    Normalize an ISA (instruction set architecture) string to a canonical form.
 
     Known aliases are mapped (e.g. ``amd64`` → ``x86_64``, ``aarch64`` → ``arm64``).
     Unrecognized values are lowercased and returned as-is.
