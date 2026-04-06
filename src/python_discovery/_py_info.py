@@ -770,21 +770,43 @@ class PythonInfo:  # noqa: PLR0904
 
 KNOWN_ARCHITECTURES: frozenset[str] = frozenset({
     "arm64",
-    "i686",
     "loongarch64",
+    "ppc",
     "ppc64",
     "ppc64le",
     "riscv64",
     "s390x",
+    "sparc64",
     "x86",
     "x86_64",
 })
-"""Known CPU architecture (ISA) values after normalization."""
+"""Known CPU architecture (ISA) values after normalization.
+
+.. deprecated::
+    Use :func:`normalize_isa` instead, which handles both known and unknown architectures.
+"""
 
 
 def normalize_isa(isa: str) -> str:
+    """
+    Normalize an ISA (instruction set architecture) string to a canonical form.
+
+    Known aliases are mapped (e.g. ``amd64`` → ``x86_64``, ``aarch64`` → ``arm64``).
+    Unrecognized values are lowercased and returned as-is.
+    """
     low = isa.lower()
-    return {"amd64": "x86_64", "aarch64": "arm64", "i386": "x86", "i586": "x86"}.get(low, low)
+    return {
+        "amd64": "x86_64",
+        "aarch64": "arm64",
+        "i386": "x86",
+        "i486": "x86",
+        "i586": "x86",
+        "i686": "x86",
+        "powerpc": "ppc",
+        "powerpc64": "ppc64",
+        "powerpc64le": "ppc64le",
+        "sparcv9": "sparc64",
+    }.get(low, low)
 
 
 def _main() -> None:  # pragma: no cover

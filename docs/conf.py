@@ -21,13 +21,19 @@ extensions = [
     "sphinxcontrib.mermaid",
 ]
 
+extlinks = {
+    "issue": ("https://github.com/tox-dev/python-discovery/issues/%s", "#%s"),
+    "pull": ("https://github.com/tox-dev/python-discovery/pull/%s", "PR #%s"),
+    "user": ("https://github.com/%s", "@%s"),
+}
+
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
 }
 
 templates_path = []
 source_suffix = ".rst"
-exclude_patterns = ["_build"]
+exclude_patterns = ["_build", "changelog/*.rst"]
 
 main_doc = "index"
 pygments_style = "default"

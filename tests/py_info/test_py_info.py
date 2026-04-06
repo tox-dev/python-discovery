@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import pytest
 from setuptools.dist import Distribution
 
-from python_discovery import KNOWN_ARCHITECTURES, DiskCache, PythonInfo, PythonSpec
+from python_discovery import DiskCache, PythonInfo, PythonSpec
 from python_discovery import _cached_py_info as cached_py_info
 from python_discovery._py_info import VersionInfo
 
@@ -338,7 +338,7 @@ def test_py_info_machine_property() -> None:
     assert machine is not None
     assert isinstance(machine, str)
     assert len(machine) > 0
-    assert machine in KNOWN_ARCHITECTURES, f"unexpected machine value: {machine}"
+    assert machine == machine.lower(), f"machine value should be lowercase: {machine}"
 
 
 def test_py_info_machine_in_spec() -> None:
