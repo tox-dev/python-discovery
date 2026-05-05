@@ -87,7 +87,7 @@ compatibility with tools that have always read "no implementation in the spec" a
 :func:`~python_discovery.iter_interpreters` with no spec broadens the search to every name in
 :data:`~python_discovery.KNOWN_IMPLEMENTATIONS` -- otherwise an "all interpreters" call would silently miss every
 PyPy and GraalPy on the system. When you pass a spec to :func:`~python_discovery.iter_interpreters`, it falls back
-to the same narrow regex as :func:`~python_discovery.get_interpreter`, so behaviour is consistent across the two
+to the same narrow regex as :func:`~python_discovery.get_interpreter`, so behavior is consistent across the two
 APIs whenever a spec is given.
 
 **Deduplication.** :func:`~python_discovery.get_interpreter` deduplicates per call so it does not interrogate the
