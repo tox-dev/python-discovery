@@ -74,39 +74,48 @@ def iter_interpreters(
     :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
     :param predicate: optional filter applied after the spec match; return ``True`` to include the interpreter.
     """
-    env_map = os.environ if env is None else env
-    try_first_tuple = tuple(try_first_with or ())
     if key is None:
         keys: tuple[str | None, ...] = (None,)
     elif isinstance(key, str):
         keys = (key,)
     else:
         keys = tuple(key)
-    seen_real_paths: set[str] = set()
+    first_with = tuple(try_first_with or ())
+    env_map = os.environ if env is None else env
+    seen: set[str] = set()
     for spec_str in keys:
-        if spec_str is None:
-            spec = PythonSpec("", None, None, None, None, None, None)
-            wide = True
-        else:
-            spec = PythonSpec.from_string_spec(spec_str)
-            wide = False
-        for interpreter, impl_must_match in propose_interpreters(
-            spec, try_first_tuple, cache, env_map, all_implementations=wide
-        ):
-            if interpreter is None:
-                continue
-            anchor = interpreter.system_executable or interpreter.executable
-            if anchor is None:
-                continue
-            real_path = os.path.realpath(anchor)
-            if real_path in seen_real_paths:
-                continue
-            if not interpreter.satisfies(spec, impl_must_match=impl_must_match):
-                continue
-            if predicate is not None and not predicate(interpreter):
-                continue
-            seen_real_paths.add(real_path)
-            yield interpreter
+        yield from _iter_for_spec(spec_str, first_with, cache, env_map, predicate, seen)
+
+
+def _iter_for_spec(  # noqa: PLR0913, PLR0917
+    spec_str: str | None,
+    try_first_with: tuple[str, ...],
+    cache: PyInfoCache | None,
+    env: Mapping[str, str],
+    predicate: Callable[[PythonInfo], bool] | None,
+    seen: set[str],
+) -> Iterator[PythonInfo]:
+    if spec_str is None:
+        spec = PythonSpec("", None, None, None, None, None, None)
+        wide = True
+    else:
+        spec = PythonSpec.from_string_spec(spec_str)
+        wide = False
+    for interpreter, impl_must_match in propose_interpreters(
+        spec, try_first_with, cache, env, all_implementations=wide
+    ):
+        if interpreter is None:
+            continue
+        if (anchor := interpreter.system_executable or interpreter.executable) is None:
+            continue
+        if (real_path := os.path.realpath(anchor)) in seen:
+            continue
+        if not interpreter.satisfies(spec, impl_must_match=impl_must_match):
+            continue
+        if predicate is not None and not predicate(interpreter):
+            continue
+        seen.add(real_path)
+        yield interpreter
 
 
 def _find_interpreter(
