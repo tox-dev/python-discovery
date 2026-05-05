@@ -174,7 +174,8 @@ Common examples:
    * - ``/usr/bin/python3``
      - An absolute path, used directly without searching
    * - ``>=3.11,<3.13``
-     - Any Python in the 3.11--3.12 range (:pep:`440` syntax)
+     - Any Python in the 3.11--3.12 range
+       (`version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_ syntax)
 
 See the :doc:`full spec reference </explanation>` for all options.
 

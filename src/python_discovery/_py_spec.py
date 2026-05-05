@@ -113,7 +113,9 @@ class PythonSpec:
     :param path: filesystem path to a specific interpreter, or ``None``.
     :param free_threaded: whether a free-threaded build is required, or ``None`` for any.
     :param machine: required ISA (e.g. ``"arm64"``), or ``None`` for any.
-    :param version_specifier: PEP 440 version constraints, or ``None``.
+    :param version_specifier:
+        `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
+        constraints, or ``None``.
     """
 
     def __init__(  # noqa: PLR0913, PLR0917
@@ -147,7 +149,7 @@ class PythonSpec:
         Parse a string specification into a :class:`PythonSpec`.
 
         :param string_spec: an interpreter spec — an absolute path, a version string, an implementation prefix,
-            or a PEP 440 specifier.
+            or a `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_.
         """
         if pathlib.Path(string_spec).is_absolute():
             return cls(string_spec, None, None, None, None, None, string_spec)

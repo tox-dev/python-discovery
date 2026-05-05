@@ -36,7 +36,9 @@ def get_interpreter(
     the optional *predicate*.
 
     :param key: interpreter specification string(s) — an absolute path, a version (``3.12``), an implementation prefix
-        (``cpython3.12``), or a PEP 440 specifier (``>=3.10``). When a sequence is given each entry is tried in order.
+        (``cpython3.12``), or a
+        `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
+        (``>=3.10``). When a sequence is given each entry is tried in order.
     :param try_first_with: executables to probe before the normal discovery search.
     :param cache: interpreter metadata cache; when ``None`` results are not cached.
     :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
@@ -282,8 +284,7 @@ def _propose_from_uv(
             if resolved in seen_uv_paths:
                 continue
             seen_uv_paths.add(resolved)
-            interpreter = PathPythonInfo.from_exe(str(exe_path), cache, raise_on_error=False, env=env)
-            if interpreter is not None:  # pragma: no branch
+            if interpreter := PathPythonInfo.from_exe(str(exe_path), cache, raise_on_error=False, env=env):
                 yield interpreter, True
 
 

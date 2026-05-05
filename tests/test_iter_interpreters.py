@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -91,7 +92,7 @@ def test_iter_interpreters_dedups_symlinks(
     for name in ("python3", "python3.99"):
         Path(str(tmp_path / f"{name}{suffix}")).symlink_to(sys.executable)
     pyvenv_cfg = Path(sys.executable).parents[1] / "pyvenv.cfg"
-    if pyvenv_cfg.exists():  # pragma: no branch
+    with contextlib.suppress(FileNotFoundError):
         (tmp_path / pyvenv_cfg.name).write_bytes(pyvenv_cfg.read_bytes())
     monkeypatch.setenv("PATH", os.pathsep.join([str(tmp_path), os.environ.get("PATH", "")]))
 
@@ -137,6 +138,26 @@ def test_iter_interpreters_skips_when_no_executable(
         return_value=iter([(bogus, True)]),
     )
     assert list(iter_interpreters(cache=session_cache)) == []
+
+
+def test_iter_interpreters_uv_yields_when_interrogation_succeeds(
+    uv_dir: Path,
+    session_cache: DiskCache,
+    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
+) -> None:
+    monkeypatch.setenv("PATH", "")
+    bin_path = uv_dir / "cpython-3.99-fake/bin"
+    bin_path.mkdir(parents=True)
+    (bin_path / "python").touch()
+
+    fake_info = mocker.MagicMock(spec=PythonInfo)
+    fake_info.system_executable = str(uv_dir / "fake-unique" / "python")
+    fake_info.executable = fake_info.system_executable
+    fake_info.satisfies.return_value = True
+    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=fake_info)
+
+    assert fake_info in list(iter_interpreters(cache=session_cache))
 
 
 @pytest.mark.parametrize(

@@ -128,7 +128,7 @@ symlinks to its base interpreter, collapse to a single yield. The semantic is "o
 which is what callers building choosers or version-range pickers usually want.
 
 **Iteration order.** Yields come back in *priority order*: ``try_first_with`` first, then the running interpreter,
-then PEP 514 entries on Windows, then PATH left-to-right, then UV-managed installs. This matches what
+then :pep:`514` entries on Windows, then PATH left-to-right, then UV-managed installs. This matches what
 :func:`~python_discovery.get_interpreter` would have returned at each step. If your ordering differs (newest
 version first, smallest install root, etc.), wrap the call in :func:`sorted` -- the API deliberately does not
 include a ``sort_by`` parameter because keeping discovery order preserves the priority signal for callers who
@@ -234,9 +234,12 @@ A spec string follows the pattern ``[impl][version][t][-arch][-machine]``. Every
    * - ``/usr/bin/python3``
      - Absolute path, used directly (no search)
    * - ``>=3.11,<3.13``
-     - :pep:`440` version specifier (any Python in range)
+     - `Version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
+       (any Python in range)
    * - ``cpython>=3.11``
-     - :pep:`440` specifier restricted to CPython
+     - `Version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
+       restricted to CPython
 
-:pep:`440` specifiers (``>=``, ``<=``, ``~=``, ``!=``, ``==``, ``===``) are supported. Multiple
-specifiers can be comma-separated, for example ``>=3.11,<3.13``.
+`Version specifiers <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
+(``>=``, ``<=``, ``~=``, ``!=``, ``==``, ``===``) are supported. Multiple specifiers can be comma-separated,
+for example ``>=3.11,<3.13``.
