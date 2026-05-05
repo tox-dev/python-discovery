@@ -62,6 +62,60 @@ the ``PY_DISCOVERY_TIMEOUT`` environment variable.
 The timeout value should be a number in seconds. Each interpreter candidate is given this much time
 to respond. If a timeout occurs, the candidate is skipped and the search continues with the next one.
 
+List every interpreter on the system
+--------------------------------------
+
+Use :func:`~python_discovery.iter_interpreters` to enumerate every Python python-discovery can find. With no spec
+it yields all known implementations (CPython, PyPy, GraalPy -- see
+:data:`~python_discovery.KNOWN_IMPLEMENTATIONS`). Pass a spec to filter, exactly like
+:func:`~python_discovery.get_interpreter`.
+
+.. code-block:: python
+
+   from pathlib import Path
+
+   from python_discovery import DiskCache, iter_interpreters
+
+   cache = DiskCache(root=Path("~/.cache/python-discovery").expanduser())
+
+   # Every interpreter, no filter
+   for info in iter_interpreters(cache=cache):
+       print(info.executable, info.version_str, info.implementation)
+
+   # Every CPython 3.10 or newer, newest first
+   newest_first = sorted(
+       iter_interpreters("cpython>=3.10", cache=cache),
+       key=lambda info: info.version_info,
+       reverse=True,
+   )
+
+Enumeration interrogates every candidate as a subprocess on a cold cache. Always pass a
+:class:`~python_discovery.DiskCache` if you call this more than once.
+
+Pick an interpreter from a range, preferring newer
+----------------------------------------------------
+
+A common need: search a version range and prefer newer interpreters when more than one matches. Sort the result of
+:func:`~python_discovery.iter_interpreters` and take the first.
+
+.. code-block:: python
+
+   from pathlib import Path
+
+   from python_discovery import DiskCache, iter_interpreters
+
+   cache = DiskCache(root=Path("~/.cache/python-discovery").expanduser())
+
+   matches = sorted(
+       iter_interpreters("cpython>=3.10,<3.15", cache=cache),
+       key=lambda info: info.version_info,
+       reverse=True,
+   )
+   info = matches[0] if matches else None
+
+Use :func:`get_interpreter` instead when you only need the first PATH-priority hit; use the sort-and-take pattern
+when *your* ordering differs from PATH order (newest version, smallest install size, preferred install root, etc.).
+
 Read interpreter metadata
 ---------------------------
 

@@ -65,6 +65,45 @@ detects these shims and resolves them to the actual binary.
 `mise <https://mise.jdx.dev/>`_ and `asdf <https://asdf-vm.com/>`_ work similarly, using the
 ``MISE_DATA_DIR`` and ``ASDF_DATA_DIR`` environment variables to locate their installations.
 
+Selecting one interpreter vs. enumerating all of them
+-------------------------------------------------------
+
+:func:`~python_discovery.get_interpreter` and :func:`~python_discovery.iter_interpreters` walk the same candidate
+sources, but they answer different questions and behave differently in three ways.
+
+.. mermaid::
+
+    flowchart LR
+        Sources["candidate sources<br>(try_first_with → current →<br>PEP 514 → PATH → uv)"]
+        Sources --> Get["get_interpreter()<br>first match wins, returns one"]
+        Sources --> Iter["iter_interpreters()<br>yields every match"]
+
+        style Get fill:#4a9f4a,stroke:#2a6f2a,color:#fff
+        style Iter fill:#4a90d9,stroke:#2a5f8f,color:#fff
+
+**Implementation coverage on PATH.** :func:`~python_discovery.get_interpreter` matches only ``python*`` filenames on
+PATH unless the spec names another implementation explicitly (``pypy3.12``, ``graalpy3.11``). This keeps backwards
+compatibility with tools that have always read "no implementation in the spec" as "give me CPython."
+:func:`~python_discovery.iter_interpreters` with no spec broadens the search to every name in
+:data:`~python_discovery.KNOWN_IMPLEMENTATIONS` -- otherwise an "all interpreters" call would silently miss every
+PyPy and GraalPy on the system. When you pass a spec to :func:`~python_discovery.iter_interpreters`, it falls back
+to the same narrow regex as :func:`~python_discovery.get_interpreter`, so behaviour is consistent across the two
+APIs whenever a spec is given.
+
+**Deduplication.** :func:`~python_discovery.get_interpreter` deduplicates per call so it does not interrogate the
+same binary twice while searching, and stops as soon as a match is found. :func:`~python_discovery.iter_interpreters`
+deduplicates by the resolved real path of each candidate's ``system_executable`` (falling back to ``executable``).
+That means symlinked aliases like ``/bin/python3`` and ``/usr/bin/python3``, or a virtualenv whose ``python``
+symlinks to its base interpreter, collapse to a single yield. The semantic is "one entry per distinct install,"
+which is what callers building choosers or version-range pickers usually want.
+
+**Iteration order.** Yields come back in *priority order*: ``try_first_with`` first, then the running interpreter,
+then PEP 514 entries on Windows, then PATH left-to-right, then UV-managed installs. This matches what
+:func:`~python_discovery.get_interpreter` would have returned at each step. If your ordering differs (newest
+version first, smallest install root, etc.), wrap the call in :func:`sorted` -- the API deliberately does not
+include a ``sort_by`` parameter because keeping discovery order preserves the priority signal for callers who
+want it.
+
 How caching works
 -------------------
 

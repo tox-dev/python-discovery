@@ -87,6 +87,49 @@ You can pass multiple specs as a list -- the library tries each one in order and
 
    result = get_interpreter(["python3.12", "python3.11"], cache=cache)
 
+Listing every interpreter
+---------------------------
+
+When you need *every* interpreter rather than just the first match -- for example, to show the user a chooser, or
+to apply your own ranking -- use :func:`~python_discovery.iter_interpreters`. Pass no arguments to enumerate every
+implementation python-discovery knows about, or pass a spec to filter.
+
+.. mermaid::
+
+    flowchart TD
+        Call["iter_interpreters(spec, cache)"] --> Yield["yields PythonInfo"]
+        Yield --> A["1. try_first_with paths"]
+        Yield --> B["2. running interpreter"]
+        Yield --> C["3. PATH (left to right)"]
+        Yield --> D["4. uv-managed installs"]
+
+        style Call fill:#4a90d9,stroke:#2a5f8f,color:#fff
+        style Yield fill:#4a9f4a,stroke:#2a6f2a,color:#fff
+
+.. code-block:: python
+
+   from pathlib import Path
+
+   from python_discovery import DiskCache, iter_interpreters
+
+   cache = DiskCache(root=Path("~/.cache/python-discovery").expanduser())
+   for info in iter_interpreters(cache=cache):
+       print(info.executable, info.version_str, info.implementation)
+
+The result is an iterator, so :func:`list`, :func:`sorted`, generator expressions and early ``break`` all work as you
+would expect. Symlinked aliases (``/bin/python3`` and ``/usr/bin/python3``, or a virtualenv and the base it points at)
+collapse to a single entry, so you do not see the same install twice.
+
+To prefer newer interpreters in a range, sort the result by ``version_info`` after filtering:
+
+.. code-block:: python
+
+   newest_first = sorted(
+       iter_interpreters(">=3.10,<3.15", cache=cache),
+       key=lambda info: info.version_info,
+       reverse=True,
+   )
+
 Writing specs
 -------------
 

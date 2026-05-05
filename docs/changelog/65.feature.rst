@@ -1,0 +1,3 @@
+add :func:`~python_discovery.iter_interpreters` for enumerating every discovered interpreter, with PATH and
+UV-install support for non-CPython implementations listed in :data:`~python_discovery.KNOWN_IMPLEMENTATIONS`
+- by :user:`gaborbernat`.

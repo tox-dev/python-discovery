@@ -11,10 +11,10 @@ from platformdirs import user_data_path
 
 from ._compat import fs_path_id
 from ._py_info import PythonInfo
-from ._py_spec import PythonSpec
+from ._py_spec import KNOWN_IMPLEMENTATIONS, PythonSpec
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
+    from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
 
     from ._cache import PyInfoCache
 
@@ -49,6 +49,64 @@ def get_interpreter(
         if result := _find_interpreter(spec_str, try_first_with or (), cache, env, predicate):
             return result
     return None
+
+
+def iter_interpreters(
+    key: str | Sequence[str] | None = None,
+    try_first_with: Iterable[str] | None = None,
+    cache: PyInfoCache | None = None,
+    env: Mapping[str, str] | None = None,
+    predicate: Callable[[PythonInfo], bool] | None = None,
+) -> Iterator[PythonInfo]:
+    """
+    Yield every interpreter on the system that satisfies *key*.
+
+    Iteration order is discovery order: ``try_first_with`` paths first, then the running interpreter, then ``PATH``
+    (left to right), then UV-managed installs. Results are deduplicated by the resolved real path of the underlying
+    system interpreter, so symlinked aliases (``/bin`` vs ``/usr/bin``) and venvs that symlink to a base interpreter
+    collapse to a single entry. Callers that want a different ordering should sort the result.
+
+    :param key: interpreter specification — same syntax as :func:`get_interpreter`. ``None`` enumerates every Python
+        implementation python-discovery knows about (see :data:`KNOWN_IMPLEMENTATIONS`).
+    :param try_first_with: executables to probe before the normal discovery search.
+    :param cache: interpreter metadata cache; when ``None`` results are not cached. Strongly recommended for
+        enumeration, which interrogates every candidate as a subprocess on a cold cache.
+    :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    :param predicate: optional filter applied after the spec match; return ``True`` to include the interpreter.
+    """
+    env_map = os.environ if env is None else env
+    try_first_tuple = tuple(try_first_with or ())
+    if key is None:
+        keys: tuple[str | None, ...] = (None,)
+    elif isinstance(key, str):
+        keys = (key,)
+    else:
+        keys = tuple(key)
+    seen_real_paths: set[str] = set()
+    for spec_str in keys:
+        if spec_str is None:
+            spec = PythonSpec("", None, None, None, None, None, None)
+            wide = True
+        else:
+            spec = PythonSpec.from_string_spec(spec_str)
+            wide = False
+        for interpreter, impl_must_match in propose_interpreters(
+            spec, try_first_tuple, cache, env_map, all_implementations=wide
+        ):
+            if interpreter is None:
+                continue
+            anchor = interpreter.system_executable or interpreter.executable
+            if anchor is None:
+                continue
+            real_path = os.path.realpath(anchor)
+            if real_path in seen_real_paths:
+                continue
+            if not interpreter.satisfies(spec, impl_must_match=impl_must_match):
+                continue
+            if predicate is not None and not predicate(interpreter):
+                continue
+            seen_real_paths.add(real_path)
+            yield interpreter
 
 
 def _find_interpreter(
@@ -106,6 +164,8 @@ def propose_interpreters(
     try_first_with: Iterable[str],
     cache: PyInfoCache | None = None,
     env: Mapping[str, str] | None = None,
+    *,
+    all_implementations: bool = False,
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
     """
     Yield ``(interpreter, impl_must_match)`` candidates for *spec*.
@@ -114,6 +174,8 @@ def propose_interpreters(
     :param try_first_with: executable paths to probe before the standard search.
     :param cache: interpreter metadata cache; when ``None`` results are not cached.
     :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    :param all_implementations: when ``True`` and *spec* does not constrain the implementation, also surface
+        non-CPython binaries on ``PATH`` and under UV's install directory. Used by enumeration APIs.
     """
     env = os.environ if env is None else env
     tested_exes: set[str] = set()
@@ -125,8 +187,8 @@ def propose_interpreters(
     yield from _propose_explicit(spec, try_first_with, cache, env, tested_exes)
     if spec.path is not None and spec.is_abs:  # pragma: no cover # relative spec.path is never abs
         return
-    yield from _propose_from_path(spec, cache, env, tested_exes)
-    yield from _propose_from_uv(cache, env)
+    yield from _propose_from_path(spec, cache, env, tested_exes, all_implementations=all_implementations)
+    yield from _propose_from_uv(cache, env, all_implementations=all_implementations)
 
 
 def _propose_explicit(
@@ -170,8 +232,10 @@ def _propose_from_path(
     cache: PyInfoCache | None,
     env: Mapping[str, str],
     tested_exes: set[str],
+    *,
+    all_implementations: bool = False,
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
-    find_candidates = path_exe_finder(spec)
+    find_candidates = path_exe_finder(spec, all_implementations=all_implementations)
     for pos, path in enumerate(get_paths(env)):
         _LOGGER.debug(LazyPathDump(pos, path, env))
         for exe, impl_must_match in find_candidates(path):
@@ -189,6 +253,8 @@ def _propose_from_path(
 def _propose_from_uv(
     cache: PyInfoCache | None,
     env: Mapping[str, str],
+    *,
+    all_implementations: bool = False,
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
     if uv_python_dir := os.getenv("UV_PYTHON_INSTALL_DIR"):
         uv_python_path = Path(uv_python_dir).expanduser()
@@ -197,10 +263,19 @@ def _propose_from_uv(
     else:
         uv_python_path = user_data_path("uv") / "python"
 
-    for exe_path in uv_python_path.glob("*/bin/python"):  # pragma: no branch
-        interpreter = PathPythonInfo.from_exe(str(exe_path), cache, raise_on_error=False, env=env)
-        if interpreter is not None:  # pragma: no branch
-            yield interpreter, True
+    patterns: list[str] = ["*/bin/python"]
+    if all_implementations:
+        patterns.extend(f"*/bin/{impl}" for impl in KNOWN_IMPLEMENTATIONS if impl != "python")
+    seen_uv_paths: set[str] = set()
+    for pattern in patterns:
+        for exe_path in uv_python_path.glob(pattern):
+            resolved = str(Path(exe_path).resolve())
+            if resolved in seen_uv_paths:
+                continue
+            seen_uv_paths.add(resolved)
+            interpreter = PathPythonInfo.from_exe(str(exe_path), cache, raise_on_error=False, env=env)
+            if interpreter is not None:  # pragma: no branch
+                yield interpreter, True
 
 
 def get_paths(env: Mapping[str, str]) -> Generator[Path, None, None]:
@@ -244,9 +319,11 @@ class LazyPathDump:
         return content
 
 
-def path_exe_finder(spec: PythonSpec) -> Callable[[Path], Generator[tuple[Path, bool], None, None]]:
+def path_exe_finder(
+    spec: PythonSpec, *, all_implementations: bool = False
+) -> Callable[[Path], Generator[tuple[Path, bool], None, None]]:
     """Given a spec, return a function that can be called on a path to find all matching files in it."""
-    pat = spec.generate_re(windows=sys.platform == "win32")
+    pat = spec.generate_re(windows=sys.platform == "win32", all_implementations=all_implementations)
     direct = spec.str_spec
     if sys.platform == "win32":  # pragma: win32 cover
         direct = f"{direct}.exe"
@@ -331,5 +408,6 @@ __all__ = [
     "PathPythonInfo",
     "get_interpreter",
     "get_paths",
+    "iter_interpreters",
     "propose_interpreters",
 ]

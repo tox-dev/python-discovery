@@ -35,6 +35,8 @@ SPECIFIER_PATTERN = re.compile(
 _MAX_VERSION_PARTS: Final[int] = 3
 _SINGLE_DIGIT_MAX: Final[int] = 9
 
+KNOWN_IMPLEMENTATIONS: Final[tuple[str, ...]] = ("python", "cpython", "pypy", "graalpy")
+
 SpecifierSet = SimpleSpecifierSet
 Version = SimpleVersion
 InvalidSpecifier = ValueError
@@ -155,16 +157,23 @@ class PythonSpec:
             return result
         return cls(string_spec, None, None, None, None, None, string_spec)
 
-    def generate_re(self, *, windows: bool) -> re.Pattern:
+    def generate_re(self, *, windows: bool, all_implementations: bool = False) -> re.Pattern:
         """
         Generate a regular expression for matching interpreter filenames.
 
         :param windows: if ``True``, require a ``.exe`` suffix.
+        :param all_implementations: when ``True`` and the spec does not constrain the implementation, match every
+            filename in :data:`KNOWN_IMPLEMENTATIONS` instead of only ``python``. Used by enumeration APIs.
         """
         version = r"{}(\.{}(\.{})?)?".format(
             *(r"\d+" if v is None else v for v in (self.major, self.minor, self.micro)),
         )
-        impl = "python" if self.implementation is None else f"python|{re.escape(self.implementation)}"
+        if self.implementation is not None:
+            impl = f"python|{re.escape(self.implementation)}"
+        elif all_implementations:
+            impl = "|".join(re.escape(i) for i in KNOWN_IMPLEMENTATIONS)
+        else:
+            impl = "python"
         mod = "t?" if self.free_threaded else ""
         suffix = r"\.exe" if windows else ""
         version_conditional = "?" if windows or self.major is None else ""
@@ -254,6 +263,7 @@ class PythonSpec:
 
 
 __all__ = [
+    "KNOWN_IMPLEMENTATIONS",
     "InvalidSpecifier",
     "InvalidVersion",
     "PythonSpec",
