@@ -89,6 +89,37 @@ install lives in its own subdirectory, but the actual binary location varies by 
      - ``<root>/<key>/bin/graalpy``
      - ``<root>/<key>/bin/graalpy.exe``
 
+.. mermaid::
+
+    flowchart LR
+        Call(["iter_interpreters(key)"]) --> Mode{"key is None?"}
+        Mode -->|"narrow"| N1["*/bin/python"]
+        Mode -->|"narrow"| N2["*/python.exe"]
+        Mode -->|"wide"| W1["*/bin/pypy*"]
+        Mode -->|"wide"| W2["*/bin/graalpy"]
+        Mode -->|"wide"| W3["*/pypy*.exe"]
+        Mode -->|"wide"| W4["*/bin/graalpy.exe"]
+
+        N1 --> Dedup[/"realpath dedup"/]
+        N2 --> Dedup
+        W1 --> Dedup
+        W2 --> Dedup
+        W3 --> Dedup
+        W4 --> Dedup
+
+        Dedup --> Interrogate(["subprocess interrogation"])
+
+        style Call fill:#4a90d9,stroke:#2a5f8f,color:#fff
+        style Mode fill:#d9904a,stroke:#8f5f2a,color:#fff
+        style N1 fill:#3a7fc2,stroke:#1f4d7a,color:#fff
+        style N2 fill:#3a7fc2,stroke:#1f4d7a,color:#fff
+        style W1 fill:#9f4ad9,stroke:#5f2a8f,color:#fff
+        style W2 fill:#9f4ad9,stroke:#5f2a8f,color:#fff
+        style W3 fill:#9f4ad9,stroke:#5f2a8f,color:#fff
+        style W4 fill:#9f4ad9,stroke:#5f2a8f,color:#fff
+        style Dedup fill:#c2873a,stroke:#7a4c1f,color:#fff
+        style Interrogate fill:#4a9f4a,stroke:#2a6f2a,color:#fff
+
 GraalPy keeps its ``bin/`` segment on Windows (an upstream choice in uv); PyPy and CPython do not. python-discovery
 globs all of these patterns regardless of the host OS, because globs that do not match anything are essentially
 free, and the cross-platform list is short. Symlinked aliases inside an install (``bin/python``,
