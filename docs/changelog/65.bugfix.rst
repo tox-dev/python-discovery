@@ -1,0 +1,3 @@
+discover uv-managed Pythons on Windows. Previously the glob assumed Unix layout (``<root>/<key>/bin/python``) and
+silently found nothing on Windows, where uv places ``python.exe`` directly under the install root - by
+:user:`gaborbernat`.
