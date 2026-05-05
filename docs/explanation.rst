@@ -65,6 +65,36 @@ detects these shims and resolves them to the actual binary.
 `mise <https://mise.jdx.dev/>`_ and `asdf <https://asdf-vm.com/>`_ work similarly, using the
 ``MISE_DATA_DIR`` and ``ASDF_DATA_DIR`` environment variables to locate their installations.
 
+How uv-managed Pythons are discovered
+---------------------------------------
+
+`uv <https://docs.astral.sh/uv/>`_ installs Python interpreters under a single root directory (configurable via
+``UV_PYTHON_INSTALL_DIR``, otherwise defaulting under ``XDG_DATA_HOME`` or the platform user-data path). Each
+install lives in its own subdirectory, but the actual binary location varies by OS and implementation:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 35 40
+
+   * - Implementation
+     - Unix layout
+     - Windows layout
+   * - CPython
+     - ``<root>/<key>/bin/python``
+     - ``<root>/<key>/python.exe``
+   * - PyPy
+     - ``<root>/<key>/bin/pypy*``
+     - ``<root>/<key>/pypy*.exe``
+   * - GraalPy
+     - ``<root>/<key>/bin/graalpy``
+     - ``<root>/<key>/bin/graalpy.exe``
+
+GraalPy keeps its ``bin/`` segment on Windows (an upstream choice in uv); PyPy and CPython do not. python-discovery
+globs all of these patterns regardless of the host OS, because globs that do not match anything are essentially
+free, and the cross-platform list is short. Symlinked aliases inside an install (``bin/python``,
+``bin/python3``, ``bin/python3.14`` all pointing at the same real file) are deduplicated by resolved path before
+the subprocess interrogation, so each install is interrogated once.
+
 Selecting one interpreter vs. enumerating all of them
 -------------------------------------------------------
 

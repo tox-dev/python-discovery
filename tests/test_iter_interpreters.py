@@ -140,13 +140,75 @@ def test_iter_interpreters_uv_wide_pattern_finds_pypy(
 
     pypy_bin = uv_dir / "pypy-3.10-linux-x86_64-gnu" / "bin"
     pypy_bin.mkdir(parents=True)
-    pypy_exe = pypy_bin / "pypy"
+    pypy_exe = pypy_bin / "pypy3.10"
     pypy_exe.touch()
     Path(str(pypy_bin / "python")).symlink_to(pypy_exe)
+    Path(str(pypy_bin / "pypy")).symlink_to(pypy_exe)
 
     mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
     list(iter_interpreters(cache=session_cache))
 
-    called_paths = {call.args[0] for call in mock_from_exe.call_args_list}
-    assert str(pypy_bin / "python") in called_paths
-    assert str(pypy_exe) not in called_paths
+    interrogated = {call.args[0] for call in mock_from_exe.call_args_list}
+    assert any(p.endswith(("pypy3.10", "pypy", "python")) for p in interrogated)
+    resolved = {os.path.realpath(p) for p in interrogated}
+    assert resolved == {os.path.realpath(pypy_exe)}
+
+
+def test_iter_interpreters_uv_finds_windows_layout(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    session_cache: DiskCache,
+    mocker: MockerFixture,
+) -> None:
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.setenv("PATH", "")
+    uv_dir = tmp_path / "uv-python"
+    uv_dir.mkdir()
+    monkeypatch.setenv("UV_PYTHON_INSTALL_DIR", str(uv_dir))
+
+    cpython_root = uv_dir / "cpython-3.14.4-windows-x86_64-none"
+    cpython_root.mkdir()
+    cpython_exe = cpython_root / "python.exe"
+    cpython_exe.touch()
+
+    pypy_root = uv_dir / "pypy-3.11.15-windows-x86_64-none"
+    pypy_root.mkdir()
+    pypy_exe = pypy_root / "pypy3.11.exe"
+    pypy_exe.touch()
+
+    graalpy_bin = uv_dir / "graalpy-3.11-windows-x86_64-none" / "bin"
+    graalpy_bin.mkdir(parents=True)
+    graalpy_exe = graalpy_bin / "graalpy.exe"
+    graalpy_exe.touch()
+
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    list(iter_interpreters(cache=session_cache))
+
+    interrogated = {call.args[0] for call in mock_from_exe.call_args_list}
+    assert str(cpython_exe) in interrogated
+    assert str(pypy_exe) in interrogated
+    assert str(graalpy_exe) in interrogated
+
+
+def test_iter_interpreters_uv_finds_graalpy_unix(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    session_cache: DiskCache,
+    mocker: MockerFixture,
+) -> None:
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.setenv("PATH", "")
+    uv_dir = tmp_path / "uv-python"
+    uv_dir.mkdir()
+    monkeypatch.setenv("UV_PYTHON_INSTALL_DIR", str(uv_dir))
+
+    graalpy_bin = uv_dir / "graalpy-24.1.1-linux-x86_64-gnu" / "bin"
+    graalpy_bin.mkdir(parents=True)
+    graalpy_exe = graalpy_bin / "graalpy"
+    graalpy_exe.touch()
+
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    list(iter_interpreters(cache=session_cache))
+
+    interrogated = {call.args[0] for call in mock_from_exe.call_args_list}
+    assert str(graalpy_exe) in interrogated

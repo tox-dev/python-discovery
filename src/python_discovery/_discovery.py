@@ -11,7 +11,7 @@ from platformdirs import user_data_path
 
 from ._compat import fs_path_id
 from ._py_info import PythonInfo
-from ._py_spec import KNOWN_IMPLEMENTATIONS, PythonSpec
+from ._py_spec import PythonSpec
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
@@ -272,9 +272,9 @@ def _propose_from_uv(
     else:
         uv_python_path = user_data_path("uv") / "python"
 
-    patterns: list[str] = ["*/bin/python"]
+    patterns: list[str] = ["*/bin/python", "*/python.exe"]
     if all_implementations:
-        patterns.extend(f"*/bin/{impl}" for impl in KNOWN_IMPLEMENTATIONS if impl != "python")
+        patterns.extend(("*/bin/pypy*", "*/bin/graalpy", "*/pypy*.exe", "*/bin/graalpy.exe"))
     seen_uv_paths: set[str] = set()
     for pattern in patterns:
         for exe_path in uv_python_path.glob(pattern):
