@@ -63,7 +63,7 @@ def create_release_branch(repo: Repo, version: Version) -> tuple[Remote, Head]:
     branch_name = f"release-{version}"
     release_branch = repo.create_head(branch_name, upstream.refs.main, force=True)
     upstream.push(refspec=f"{branch_name}:{branch_name}", force=True)
-    release_branch.set_tracking_branch(repo.refs[f"{upstream.name}/{branch_name}"])  # ty: ignore[invalid-argument-type]
+    release_branch.set_tracking_branch(upstream.refs[branch_name])
     release_branch.checkout()
     return upstream, release_branch
 
@@ -91,12 +91,12 @@ def release_changelog(repo: Repo, version: Version) -> Commit:
 
 def tag_release_commit(release_commit: Commit, repo: Repo, version: Version) -> TagReference:
     print("tag release commit")  # noqa: T201
-    existing_tags = [x.name for x in repo.tags]
-    if version in existing_tags:
-        print(f"delete existing tag {version}")  # noqa: T201
-        repo.delete_tag(version)  # ty: ignore[invalid-argument-type]
-    print(f"create tag {version}")  # noqa: T201
-    return repo.create_tag(version, ref=release_commit, force=True)  # ty: ignore[invalid-argument-type]
+    version_str = str(version)
+    if version_str in {tag.name for tag in repo.tags}:
+        print(f"delete existing tag {version_str}")  # noqa: T201
+        repo.delete_tag(repo.tags[version_str])
+    print(f"create tag {version_str}")  # noqa: T201
+    return repo.create_tag(version_str, ref=release_commit.hexsha, force=True)
 
 
 def create_github_release(version: Version) -> None:
