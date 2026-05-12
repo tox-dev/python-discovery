@@ -1,0 +1,1 @@
+Canonicalize GraalVM to match GraalPy Python interpreter in PythonSpec and PythonInfo. - by :user:`timfel`.
