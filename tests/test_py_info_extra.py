@@ -32,6 +32,12 @@ def test_py_info_pypy_version(mocker: MockerFixture) -> None:
     assert info.pypy_version_info == (7, 3, 11, "final", 0)
 
 
+def test_py_info_canonicalizes_graalvm(mocker: MockerFixture) -> None:
+    mocker.patch("platform.python_implementation", return_value="GraalVM")
+    info = PythonInfo()
+    assert info.implementation == "GraalPy"
+
+
 def test_has_venv_attribute() -> None:
     info = PythonInfo()
     assert isinstance(info.has_venv, bool)

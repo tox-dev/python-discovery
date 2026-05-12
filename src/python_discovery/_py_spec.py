@@ -77,6 +77,8 @@ def _parse_spec_pattern(string_spec: str) -> PythonSpec | None:
     impl = groups["impl"]
     if impl in {"py", "python"}:
         impl = None
+    if impl == "graalvm":
+        impl = "graalpy"
     arch = _int_or_none(groups["arch"])
     machine = groups.get("machine")
     if machine is not None:
@@ -97,6 +99,8 @@ def _parse_specifier(string_spec: str) -> PythonSpec | None:
         return None
     if impl in {"py", "python"}:
         impl = None
+    if impl == "graalvm":
+        impl = "graalpy"
     return PythonSpec(string_spec, impl, None, None, None, None, None, version_specifier=version_specifier)
 
 

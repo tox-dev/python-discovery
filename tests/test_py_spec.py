@@ -155,6 +155,12 @@ def test_specifier_with_implementation() -> None:
     assert spec.version_specifier == SpecifierSet.from_string(">=3.12")
 
 
+def test_specifier_with_graalpy_implementation_alias() -> None:
+    spec = PythonSpec.from_string_spec("graalvm>=3.12")
+    assert spec.implementation == "graalpy"
+    assert spec.version_specifier == SpecifierSet.from_string(">=3.12")
+
+
 def test_specifier_satisfies_with_partial_information() -> None:
     spec = PythonSpec.from_string_spec(">=3.12")
     candidate = PythonSpec.from_string_spec("python3.12")
@@ -245,3 +251,10 @@ def test_normalize_isa(isa: str, normalized: str) -> None:
 )
 def test_spec_repr_machine(spec_str: str, in_repr: str) -> None:
     assert in_repr in repr(PythonSpec.from_string_spec(spec_str))
+
+
+@pytest.mark.parametrize(("left", "right"), [("graalpy", "graalvm"), ("graalvm", "graalpy")])
+def test_spec_satisfies_graalpy_implementation_aliases(left: str, right: str) -> None:
+    spec_1 = PythonSpec.from_string_spec(left)
+    spec_2 = PythonSpec.from_string_spec(right)
+    assert spec_1.satisfies(spec_2) is True
