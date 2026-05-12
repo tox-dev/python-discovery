@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 from python_discovery import __version__
 
@@ -19,7 +20,12 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_autodoc_typehints",
     "sphinxcontrib.mermaid",
+    "sphinxcontrib.towncrier.ext",
 ]
+
+towncrier_draft_autoversion_mode = "draft"
+towncrier_draft_include_empty = True
+towncrier_draft_working_directory = Path(__file__).parent.parent
 
 extlinks = {
     "issue": ("https://github.com/tox-dev/python-discovery/issues/%s", "#%s"),
@@ -33,7 +39,7 @@ intersphinx_mapping = {
 
 templates_path = []
 source_suffix = ".rst"
-exclude_patterns = ["_build", "changelog/*.rst"]
+exclude_patterns = ["_build", "changelog/*"]
 
 main_doc = "index"
 pygments_style = "default"

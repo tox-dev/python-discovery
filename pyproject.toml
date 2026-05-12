@@ -50,6 +50,8 @@ optional-dependencies.docs = [
   "sphinx>=9.1",
   "sphinx-autodoc-typehints>=3.6.3",
   "sphinxcontrib-mermaid>=2",
+  "sphinxcontrib-towncrier>=0.4",
+  "towncrier>=25.8",
 ]
 optional-dependencies.testing = [
   "covdefaults>=2.3",
@@ -63,6 +65,14 @@ urls.Documentation = "https://python-discovery.readthedocs.io"
 urls.Homepage = "https://github.com/tox-dev/python-discovery"
 urls.Source = "https://github.com/tox-dev/python-discovery"
 urls.Tracker = "https://github.com/tox-dev/python-discovery/issues"
+
+[dependency-groups]
+release = [
+  "gitpython>=3.1.46",
+  "packaging>=26",
+  "pre-commit>=4.5.1",
+  "towncrier>=25.8",
+]
 
 [tool.hatch]
 version.source = "vcs"
@@ -97,6 +107,12 @@ lint.per-file-ignores."src/python_discovery/_py_info.py" = [
 ]
 lint.per-file-ignores."src/python_discovery/_windows/_pep514.py" = [
   "PTH", # os.path.exists is monkeypatched in tests; pathlib.Path.exists bypasses the mock
+]
+lint.per-file-ignores."tasks/**/*.py" = [
+  "D",      # release helper scripts, not API
+  "INP001", # no __init__.py in tasks directory
+  "S404",   # subprocess import (release tooling)
+  "S603",   # `subprocess` call: argv built from trusted inputs (version, gh CLI)
 ]
 lint.per-file-ignores."tests/**/*.py" = [
   "D",       # don't care about documentation in tests
@@ -180,3 +196,21 @@ report.partial_branches = [
 report.show_missing = true
 html.show_contexts = true
 html.skip_covered = false
+
+[tool.towncrier]
+name = "python-discovery"
+filename = "docs/changelog.rst"
+directory = "docs/changelog"
+title_format = false
+issue_format = ":issue:`{issue}`"
+template = "docs/changelog/template.jinja2"
+type = [
+  { directory = "breaking", name = "Backward incompatible changes", showcontent = true },
+  { directory = "deprecation", name = "Deprecations (removal in next major release)", showcontent = true },
+  { directory = "feature", name = "Features", showcontent = true },
+  { directory = "bugfix", name = "Bug fixes", showcontent = true },
+  { directory = "doc", name = "Improved documentation", showcontent = true },
+  { directory = "packaging", name = "Packaging updates and notes for downstreams", showcontent = true },
+  { directory = "contrib", name = "Contributor-facing changes", showcontent = true },
+  { directory = "misc", name = "Miscellaneous internal changes", showcontent = true },
+]

@@ -36,12 +36,12 @@ commands = [["pre-commit", "run", "--all-files", "--show-diff-on-failure"]]
 
 [env."type-3.8"]
 description = "run type check on code base (3.8)"
-deps = ["ty==0.0.17"]
+deps = ["gitpython>=3.1.46", "packaging>=26", "ty==0.0.17"]
 commands = [["ty", "check", "--output-format", "concise", "--error-on-warning", "--python-version", "3.8", "."]]
 
 [env."type-3.14"]
 description = "run type check on code base (3.14)"
-deps = ["ty==0.0.17"]
+deps = ["gitpython>=3.1.46", "packaging>=26", "ty==0.0.17"]
 commands = [["ty", "check", "--output-format", "concise", "--error-on-warning", "--python-version", "3.14", "."]]
 
 [env.docs]
@@ -70,6 +70,13 @@ commands = [
   ["twine", "check", "{env_tmp_dir}{/}*"],
   ["check-wheel-contents", "--no-config", "{env_tmp_dir}"],
 ]
+
+[env.release]
+description = "do a release, required posargs of the version number"
+skip_install = true
+dependency_groups = ["release"]
+pass_env = ["GH_TOKEN"]
+commands = [["python", "{tox_root}/tasks/release.py", "--version", "{posargs}"]]
 
 [env.dev]
 description = "generate a DEV environment"
