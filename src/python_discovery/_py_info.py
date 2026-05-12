@@ -59,6 +59,8 @@ class PythonInfo:  # noqa: PLR0904
     def _init_identity(self) -> None:
         self.platform = sys.platform
         self.implementation = platform.python_implementation()
+        if self.implementation == "GraalVM":
+            self.implementation = "GraalPy"
         if self.implementation == "PyPy":
             self.pypy_version_info = tuple(sys.pypy_version_info)  # ty: ignore[unresolved-attribute] # pypy only
 
