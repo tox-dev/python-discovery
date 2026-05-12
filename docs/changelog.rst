@@ -7,6 +7,18 @@
 .. towncrier release notes start
 
 ********************
+ v1.3.1 (2026-05-12)
+********************
+
+Bug fixes - 1.3.1
+=================
+- export normalize_isa and deprecate KNOWN_ARCHITECTURES - by :user:`rahuldevikar`. (:issue:`59`)
+- discover uv-managed Pythons on Windows. Previously the glob assumed Unix layout (``<root>/<key>/bin/python``) and
+  silently found nothing on Windows, where uv places ``python.exe`` directly under the install root - by
+  :user:`gaborbernat`. (:issue:`65`)
+- Canonicalize GraalVM to match GraalPy Python interpreter in PythonSpec and PythonInfo. - by :user:`timfel`. (:issue:`73`)
+
+********************
  v1.3.0 (2026-05-05)
 ********************
 
