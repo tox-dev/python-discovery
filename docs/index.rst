@@ -47,3 +47,9 @@ repeated lookups are fast.
    :hidden:
 
    explanation
+
+.. toctree::
+   :caption: Project
+   :hidden:
+
+   changelog
