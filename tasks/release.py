@@ -19,29 +19,13 @@ def main(version_str: str) -> None:
         msg = "Current repository is dirty. Please commit any changes and try again."
         raise RuntimeError(msg)
     upstream, release_branch = create_release_branch(repo, version)
+    original_main_sha = upstream.refs.main.commit.hexsha
     main_pushed = False
     tag_pushed = False
     release_created = False
-    original_main_sha = upstream.refs.main.commit.hexsha
     try:
-        release_commit = release_changelog(repo, version)
-        tag = tag_release_commit(release_commit, repo, version)
-        print("push release commit")  # noqa: T201
-        repo.git.push(upstream.name, f"{release_branch}:main", "-f")
-        main_pushed = True
-        print("push release tag")  # noqa: T201
-        repo.git.push(upstream.name, tag, "-f")
-        tag_pushed = True
-        create_github_release(version)
-        release_created = True
-        print("checkout main to new release and delete release branch")  # noqa: T201
-        repo.heads.main.checkout()
-        repo.delete_head(release_branch, force=True)
-        print("delete remote release branch")  # noqa: T201
-        repo.git.push(upstream.name, f":{release_branch}", "--no-verify")
-        upstream.fetch()
-        repo.git.reset("--hard", f"{upstream.name}/main")
-        print("All done!")  # noqa: T201
+        main_pushed, tag_pushed, release_created = push_release(repo, upstream, release_branch, version)
+        finalize_release(repo, upstream, release_branch)
     except Exception:
         cleanup_failed_release(
             repo,
@@ -74,6 +58,17 @@ def get_upstream(repo: Repo) -> Remote:
             return remote
     msg = "could not find tox-dev/python-discovery remote"
     raise RuntimeError(msg)
+
+
+def push_release(repo: Repo, upstream: Remote, release_branch: Head, version: Version) -> tuple[bool, bool, bool]:
+    release_commit = release_changelog(repo, version)
+    tag = tag_release_commit(release_commit, repo, version)
+    print("push release commit")  # noqa: T201
+    repo.git.push(upstream.name, f"{release_branch}:main", "-f")
+    print("push release tag")  # noqa: T201
+    repo.git.push(upstream.name, tag, "-f")
+    create_github_release(version)
+    return True, True, True
 
 
 def release_changelog(repo: Repo, version: Version) -> Commit:
@@ -119,6 +114,17 @@ def create_github_release(version: Version) -> None:
         if e.stderr:
             print(f"stderr: {e.stderr}")  # noqa: T201
         raise
+
+
+def finalize_release(repo: Repo, upstream: Remote, release_branch: Head) -> None:
+    print("checkout main to new release and delete release branch")  # noqa: T201
+    repo.heads.main.checkout()
+    repo.delete_head(release_branch, force=True)
+    print("delete remote release branch")  # noqa: T201
+    repo.git.push(upstream.name, f":{release_branch}", "--no-verify")
+    upstream.fetch()
+    repo.git.reset("--hard", f"{upstream.name}/main")
+    print("All done!")  # noqa: T201
 
 
 def cleanup_failed_release(  # noqa: PLR0913
