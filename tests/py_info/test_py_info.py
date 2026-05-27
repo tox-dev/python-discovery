@@ -40,6 +40,7 @@ def test_current_as_json() -> None:
         "serial": serial,
     }
     assert parsed["free_threaded"] is free_threaded
+    assert parsed["debug_build"] is bool(sysconfig.get_config_var("Py_DEBUG"))
 
 
 def test_bad_exe_py_info_raise(tmp_path: Path, session_cache: DiskCache) -> None:
@@ -416,6 +417,28 @@ def test_py_info_satisfies_machine_cross_os_normalization(platform: str, spec_ma
     info.sysconfig_platform = platform
     spec = PythonSpec.from_string_spec(f"{info.implementation}-{info.architecture}-{spec_machine}")
     assert info.satisfies(spec, impl_must_match=True) is True
+
+
+@pytest.mark.parametrize("debug", [True, False], ids=["debug", "release"])
+def test_py_info_debug_build_in_spec(*, debug: bool) -> None:
+    info = copy.deepcopy(CURRENT)
+    info.debug_build = debug
+    assert ("d-" in info.spec) is debug
+
+
+@pytest.mark.parametrize("debug", [True, False], ids=["debug", "release"])
+def test_py_info_debug_build_exe_names(*, debug: bool) -> None:
+    info = copy.deepcopy(CURRENT)
+    info.debug_build = debug
+    names = info._find_possible_exe_names()
+    assert any("_d" in n for n in names) is debug
+
+
+def test_py_info_debug_build_json_round_trip() -> None:
+    info = copy.deepcopy(CURRENT)
+    info.debug_build = True
+    restored = PythonInfo.from_json(info.to_json())
+    assert restored.debug_build is True
 
 
 def test_py_info_to_dict_includes_sysconfig_platform() -> None:
