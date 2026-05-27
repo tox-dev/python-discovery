@@ -180,6 +180,7 @@ def test_specifier_satisfies_with_partial_information() -> None:
         pytest.param("cpython3.12-64", None, id="no-machine"),
         pytest.param("cpython3.12", None, id="no-arch-no-machine"),
         pytest.param("python3.12-64-arm64", "arm64", id="python-impl"),
+        pytest.param("cpython3.14-64-i86pc.64bit", "i86pc.64bit", id="dotted-machine"),
     ],
 )
 def test_spec_parse_machine(spec_str: str, expected_machine: str | None) -> None:
