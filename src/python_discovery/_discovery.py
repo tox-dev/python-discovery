@@ -314,19 +314,21 @@ class LazyPathDump:
             content += " with =>"
             for file_path in self.path.iterdir():
                 try:
-                    if file_path.is_dir():
-                        continue
-                    if IS_WIN:  # pragma: win32 cover
-                        pathext = self.env.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";")
-                        if not any(file_path.name.upper().endswith(ext) for ext in pathext):
-                            continue
-                    elif not (file_path.stat().st_mode & os.X_OK):
+                    if not self._is_executable(file_path):
                         continue
                 except OSError:
                     pass
                 content += " "
                 content += file_path.name
         return content
+
+    def _is_executable(self, file_path: Path) -> bool:
+        if file_path.is_dir():
+            return False
+        if IS_WIN:  # pragma: win32 cover
+            pathext = self.env.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";")
+            return any(file_path.name.upper().endswith(ext) for ext in pathext)
+        return bool(file_path.stat().st_mode & os.X_OK)
 
 
 def path_exe_finder(

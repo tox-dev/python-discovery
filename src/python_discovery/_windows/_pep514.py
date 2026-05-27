@@ -124,21 +124,21 @@ def load_exe(hive_name: str, company: str, company_key: Any, tag: str) -> tuple[
     key_path = f"{hive_name}/{company}/{tag}"
     try:
         with winreg.OpenKeyEx(company_key, rf"{tag}\InstallPath") as ip_key, ip_key:  # ty: ignore[unresolved-attribute]
-            exe = get_value(ip_key, "ExecutablePath")
-            if exe is None:
-                ip = get_value(ip_key, None)
-                if ip is None:
-                    msg(key_path, "no ExecutablePath or default for it")
-
-                else:
-                    exe = os.path.join(ip, "python.exe")
-            if exe is not None and os.path.exists(exe):
-                args = get_value(ip_key, "ExecutableArguments")
-                return exe, args
+            if (exe := _resolve_exe(ip_key, key_path)) is not None and os.path.exists(exe):
+                return exe, get_value(ip_key, "ExecutableArguments")
             msg(key_path, f"could not load exe with value {exe}")
     except OSError:
         msg(f"{key_path}/InstallPath", "missing")
     return None
+
+
+def _resolve_exe(ip_key: Any, key_path: str) -> str | None:  # noqa: ANN401
+    if (exe := get_value(ip_key, "ExecutablePath")) is not None:
+        return exe
+    if (ip := get_value(ip_key, None)) is None:
+        msg(key_path, "no ExecutablePath or default for it")
+        return None
+    return os.path.join(ip, "python.exe")
 
 
 def load_arch_data(hive_name: str, company: str, tag: str, tag_key: Any, default_arch: int) -> int | None:  # noqa: ANN401
