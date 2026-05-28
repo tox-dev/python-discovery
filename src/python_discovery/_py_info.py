@@ -12,6 +12,7 @@ import sys
 import sysconfig
 import warnings
 from collections import OrderedDict
+from itertools import product
 from string import digits
 from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple
 
@@ -73,6 +74,7 @@ class PythonInfo:  # noqa: PLR0904
         self.version = sys.version
         self.os = os.name
         self.free_threaded = sysconfig.get_config_var("Py_GIL_DISABLED") == 1
+        self.debug_build = bool(sysconfig.get_config_var("Py_DEBUG"))
 
     def _init_prefixes(self) -> None:
         def abs_path(value: str | None) -> str | None:
@@ -404,10 +406,11 @@ class PythonInfo:  # noqa: PLR0904
     @property
     def spec(self) -> str:
         """A specification string identifying this interpreter (e.g. ``CPython3.13.2-64-arm64``)."""
-        return "{}{}{}-{}-{}".format(
+        return "{}{}{}{}-{}-{}".format(
             self.implementation,
             ".".join(str(i) for i in self.version_info),
             "t" if self.free_threaded else "",
+            "d" if self.debug_build else "",
             self.architecture,
             self.machine,
         )
@@ -731,17 +734,14 @@ class PythonInfo:  # noqa: PLR0904
 
     def _find_possible_exe_names(self) -> list[str]:
         name_candidate = OrderedDict()
+        mods = ["", "t"] if self.free_threaded else [""]
+        debug_suffixes = ["_d", ""] if self.debug_build else [""]
+        archs = [f"-{self.architecture}", ""]
         for name in self._possible_base():
             for at in (3, 2, 1, 0):
                 version = ".".join(str(i) for i in self.version_info[:at])
-                mods = [""]
-                if self.free_threaded:
-                    mods.append("t")
-                for mod in mods:
-                    for arch in [f"-{self.architecture}", ""]:
-                        for ext in EXTENSIONS:
-                            candidate = f"{name}{version}{mod}{arch}{ext}"
-                            name_candidate[candidate] = None
+                for mod, debug, arch, ext in product(mods, debug_suffixes, archs, EXTENSIONS):
+                    name_candidate[f"{name}{version}{mod}{debug}{arch}{ext}"] = None
         return list(name_candidate.keys())
 
     def _possible_base(self) -> Generator[str, None, None]:
