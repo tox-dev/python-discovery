@@ -7,6 +7,15 @@
 .. towncrier release notes start
 
 ********************
+ v1.4.0 (2026-05-28)
+********************
+
+Features - 1.4.0
+================
+- Add ``debug_build`` attribute to :class:`PythonInfo` exposing whether the interpreter is a debug build
+  (``Py_DEBUG``) - by :user:`gaborbernat`. (:issue:`80`)
+
+********************
  v1.3.2 (2026-05-27)
 ********************
 

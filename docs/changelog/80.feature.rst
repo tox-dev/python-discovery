@@ -1,2 +1,0 @@
-Add ``debug_build`` attribute to :class:`PythonInfo` exposing whether the interpreter is a debug build
-(``Py_DEBUG``) - by :user:`gaborbernat`.
