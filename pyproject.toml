@@ -199,11 +199,11 @@ html.skip_covered = false
 
 [tool.towncrier]
 name = "python-discovery"
-filename = "docs/changelog.rst"
 directory = "docs/changelog"
+filename = "docs/changelog.rst"
+template = "docs/changelog/template.jinja2"
 title_format = false
 issue_format = ":issue:`{issue}`"
-template = "docs/changelog/template.jinja2"
 type = [
   { directory = "breaking", name = "Backward incompatible changes", showcontent = true },
   { directory = "deprecation", name = "Deprecations (removal in next major release)", showcontent = true },
