@@ -7,6 +7,16 @@
 .. towncrier release notes start
 
 ********************
+ v1.4.1 (2026-06-11)
+********************
+
+Bug fixes - 1.4.1
+=================
+- Resolve executable-only symlinks when computing ``system_executable``, mirroring CPython's ``getpath.realpath``
+  (python/cpython#115237): a symlink to the interpreter binary now resolves to the real interpreter, while a fully
+  symlinked interpreter tree is kept as-is - by :user:`gaborbernat`. (:issue:`84`)
+
+********************
  v1.4.0 (2026-05-28)
 ********************
 
