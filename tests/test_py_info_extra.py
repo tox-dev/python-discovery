@@ -19,6 +19,8 @@ except ImportError:  # pragma: no cover
     tk = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from pytest_mock import MockerFixture
 
 CURRENT = PythonInfo.current_system()
@@ -71,7 +73,9 @@ def test_fast_get_system_executable_not_venv() -> None:
     info = PythonInfo()
     info.real_prefix = None
     info.base_prefix = info.prefix
-    assert info._fast_get_system_executable() == info.original_executable
+    result = info._fast_get_system_executable()
+    assert result is not None
+    assert Path(result).samefile(info.original_executable)
 
 
 def test_fast_get_system_executable_real_prefix() -> None:
@@ -94,6 +98,105 @@ def test_fast_get_system_executable_same_as_current(mocker: MockerFixture) -> No
     info.base_prefix = "/different/prefix"
     mocker.patch.object(sys, "_base_executable", sys.executable, create=True)
     assert info._fast_get_system_executable() is None
+
+
+@pytest.fixture
+def posix_info() -> PythonInfo:
+    info = PythonInfo()
+    info.os = "posix"
+    return info
+
+
+def test_resolve_executable_symlink_not_posix() -> None:
+    info = PythonInfo()
+    info.os = "nt"
+    assert info._resolve_executable_symlink("/some/python") == str(Path("/some/python").resolve())
+
+
+def _layout_regular_file(tmp_path: Path) -> tuple[Path, Path]:
+    exe = tmp_path / "python"
+    exe.touch()
+    return exe, exe
+
+
+def _layout_broken_symlink(tmp_path: Path) -> tuple[Path, Path]:
+    link = tmp_path / "python"
+    link.symlink_to(tmp_path / "missing")
+    return link, link
+
+
+def _layout_absolute_symlink(tmp_path: Path) -> tuple[Path, Path]:
+    exe = tmp_path / "install" / "bin" / "python3.12"
+    exe.parent.mkdir(parents=True)
+    exe.touch()
+    link = tmp_path / "symdir" / "python3"
+    link.parent.mkdir()
+    link.symlink_to(exe)
+    return link, exe
+
+
+def _layout_relative_chain(tmp_path: Path) -> tuple[Path, Path]:
+    exe = tmp_path / "python3.12"
+    exe.touch()
+    (tmp_path / "python3").symlink_to("python3.12")
+    link = tmp_path / "python"
+    link.symlink_to("python3")
+    return link, exe
+
+
+def _layout_tree_symlink(tmp_path: Path) -> tuple[Path, Path]:
+    real_bin = tmp_path / "install" / "bin"
+    real_bin.mkdir(parents=True)
+    (real_bin / "python3").touch()
+    tree_link = tmp_path / "tree"
+    tree_link.symlink_to(tmp_path / "install")
+    via_tree = tree_link / "bin" / "python3"
+    return via_tree, via_tree
+
+
+def _layout_normpath_mismatch(tmp_path: Path) -> tuple[Path, Path]:
+    real_dir = tmp_path / "deep" / "real"
+    real_dir.mkdir(parents=True)
+    (tmp_path / "deep" / "exe").touch()
+    (real_dir / "python").symlink_to("../exe")
+    dir_link = tmp_path / "link"
+    dir_link.symlink_to(real_dir)
+    via_link = dir_link / "python"
+    return via_link, via_link
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
+@pytest.mark.parametrize(
+    "layout",
+    [
+        pytest.param(_layout_regular_file, id="regular-file"),
+        pytest.param(_layout_broken_symlink, id="broken-symlink"),
+        pytest.param(_layout_absolute_symlink, id="absolute-symlink"),
+        pytest.param(_layout_relative_chain, id="relative-chain"),
+        pytest.param(_layout_tree_symlink, id="tree-preserved"),
+        pytest.param(_layout_normpath_mismatch, id="normpath-mismatch"),
+    ],
+)
+def test_resolve_executable_symlink(
+    tmp_path: Path,
+    posix_info: PythonInfo,
+    layout: Callable[[Path], tuple[Path, Path]],
+) -> None:
+    path, expected = layout(tmp_path)
+    assert posix_info._resolve_executable_symlink(str(path)) == str(expected)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
+def test_from_exe_resolves_executable_only_symlink(tmp_path: Path, session_cache: DiskCache) -> None:
+    system_exe = CURRENT.system_executable
+    assert system_exe is not None
+    link = tmp_path / "python3"
+    link.symlink_to(system_exe)
+    info = PythonInfo.from_exe(str(link), session_cache, ignore_cache=True)
+    assert info is not None
+    assert info.system_executable is not None
+    assert Path(info.system_executable).samefile(system_exe)
+    assert not Path(info.system_executable).is_symlink()
 
 
 def test_try_posix_fallback_not_posix() -> None:

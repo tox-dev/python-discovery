@@ -204,7 +204,7 @@ class PythonInfo:  # noqa: PLR0904
         # if we're not in a virtual environment, this is already a system python, so return the original executable
         # note we must choose the original and not the pure executable as shim scripts might throw us off
         if not (self.real_prefix or (self.base_prefix is not None and self.base_prefix != self.prefix)):
-            return self.original_executable
+            return self._resolve_executable_symlink(self.original_executable)
 
         # if this is NOT a virtual environment, can't determine easily, bail out
         if self.real_prefix is not None:
@@ -220,10 +220,33 @@ class PythonInfo:  # noqa: PLR0904
 
         # We're not in a venv and base_executable exists; use it directly
         if os.path.exists(base_executable):  # pragma: >=3.11 cover
-            return base_executable
+            return self._resolve_executable_symlink(base_executable)
 
         # Try fallback for POSIX virtual environments
         return self._try_posix_fallback_executable(base_executable)  # pragma: >=3.11 cover
+
+    def _resolve_executable_symlink(self, path: str) -> str:
+        """
+        Resolve symlinks of the executable itself, but never of its parent directories.
+
+        Mirrors CPython's ``getpath.realpath`` (and ``venv`` in python/cpython#115237): an executable-only symlink
+        resolves to the real interpreter so its home can be located, while a fully symlinked interpreter tree is
+        kept as-is.
+        """
+        result = os.path.abspath(path)
+        if self.os != "posix":  # CPython only does this where HAVE_READLINK
+            return result
+        real_path = os.path.realpath(result)
+        if not os.path.exists(real_path):  # symlink loop or broken symlink
+            return result
+        while os.path.islink(result):
+            link = os.readlink(result)
+            candidate = link if os.path.isabs(link) else os.path.normpath(os.path.join(os.path.dirname(result), link))
+            # normpath through a symlinked directory may point at a different file - stop resolving there
+            if not (os.path.exists(candidate) and os.path.samefile(real_path, candidate)):
+                break
+            result = candidate
+        return result
 
     def _try_posix_fallback_executable(self, base_executable: str) -> str | None:
         """Find a versioned Python binary as fallback for POSIX virtual environments."""
