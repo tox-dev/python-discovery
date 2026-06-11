@@ -7,6 +7,16 @@
 .. towncrier release notes start
 
 ********************
+ v1.4.2 (2026-06-11)
+********************
+
+Bug fixes - 1.4.2
+=================
+- Stop executable symlink resolution once the stdlib landmark is reachable and keep macOS framework builds untouched,
+  matching ``getpath`` - Homebrew interpreters no longer get version-pinned ``Cellar`` paths recorded and stable
+  aliases such as Debian's ``/usr/bin/python3`` are preserved - by :user:`gaborbernat`. (:issue:`86`)
+
+********************
  v1.4.1 (2026-06-11)
 ********************
 

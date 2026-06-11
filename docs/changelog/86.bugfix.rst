@@ -1,3 +1,0 @@
-Stop executable symlink resolution once the stdlib landmark is reachable and keep macOS framework builds untouched,
-matching ``getpath`` - Homebrew interpreters no longer get version-pinned ``Cellar`` paths recorded and stable
-aliases such as Debian's ``/usr/bin/python3`` are preserved - by :user:`gaborbernat`.
