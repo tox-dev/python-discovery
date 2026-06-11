@@ -183,11 +183,36 @@ def test_resolve_executable_symlink(
     layout: Callable[[Path], tuple[Path, Path]],
 ) -> None:
     path, expected = layout(tmp_path)
-    assert posix_info._resolve_executable_symlink(str(path)) == str(expected)
+    assert posix_info._resolve_executable_symlink(str(path), framework=False) == str(expected)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
-def test_from_exe_resolves_executable_only_symlink(tmp_path: Path, session_cache: DiskCache) -> None:
+def test_resolve_executable_symlink_framework_kept(tmp_path: Path, posix_info: PythonInfo) -> None:
+    link, _exe = _layout_absolute_symlink(tmp_path)
+    assert posix_info._resolve_executable_symlink(str(link), framework=True) == str(link)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
+def test_resolve_executable_symlink_stdlib_landmark_kept(tmp_path: Path, posix_info: PythonInfo) -> None:
+    exe = tmp_path / "install" / "bin" / "python3.12"
+    exe.parent.mkdir(parents=True)
+    exe.touch()
+    alias_bin = tmp_path / "alias" / "bin"
+    alias_bin.mkdir(parents=True)
+    landmark = tmp_path / "alias" / "lib" / Path(os.__file__).parent.name / "os.py"
+    landmark.parent.mkdir(parents=True)
+    landmark.touch()
+    link = alias_bin / "python3"
+    link.symlink_to(exe)
+    assert posix_info._resolve_executable_symlink(str(link), framework=False) == str(link)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
+@pytest.mark.skipif(bool(CURRENT.sysconfig_vars.get("PYTHONFRAMEWORK")), reason="framework builds keep recorded path")
+def test_from_exe_resolves_executable_only_symlink(  # pragma: no cover # skipped on framework interpreter hosts
+    tmp_path: Path,
+    session_cache: DiskCache,
+) -> None:
     system_exe = CURRENT.system_executable
     assert system_exe is not None
     link = tmp_path / "python3"
@@ -196,7 +221,7 @@ def test_from_exe_resolves_executable_only_symlink(tmp_path: Path, session_cache
     assert info is not None
     assert info.system_executable is not None
     assert Path(info.system_executable).samefile(system_exe)
-    assert not Path(info.system_executable).is_symlink()
+    assert Path(info.system_executable).parent != tmp_path
 
 
 def test_try_posix_fallback_not_posix() -> None:
