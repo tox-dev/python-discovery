@@ -244,7 +244,7 @@ class PythonInfo:  # noqa: PLR0904
             candidate = link if os.path.isabs(link) else os.path.normpath(os.path.join(os.path.dirname(result), link))
             # normpath through a symlinked directory may point at a different file - stop resolving there
             if not (os.path.exists(candidate) and os.path.samefile(real_path, candidate)):
-                break
+                return result
             result = candidate
         return result
 
