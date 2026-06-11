@@ -431,16 +431,15 @@ def test_predicate_none_is_noop(session_cache: DiskCache) -> None:
 def test_predicate_with_fallback_specs(session_cache: DiskCache) -> None:
     current = PythonInfo.current_system(session_cache)
     major, minor = current.version_info.major, current.version_info.minor
-    accepted_exe: str | None = None
+    proposed: list[str] = []
 
     def reject_first(info: PythonInfo) -> bool:
-        nonlocal accepted_exe
-        if accepted_exe is None:
-            accepted_exe = str(info.executable)
-            return False
-        return True
+        proposed.append(str(info.executable))
+        return len(proposed) > 1
 
     result = get_interpreter([f"{major}.{minor}", sys.executable], [], session_cache, predicate=reject_first)
-    assert accepted_exe is not None
+    # rejecting the first proposal must not abort discovery; a later proposal (same or fallback spec) is accepted -
+    # on hosts where every alias resolves to one interpreter the fallback re-proposes it, so executables may match
     assert result is not None
-    assert str(result.executable) != accepted_exe
+    assert len(proposed) > 1
+    assert str(result.executable) == proposed[-1]
