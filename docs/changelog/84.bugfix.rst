@@ -1,0 +1,3 @@
+Resolve executable-only symlinks when computing ``system_executable``, mirroring CPython's ``getpath.realpath``
+(python/cpython#115237): a symlink to the interpreter binary now resolves to the real interpreter, while a fully
+symlinked interpreter tree is kept as-is - by :user:`gaborbernat`.
