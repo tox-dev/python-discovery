@@ -429,7 +429,7 @@ class PythonInfo:  # noqa: PLR0904
 
     @property
     def machine(self) -> str:
-        """Return the instruction set architecture (ISA) derived from :func:`sysconfig.get_platform`."""
+        """The instruction set architecture (ISA) derived from :func:`sysconfig.get_platform`."""
         plat = self.sysconfig_platform
         if plat is None:
             return "unknown"
