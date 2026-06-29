@@ -15,7 +15,7 @@ def session_cache(tmp_path_factory: pytest.TempPathFactory) -> DiskCache:
     return DiskCache(tmp_path_factory.mktemp("python-discovery-cache"))
 
 
-@pytest.fixture(autouse=True)  # noqa: RUF076
+@pytest.fixture(autouse=True)
 def _ensure_py_info_cache_empty(session_cache: DiskCache) -> Generator[None]:
     PythonInfo.clear_cache(session_cache)
     yield
