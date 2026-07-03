@@ -7,6 +7,16 @@
 .. towncrier release notes start
 
 ********************
+ v1.4.3 (2026-07-03)
+********************
+
+Packaging updates and notes for downstreams - 1.4.3
+===================================================
+- Constrain the ``hatchling`` build requirement per Python version so sdist builds resolve a compatible backend on the
+  declared ``>=3.8`` floor - ``hatchling>=1.28`` dropped Python 3.9, leaving 3.8/3.9 unbuildable from source - by
+  :user:`gaborbernat`. (:issue:`92`)
+
+********************
  v1.4.2 (2026-06-11)
 ********************
 
