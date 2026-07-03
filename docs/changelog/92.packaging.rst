@@ -1,0 +1,3 @@
+Constrain the ``hatchling`` build requirement per Python version so sdist builds resolve a compatible backend on the
+declared ``>=3.8`` floor - ``hatchling>=1.28`` dropped Python 3.9, leaving 3.8/3.9 unbuildable from source - by
+:user:`gaborbernat`.
