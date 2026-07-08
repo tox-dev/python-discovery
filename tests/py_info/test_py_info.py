@@ -259,6 +259,31 @@ def test_system_executable_no_exact_match(
     assert warn_similar.msg.startswith("no exact match found, chosen most similar")
 
 
+@pytest.mark.parametrize("attr", ["free_threaded", "debug_build"])
+def test_discover_exe_validates_abi_flag(
+    attr: str, tmp_path: Path, mocker: MockerFixture, session_cache: DiskCache
+) -> None:
+    def candidate(*, flag: bool, name: str) -> PythonInfo:
+        info = copy.deepcopy(CURRENT)
+        setattr(info, attr, flag)
+        exe = tmp_path / name
+        exe.write_text("", encoding="utf-8")
+        info.executable = str(exe)
+        return info
+
+    target = candidate(flag=True, name="target")
+    mismatch = candidate(flag=False, name="release")
+    match = candidate(flag=True, name="debug")
+    by_path = {info.executable: info for info in (mismatch, match)}
+
+    mocker.patch.object(target, "_find_possible_exe_names", return_value=["release", "debug"])
+    mocker.patch.object(target, "_find_possible_folders", return_value=[str(tmp_path)])
+    mocker.patch.object(target, "from_exe", side_effect=lambda exe, *_a, **_k: by_path[exe])
+
+    found = target.discover_exe(session_cache, prefix=str(tmp_path), exact=True)
+    assert found is match  # the release build is refused even though version, impl and arch match
+
+
 def test_py_info_ignores_distutils_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     raw = f"""
     [install]

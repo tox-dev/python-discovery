@@ -719,7 +719,7 @@ class PythonInfo:  # noqa: PLR0904
         info = self.from_exe(exe_path, cache, resolve_to_host=False, raise_on_error=False, env=env)
         if info is None:  # ignore if for some reason we can't query
             return None
-        for item in ["implementation", "architecture", "machine", "version_info"]:
+        for item in ["implementation", "architecture", "machine", "version_info", "free_threaded", "debug_build"]:
             found = getattr(info, item)
             searched = getattr(self, item)
             if found != searched:
