@@ -7,6 +7,17 @@
 .. towncrier release notes start
 
 ********************
+ v1.4.4 (2026-07-08)
+********************
+
+Bug fixes - 1.4.4
+=================
+- Parse the debug build flag in interpreter specs - ``python3.13d`` and Debian's ``python3.13-dbg`` /
+  ``python3.13-debug`` now select a ``Py_DEBUG`` interpreter instead of being misread as an ISA named ``dbg``.
+  Resolving a virtualenv to its base interpreter also checks the free-threaded and debug ABI flags, so a debug or
+  free-threaded environment no longer resolves to a release build of the same version - by :user:`gaborbernat`. (:issue:`96`)
+
+********************
  v1.4.3 (2026-07-03)
 ********************
 
