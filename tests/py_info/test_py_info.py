@@ -287,12 +287,15 @@ def test_discover_exe_on_path_non_spec_name_match(mocker: MockerFixture) -> None
     assert CURRENT.satisfies(spec, impl_must_match=True) is True
 
 
-def test_discover_exe_on_path_debug_suffix_match(mocker: MockerFixture) -> None:
-    suffixed_name = f"python{CURRENT.version_info.major}.{CURRENT.version_info.minor}-dbg"
-    if sys.platform == "win32":  # pragma: win32 cover
-        suffixed_name += Path(CURRENT.original_executable).suffix
-    spec = PythonSpec.from_string_spec(suffixed_name)
-    mocker.patch.object(CURRENT, "original_executable", str(Path(CURRENT.executable).parent / suffixed_name))
+def test_satisfies_debug_spec_requires_debug_build(mocker: MockerFixture) -> None:
+    spec = PythonSpec.from_string_spec(f"python{CURRENT.version_info.major}.{CURRENT.version_info.minor}-dbg")
+    assert spec.debug is True
+    mocker.patch.object(CURRENT, "free_threaded", spec.free_threaded)
+
+    mocker.patch.object(CURRENT, "debug_build", False)
+    assert CURRENT.satisfies(spec, impl_must_match=True) is False
+
+    mocker.patch.object(CURRENT, "debug_build", True)
     assert CURRENT.satisfies(spec, impl_must_match=True) is True
 
 
@@ -441,6 +444,7 @@ def test_py_info_debug_build_exe_names(*, debug: bool) -> None:
     info.debug_build = debug
     names = info._find_possible_exe_names()
     assert any("_d" in n for n in names) is debug
+    assert any(n.endswith("-dbg") for n in names) is debug
 
 
 def test_py_info_debug_build_json_round_trip() -> None:

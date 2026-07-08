@@ -186,6 +186,7 @@ def test_specifier_satisfies_with_partial_information() -> None:
 def test_spec_parse_machine(spec_str: str, expected_machine: str | None) -> None:
     spec = PythonSpec.from_string_spec(spec_str)
     assert spec.machine == expected_machine
+    assert spec.debug is None  # the debug marker sits before -arch/-machine and must not swallow the ISA
 
 
 @pytest.mark.parametrize(
@@ -202,11 +203,29 @@ def test_spec_parse_arch_and_machine_together(spec_str: str, expected_arch: int,
     assert spec.machine == expected_machine
 
 
-def test_spec_does_not_parse_machine_without_architecture() -> None:
-    spec = PythonSpec.from_string_spec("python3.13-dbg")
+@pytest.mark.parametrize(
+    "spec_str",
+    [
+        pytest.param("python3.13-dbg", id="debian-dbg"),
+        pytest.param("python3.13-debug", id="debian-debug"),
+        pytest.param("python3.13d", id="abi-flag"),
+        pytest.param("cpython3.13d", id="impl-abi-flag"),
+        pytest.param("python3.13td", id="free-threaded-debug"),
+    ],
+)
+def test_spec_parse_debug(spec_str: str) -> None:
+    spec = PythonSpec.from_string_spec(spec_str)
 
-    assert spec.path == "python3.13-dbg"
+    assert spec.debug is True
+    assert spec.major == 3
+    assert spec.minor == 13
     assert spec.machine is None
+    assert spec.path is None
+
+
+@pytest.mark.parametrize("spec_str", ["python3.13", "python"])
+def test_spec_parse_debug_unconstrained_without_marker(spec_str: str) -> None:
+    assert PythonSpec.from_string_spec(spec_str).debug is None
 
 
 @pytest.mark.parametrize(

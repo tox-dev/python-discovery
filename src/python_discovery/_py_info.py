@@ -481,6 +481,8 @@ class PythonInfo:  # noqa: PLR0904
             return False
         if spec.free_threaded is not None and spec.free_threaded != self.free_threaded:
             return False
+        if spec.debug is not None and spec.debug != self.debug_build:
+            return False
         if spec.version_specifier is not None and not self._satisfies_version_specifier(spec):
             return False
         return all(
@@ -772,7 +774,7 @@ class PythonInfo:  # noqa: PLR0904
     def _find_possible_exe_names(self) -> list[str]:
         name_candidate = OrderedDict()
         mods = ["", "t"] if self.free_threaded else [""]
-        debug_suffixes = ["_d", ""] if self.debug_build else [""]
+        debug_suffixes = ["_d", "-dbg", ""] if self.debug_build else [""]
         archs = [f"-{self.architecture}", ""]
         for name in self._possible_base():
             for at in (3, 2, 1, 0):

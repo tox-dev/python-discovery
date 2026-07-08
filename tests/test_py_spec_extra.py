@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from python_discovery import PythonSpec
 
 
@@ -84,6 +86,13 @@ def test_generate_re_with_threaded() -> None:
     spec = PythonSpec.from_string_spec("python3.12t")
     pat = spec.generate_re(windows=False)
     assert pat.fullmatch("python3.12t") is not None
+
+
+@pytest.mark.parametrize("name", ["python3.12-dbg", "python3.12d", "python3.12"])
+def test_generate_re_with_debug(name: str) -> None:
+    spec = PythonSpec.from_string_spec("python3.12-dbg")
+    pat = spec.generate_re(windows=False)
+    assert pat.fullmatch(name) is not None
 
 
 def test_single_digit_version() -> None:

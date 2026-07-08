@@ -213,7 +213,7 @@ when encountering problematic interpreters.
 Spec format reference
 -----------------------
 
-A spec string follows the pattern ``[impl][version][t][-arch][-machine]``. Every part is optional.
+A spec string follows the pattern ``[impl][version][t][d][-arch][-machine]``. Every part is optional.
 
 .. mermaid::
 
@@ -221,12 +221,14 @@ A spec string follows the pattern ``[impl][version][t][-arch][-machine]``. Every
         Spec["Spec string"] --> Impl["impl<br>(optional)"]
         Impl --> Version["version<br>(optional)"]
         Version --> T["t<br>(optional)"]
-        T --> Arch["-arch<br>(optional)"]
+        T --> D["d<br>(optional)"]
+        D --> Arch["-arch<br>(optional)"]
         Arch --> Machine["-machine<br>(optional)"]
 
         style Impl fill:#4a90d9,stroke:#2a5f8f,color:#fff
         style Version fill:#4a9f4a,stroke:#2a6f2a,color:#fff
         style T fill:#d9904a,stroke:#8f5f2a,color:#fff
+        style D fill:#4ad9c4,stroke:#2a8f7f,color:#fff
         style Arch fill:#d94a4a,stroke:#8f2a2a,color:#fff
         style Machine fill:#904ad9,stroke:#5f2a8f,color:#fff
 
@@ -237,9 +239,11 @@ A spec string follows the pattern ``[impl][version][t][-arch][-machine]``. Every
 - **version** -- dotted version number (``3``, ``3.12``, or ``3.12.1``). You can also write
   ``312`` as shorthand for ``3.12``.
 - **t** -- appended directly after the version. Matches free-threaded (no-GIL) builds only.
+- **d** -- require a debug (``Py_DEBUG``) build. Written as ``d`` right after the version (the ABI flag
+  form, as in ``python3.13d``) or as Debian's ``-dbg`` / ``-debug`` suffix (``python3.13-dbg``). When
+  omitted the build type is unconstrained.
 - **-arch** -- ``-32`` or ``-64`` for 32-bit or 64-bit interpreters.
-- **-machine** -- the CPU instruction set after ``-arch``:
-  ``-64-arm64``, ``-64-x86_64``, ``-64-aarch64``, ``-64-riscv64``, etc.
+- **-machine** -- the CPU instruction set: ``-arm64``, ``-x86_64``, ``-aarch64``, ``-riscv64``, etc.
 
 **Full examples:**
 
@@ -259,6 +263,8 @@ A spec string follows the pattern ``[impl][version][t][-arch][-machine]``. Every
      - PyPy 3.9
    * - ``python3.13t``
      - Free-threaded (no-GIL) CPython 3.13
+   * - ``python3.13-dbg``
+     - Debug (``Py_DEBUG``) CPython 3.13 (``python3.13d`` also works)
    * - ``python3.12-64``
      - 64-bit CPython 3.12
    * - ``python3.12-64-arm64``
