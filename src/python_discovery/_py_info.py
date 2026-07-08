@@ -774,7 +774,9 @@ class PythonInfo:  # noqa: PLR0904
     def _find_possible_exe_names(self) -> list[str]:
         name_candidate = OrderedDict()
         mods = ["", "t"] if self.free_threaded else [""]
-        debug_suffixes = ["_d", "-dbg", ""] if self.debug_build else [""]
+        # _d (Windows python_d.exe), -dbg (Debian's own name), d (the abiflags form used by
+        # upstream/Fedora and also shipped by Debian, so pythonX.Yd / pythonX.Ytd resolve too)
+        debug_suffixes = ["_d", "-dbg", "d", ""] if self.debug_build else [""]
         archs = [f"-{self.architecture}", ""]
         for name in self._possible_base():
             for at in (3, 2, 1, 0):

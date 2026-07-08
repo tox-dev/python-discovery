@@ -142,12 +142,14 @@ You can add more constraints to narrow the search.
         Spec["Spec string"] --> Impl["impl<br>(optional)"]
         Impl --> Version["version<br>(optional)"]
         Version --> T["t<br>(optional)"]
-        T --> Arch["-arch<br>(optional)"]
+        T --> D["d / -dbg / -debug<br>(optional)"]
+        D --> Arch["-arch<br>(optional)"]
         Arch --> Machine["-machine<br>(optional)"]
 
         style Impl fill:#4a90d9,stroke:#2a5f8f,color:#fff
         style Version fill:#4a9f4a,stroke:#2a6f2a,color:#fff
         style T fill:#d9904a,stroke:#8f5f2a,color:#fff
+        style D fill:#4ad9c4,stroke:#2a8f7f,color:#fff
         style Arch fill:#d94a4a,stroke:#8f2a2a,color:#fff
         style Machine fill:#904ad9,stroke:#5f2a8f,color:#fff
 
@@ -167,6 +169,8 @@ Common examples:
      - PyPy 3.9
    * - ``python3.13t``
      - Free-threaded (no-GIL) CPython 3.13
+   * - ``python3.13-dbg``
+     - Debug (``Py_DEBUG``) CPython 3.13 (``python3.13d`` also works)
    * - ``python3.12-64``
      - 64-bit CPython 3.12
    * - ``python3.12-64-arm64``
@@ -188,11 +192,12 @@ inspecting what a spec means or for building tools on top of python-discovery.
 .. mermaid::
 
     flowchart TD
-        Input["cpython3.12t-64-arm64"] --> Parse["PythonSpec.from_string_spec()"]
+        Input["cpython3.13td-64-arm64"] --> Parse["PythonSpec.from_string_spec()"]
         Parse --> Spec["PythonSpec"]
         Spec --> impl["implementation: cpython"]
-        Spec --> ver["major: 3, minor: 12"]
+        Spec --> ver["major: 3, minor: 13"]
         Spec --> ft["free_threaded: True"]
+        Spec --> dbg["debug: True"]
         Spec --> arch["architecture: 64"]
         Spec --> mach["machine: arm64"]
 
@@ -203,11 +208,12 @@ inspecting what a spec means or for building tools on top of python-discovery.
 
    from python_discovery import PythonSpec
 
-   spec = PythonSpec.from_string_spec("cpython3.12t-64-arm64")
+   spec = PythonSpec.from_string_spec("cpython3.13td-64-arm64")
    spec.implementation   # "cpython"
    spec.major            # 3
-   spec.minor            # 12
+   spec.minor            # 13
    spec.free_threaded    # True
+   spec.debug            # True
    spec.architecture     # 64
    spec.machine          # "arm64"
 

@@ -221,7 +221,7 @@ A spec string follows the pattern ``[impl][version][t][d][-arch][-machine]``. Ev
         Spec["Spec string"] --> Impl["impl<br>(optional)"]
         Impl --> Version["version<br>(optional)"]
         Version --> T["t<br>(optional)"]
-        T --> D["d<br>(optional)"]
+        T --> D["d / -dbg / -debug<br>(optional)"]
         D --> Arch["-arch<br>(optional)"]
         Arch --> Machine["-machine<br>(optional)"]
 
@@ -245,6 +245,11 @@ A spec string follows the pattern ``[impl][version][t][d][-arch][-machine]``. Ev
 - **-arch** -- ``-32`` or ``-64`` for 32-bit or 64-bit interpreters.
 - **-machine** -- the CPU instruction set: ``-arm64``, ``-x86_64``, ``-aarch64``, ``-riscv64``, etc.
 
+Order matters: the parts appear in the sequence shown above. Combine the ABI flags as ``python3.13td``
+(free-threaded then debug, the order CPython uses in ``sys.abiflags``), and keep ``-arch`` before
+``-machine`` as in ``python3.13d-64-arm64``. Mixing ``d`` with ``-dbg`` in one spec, or swapping the arch
+and machine segments, leaves the string unrecognized, so it falls back to a literal executable-name match.
+
 **Full examples:**
 
 .. list-table::
@@ -265,6 +270,8 @@ A spec string follows the pattern ``[impl][version][t][d][-arch][-machine]``. Ev
      - Free-threaded (no-GIL) CPython 3.13
    * - ``python3.13-dbg``
      - Debug (``Py_DEBUG``) CPython 3.13 (``python3.13d`` also works)
+   * - ``python3.13td``
+     - Free-threaded debug CPython 3.13
    * - ``python3.12-64``
      - 64-bit CPython 3.12
    * - ``python3.12-64-arm64``

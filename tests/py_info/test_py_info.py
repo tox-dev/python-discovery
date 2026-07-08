@@ -443,8 +443,10 @@ def test_py_info_debug_build_exe_names(*, debug: bool) -> None:
     info = copy.deepcopy(CURRENT)
     info.debug_build = debug
     names = info._find_possible_exe_names()
+    abiflag_name = f"python{info.version_info.major}.{info.version_info.minor}d"
     assert any("_d" in n for n in names) is debug
     assert any(n.endswith("-dbg") for n in names) is debug
+    assert (abiflag_name in names) is debug
 
 
 def test_py_info_debug_build_json_round_trip() -> None:
