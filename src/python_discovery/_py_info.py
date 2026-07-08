@@ -481,6 +481,8 @@ class PythonInfo:  # noqa: PLR0904
             return False
         if spec.free_threaded is not None and spec.free_threaded != self.free_threaded:
             return False
+        if spec.debug is not None and spec.debug != self.debug_build:
+            return False
         if spec.version_specifier is not None and not self._satisfies_version_specifier(spec):
             return False
         return all(
@@ -717,7 +719,7 @@ class PythonInfo:  # noqa: PLR0904
         info = self.from_exe(exe_path, cache, resolve_to_host=False, raise_on_error=False, env=env)
         if info is None:  # ignore if for some reason we can't query
             return None
-        for item in ["implementation", "architecture", "machine", "version_info"]:
+        for item in ["implementation", "architecture", "machine", "version_info", "free_threaded", "debug_build"]:
             found = getattr(info, item)
             searched = getattr(self, item)
             if found != searched:
@@ -772,7 +774,9 @@ class PythonInfo:  # noqa: PLR0904
     def _find_possible_exe_names(self) -> list[str]:
         name_candidate = OrderedDict()
         mods = ["", "t"] if self.free_threaded else [""]
-        debug_suffixes = ["_d", ""] if self.debug_build else [""]
+        # _d (Windows python_d.exe), -dbg (Debian's own name), d (the abiflags form used by
+        # upstream/Fedora and also shipped by Debian, so pythonX.Yd / pythonX.Ytd resolve too)
+        debug_suffixes = ["_d", "-dbg", "d", ""] if self.debug_build else [""]
         archs = [f"-{self.architecture}", ""]
         for name in self._possible_base():
             for at in (3, 2, 1, 0):

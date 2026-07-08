@@ -16,6 +16,7 @@ PATTERN = re.compile(
     (?P<impl>[a-zA-Z]+)?            # implementation (e.g. cpython, pypy)
     (?P<version>[0-9.]+)?           # version (e.g. 3.12, 3.12.1)
     (?P<threaded>t)?                # free-threaded flag
+    (?P<debug>d|(?:-dbg|-debug)(?=-|$))?  # debug build flag (d, -dbg or -debug)
     (?:-(?P<arch>32|64))?           # architecture bitness
     (?:-(?P<machine>[a-zA-Z0-9_.]+))?  # ISA (e.g. arm64, x86_64, i86pc.64bit)
     $
@@ -68,6 +69,7 @@ def _parse_spec_pattern(string_spec: str) -> PythonSpec | None:
     groups = match.groupdict()
     version = groups["version"]
     major, minor, micro, threaded = None, None, None, None
+    debug = True if groups["debug"] else None  # unconstrained unless an explicit d/-dbg/-debug marker is present
     if version is not None:
         try:
             major, minor, micro = _parse_version_parts(version)
@@ -83,7 +85,9 @@ def _parse_spec_pattern(string_spec: str) -> PythonSpec | None:
     machine = groups.get("machine")
     if machine is not None:
         machine = normalize_isa(machine)
-    return PythonSpec(string_spec, impl, major, minor, micro, arch, None, free_threaded=threaded, machine=machine)
+    return PythonSpec(
+        string_spec, impl, major, minor, micro, arch, None, free_threaded=threaded, machine=machine, debug=debug
+    )
 
 
 def _parse_specifier(string_spec: str) -> PythonSpec | None:
@@ -117,6 +121,7 @@ class PythonSpec:
     :param path: filesystem path to a specific interpreter, or ``None``.
     :param free_threaded: whether a free-threaded build is required, or ``None`` for any.
     :param machine: required ISA (e.g. ``"arm64"``), or ``None`` for any.
+    :param debug: whether a debug (``Py_DEBUG``) build is required, or ``None`` for any.
     :param version_specifier:
         `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
         constraints, or ``None``.
@@ -134,6 +139,7 @@ class PythonSpec:
         *,
         free_threaded: bool | None = None,
         machine: str | None = None,
+        debug: bool | None = None,
         version_specifier: SpecifierSet | None = None,
     ) -> None:
         self.str_spec = str_spec
@@ -144,6 +150,7 @@ class PythonSpec:
         self.free_threaded = free_threaded
         self.architecture = architecture
         self.machine = machine
+        self.debug = debug
         self.path = path
         self.version_specifier = version_specifier
 
@@ -181,10 +188,11 @@ class PythonSpec:
         else:
             impl = "python"
         mod = "t?" if self.free_threaded else ""
+        dbg = "(?:d|-dbg|-debug)?" if self.debug else ""
         suffix = r"\.exe" if windows else ""
         version_conditional = "?" if windows or self.major is None else ""
         return re.compile(
-            rf"(?P<impl>{impl})(?P<v>{version}{mod}){version_conditional}{suffix}$",
+            rf"(?P<impl>{impl})(?P<v>{version}{mod}){version_conditional}{dbg}{suffix}$",
             flags=re.IGNORECASE,
         )
 
@@ -263,6 +271,7 @@ class PythonSpec:
             "machine",
             "path",
             "free_threaded",
+            "debug",
             "version_specifier",
         )
         return f"{name}({', '.join(f'{k}={getattr(self, k)}' for k in params if getattr(self, k) is not None)})"

@@ -16,6 +16,25 @@ standard locations.
    if info is not None:
        print(info.executable)
 
+Select a debug build
+----------------------
+
+To require a debug (``Py_DEBUG``) interpreter, add the debug marker to the spec. Both the ABI-flag form
+``python3.13d`` and the Debian package name ``python3.13-dbg`` work, and each resolves to the same
+interpreter (Debian ships ``/usr/bin/python3.13d`` and ``/usr/bin/python3.13-dbg`` side by side). A spec with no
+marker keeps matching either build, so reach for the marker only when you need the debug build.
+
+.. code-block:: python
+
+   from python_discovery import get_interpreter
+
+   info = get_interpreter("python3.13-dbg")
+   if info is not None:
+       assert info.debug_build
+
+Combine the marker with the free-threaded ``t`` flag to select a free-threaded debug build, written
+``python3.13td`` (ABI-flag order is ``t`` then ``d``) or ``python3.13t-dbg``.
+
 Restrict the search environment
 ---------------------------------
 
@@ -135,6 +154,7 @@ Once you have a :class:`~python_discovery.PythonInfo`, you can inspect everythin
             +sysconfig_paths: dict
             +machine: str
             +free_threaded: bool
+            +debug_build: bool
         }
 
 .. code-block:: python
@@ -154,6 +174,7 @@ Once you have a :class:`~python_discovery.PythonInfo`, you can inspect everythin
    info.platform             # sys.platform value ("linux", "darwin", "win32").
    info.machine              # ISA: "arm64", "x86_64", etc.
    info.free_threaded        # True if this is a no-GIL build.
+   info.debug_build          # True if this is a Py_DEBUG build.
    info.sysconfig_vars       # All sysconfig.get_config_vars() values.
    info.sysconfig_paths      # All sysconfig.get_paths() values.
 

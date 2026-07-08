@@ -259,6 +259,31 @@ def test_system_executable_no_exact_match(
     assert warn_similar.msg.startswith("no exact match found, chosen most similar")
 
 
+@pytest.mark.parametrize("attr", ["free_threaded", "debug_build"])
+def test_discover_exe_validates_abi_flag(
+    attr: str, tmp_path: Path, mocker: MockerFixture, session_cache: DiskCache
+) -> None:
+    def candidate(*, flag: bool, name: str) -> PythonInfo:
+        info = copy.deepcopy(CURRENT)
+        setattr(info, attr, flag)
+        exe = tmp_path / name
+        exe.write_text("", encoding="utf-8")
+        info.executable = str(exe)
+        return info
+
+    target = candidate(flag=True, name="target")
+    mismatch = candidate(flag=False, name="release")
+    match = candidate(flag=True, name="debug")
+    by_path = {info.executable: info for info in (mismatch, match)}
+
+    mocker.patch.object(target, "_find_possible_exe_names", return_value=["release", "debug"])
+    mocker.patch.object(target, "_find_possible_folders", return_value=[str(tmp_path)])
+    mocker.patch.object(target, "from_exe", side_effect=lambda exe, *_a, **_k: by_path[exe])
+
+    found = target.discover_exe(session_cache, prefix=str(tmp_path), exact=True)
+    assert found is match  # the release build is refused even though version, impl and arch match
+
+
 def test_py_info_ignores_distutils_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     raw = f"""
     [install]
@@ -284,6 +309,18 @@ def test_discover_exe_on_path_non_spec_name_match(mocker: MockerFixture) -> None
         suffixed_name += Path(CURRENT.original_executable).suffix
     spec = PythonSpec.from_string_spec(suffixed_name)
     mocker.patch.object(CURRENT, "original_executable", str(Path(CURRENT.executable).parent / suffixed_name))
+    assert CURRENT.satisfies(spec, impl_must_match=True) is True
+
+
+def test_satisfies_debug_spec_requires_debug_build(mocker: MockerFixture) -> None:
+    spec = PythonSpec.from_string_spec(f"python{CURRENT.version_info.major}.{CURRENT.version_info.minor}-dbg")
+    assert spec.debug is True
+    mocker.patch.object(CURRENT, "free_threaded", spec.free_threaded)
+
+    mocker.patch.object(CURRENT, "debug_build", False)
+    assert CURRENT.satisfies(spec, impl_must_match=True) is False
+
+    mocker.patch.object(CURRENT, "debug_build", True)
     assert CURRENT.satisfies(spec, impl_must_match=True) is True
 
 
@@ -431,7 +468,10 @@ def test_py_info_debug_build_exe_names(*, debug: bool) -> None:
     info = copy.deepcopy(CURRENT)
     info.debug_build = debug
     names = info._find_possible_exe_names()
+    abiflag_name = f"python{info.version_info.major}.{info.version_info.minor}d"
     assert any("_d" in n for n in names) is debug
+    assert any(n.endswith("-dbg") for n in names) is debug
+    assert (abiflag_name in names) is debug
 
 
 def test_py_info_debug_build_json_round_trip() -> None:
