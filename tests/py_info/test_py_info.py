@@ -287,6 +287,15 @@ def test_discover_exe_on_path_non_spec_name_match(mocker: MockerFixture) -> None
     assert CURRENT.satisfies(spec, impl_must_match=True) is True
 
 
+def test_discover_exe_on_path_debug_suffix_match(mocker: MockerFixture) -> None:
+    suffixed_name = f"python{CURRENT.version_info.major}.{CURRENT.version_info.minor}-dbg"
+    if sys.platform == "win32":  # pragma: win32 cover
+        suffixed_name += Path(CURRENT.original_executable).suffix
+    spec = PythonSpec.from_string_spec(suffixed_name)
+    mocker.patch.object(CURRENT, "original_executable", str(Path(CURRENT.executable).parent / suffixed_name))
+    assert CURRENT.satisfies(spec, impl_must_match=True) is True
+
+
 def test_discover_exe_on_path_non_spec_name_not_match(mocker: MockerFixture) -> None:
     suffixed_name = f"python{CURRENT.version_info.major}.{CURRENT.version_info.minor}m"
     if sys.platform == "win32":  # pragma: win32 cover

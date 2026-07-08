@@ -16,8 +16,7 @@ PATTERN = re.compile(
     (?P<impl>[a-zA-Z]+)?            # implementation (e.g. cpython, pypy)
     (?P<version>[0-9.]+)?           # version (e.g. 3.12, 3.12.1)
     (?P<threaded>t)?                # free-threaded flag
-    (?:-(?P<arch>32|64))?           # architecture bitness
-    (?:-(?P<machine>[a-zA-Z0-9_.]+))?  # ISA (e.g. arm64, x86_64, i86pc.64bit)
+    (?:-(?P<arch>32|64)(?:-(?P<machine>[a-zA-Z0-9_.]+))?)?  # architecture bitness and optional ISA
     $
     """,
     re.VERBOSE,

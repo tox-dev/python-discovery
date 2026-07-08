@@ -238,7 +238,8 @@ A spec string follows the pattern ``[impl][version][t][-arch][-machine]``. Every
   ``312`` as shorthand for ``3.12``.
 - **t** -- appended directly after the version. Matches free-threaded (no-GIL) builds only.
 - **-arch** -- ``-32`` or ``-64`` for 32-bit or 64-bit interpreters.
-- **-machine** -- the CPU instruction set: ``-arm64``, ``-x86_64``, ``-aarch64``, ``-riscv64``, etc.
+- **-machine** -- the CPU instruction set after ``-arch``:
+  ``-64-arm64``, ``-64-x86_64``, ``-64-aarch64``, ``-64-riscv64``, etc.
 
 **Full examples:**
 

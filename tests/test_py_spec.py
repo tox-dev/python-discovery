@@ -202,6 +202,13 @@ def test_spec_parse_arch_and_machine_together(spec_str: str, expected_arch: int,
     assert spec.machine == expected_machine
 
 
+def test_spec_does_not_parse_machine_without_architecture() -> None:
+    spec = PythonSpec.from_string_spec("python3.13-dbg")
+
+    assert spec.path == "python3.13-dbg"
+    assert spec.machine is None
+
+
 @pytest.mark.parametrize(
     ("left", "right", "expected"),
     [
