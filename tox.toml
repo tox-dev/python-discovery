@@ -6,7 +6,7 @@ skip_missing_interpreters = true
 description = "run the tests with pytest"
 package = "wheel"
 wheel_build_env = ".pkg"
-extras = ["testing"]
+dependency_groups = ["test"]
 pass_env = ["DIFF_AGAINST", "PYTEST_*"]
 set_env.COVERAGE_FILE = "{work_dir}{/}.coverage.{env_name}"
 commands = [
@@ -46,7 +46,7 @@ commands = [["ty", "check", "--output-format", "concise", "--error-on-warning", 
 
 [env.docs]
 description = "build documentation"
-extras = ["docs"]
+dependency_groups = ["docs"]
 commands = [
   [
     "sphinx-build",
@@ -81,5 +81,5 @@ commands = [["python", "{tox_root}/tasks/release.py", "--version", "{posargs}"]]
 [env.dev]
 description = "generate a DEV environment"
 package = "editable"
-extras = ["testing"]
+dependency_groups = ["test"]
 commands = [["uv", "pip", "tree"], ["python", "-c", "import sys; print(sys.executable)"]]
