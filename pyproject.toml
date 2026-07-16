@@ -53,6 +53,13 @@ urls.Source = "https://github.com/tox-dev/python-discovery"
 urls.Tracker = "https://github.com/tox-dev/python-discovery/issues"
 
 [dependency-groups]
+test = [
+  "covdefaults>=2.3",
+  "coverage>=7.5.4",
+  "pytest>=8.3.5",
+  "pytest-mock>=3.14",
+  "setuptools>=75.1",
+]
 docs = [
   "furo>=2025.12.19",
   "sphinx>=9.1",
@@ -66,13 +73,6 @@ release = [
   "packaging>=26",
   "pre-commit>=4.5.1",
   "towncrier>=25.8",
-]
-test = [
-  "covdefaults>=2.3",
-  "coverage>=7.5.4",
-  "pytest>=8.3.5",
-  "pytest-mock>=3.14",
-  "setuptools>=75.1",
 ]
 
 [tool.hatch]
