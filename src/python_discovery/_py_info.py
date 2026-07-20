@@ -303,10 +303,11 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         with warnings.catch_warnings():  # disable warning for PEP-632
             warnings.simplefilter("ignore")
             try:
-                from distutils import dist  # ruff:ignore[import-outside-top-level]  # ty: ignore[unresolved-import]
-                from distutils.command.install import (
-                    SCHEME_KEYS,  # ty: ignore[unresolved-import]
-                )
+                # ruff:ignore[import-outside-top-level]
+                from distutils import dist  # ty: ignore[unresolved-import]
+
+                # ruff:ignore[import-outside-top-level]
+                from distutils.command.install import SCHEME_KEYS  # ty: ignore[unresolved-import]
             except ImportError:  # pragma: no cover # if removed or not installed ignore
                 return {}
 
