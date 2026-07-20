@@ -42,7 +42,7 @@ def _load_registry_data(
     loc: dict[str, object] = {}
     glob: dict[str, object] = {"winreg": winreg}
     mock_value_str = (Path(__file__).parent / "winreg_mock_values.py").read_text(encoding="utf-8")
-    exec(mock_value_str, glob, loc)  # noqa: S102
+    exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin]
     return loc["enum_collect"], loc["value_collect"], loc["key_open"], loc["hive_open"]  # type: ignore[return-value]
 
 

@@ -104,7 +104,7 @@ class DiskContentStore:
 
     @contextmanager
     def locked(self) -> Generator[None]:
-        from filelock import FileLock  # noqa: PLC0415
+        from filelock import FileLock  # ruff:ignore[import-outside-top-level]
 
         lock_path = self._folder / f"{self._key}.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,10 +148,10 @@ class DiskCache:
 class NoOpContentStore(ContentStore):
     """Content store that does nothing -- implements ContentStore protocol."""
 
-    def exists(self) -> bool:  # noqa: PLR6301
+    def exists(self) -> bool:  # ruff:ignore[no-self-use]
         return False
 
-    def read(self) -> dict | None:  # noqa: PLR6301
+    def read(self) -> dict | None:  # ruff:ignore[no-self-use]
         return None
 
     def write(self, content: dict) -> None:
@@ -161,14 +161,14 @@ class NoOpContentStore(ContentStore):
         pass
 
     @contextmanager
-    def locked(self) -> Generator[None]:  # noqa: PLR6301
+    def locked(self) -> Generator[None]:  # ruff:ignore[no-self-use]
         yield
 
 
 class NoOpCache(PyInfoCache):
     """Cache that does nothing -- implements PyInfoCache protocol."""
 
-    def py_info(self, path: Path) -> NoOpContentStore:  # noqa: ARG002, PLR6301
+    def py_info(self, path: Path) -> NoOpContentStore:  # ruff:ignore[unused-method-argument, no-self-use]
         return NoOpContentStore()
 
     def py_info_clear(self) -> None:
