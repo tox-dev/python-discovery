@@ -47,7 +47,7 @@ _THREADED_TAG_RE: Final[re.Pattern[str]] = re.compile(
 )
 
 
-def enum_keys(key: Any) -> Generator[str, None, None]:  # noqa: ANN401
+def enum_keys(key: Any) -> Generator[str, None, None]:  # ruff:ignore[any-type]
     at = 0
     while True:
         try:
@@ -57,7 +57,7 @@ def enum_keys(key: Any) -> Generator[str, None, None]:  # noqa: ANN401
         at += 1
 
 
-def get_value(key: Any, value_name: str | None) -> Any:  # noqa: ANN401
+def get_value(key: Any, value_name: str | None) -> Any:  # ruff:ignore[any-type]
     try:
         return winreg.QueryValueEx(key, value_name)[0]  # ty: ignore[unresolved-attribute]
     except OSError:
@@ -93,7 +93,7 @@ def process_set(
 def process_company(
     hive_name: str,
     company: str,
-    root_key: Any,  # noqa: ANN401
+    root_key: Any,  # ruff:ignore[any-type]
     default_arch: int,
 ) -> Generator[_RegistrySpec, None, None]:
     with winreg.OpenKeyEx(root_key, company) as company_key:  # ty: ignore[unresolved-attribute]
@@ -103,7 +103,7 @@ def process_company(
                 yield spec
 
 
-def process_tag(hive_name: str, company: str, company_key: Any, tag: str, default_arch: int) -> _RegistrySpec | None:  # noqa: ANN401
+def process_tag(hive_name: str, company: str, company_key: Any, tag: str, default_arch: int) -> _RegistrySpec | None:  # ruff:ignore[any-type]
     with winreg.OpenKeyEx(company_key, tag) as tag_key:  # ty: ignore[unresolved-attribute]
         version = load_version_data(hive_name, company, tag, tag_key)
         if version is not None:  # if failed to get version bail
@@ -120,7 +120,7 @@ def process_tag(hive_name: str, company: str, company_key: Any, tag: str, defaul
         return None
 
 
-def load_exe(hive_name: str, company: str, company_key: Any, tag: str) -> tuple[str, str | None] | None:  # noqa: ANN401
+def load_exe(hive_name: str, company: str, company_key: Any, tag: str) -> tuple[str, str | None] | None:  # ruff:ignore[any-type]
     key_path = f"{hive_name}/{company}/{tag}"
     try:
         with winreg.OpenKeyEx(company_key, rf"{tag}\InstallPath") as ip_key, ip_key:  # ty: ignore[unresolved-attribute]
@@ -132,7 +132,7 @@ def load_exe(hive_name: str, company: str, company_key: Any, tag: str) -> tuple[
     return None
 
 
-def _resolve_exe(ip_key: Any, key_path: str) -> str | None:  # noqa: ANN401
+def _resolve_exe(ip_key: Any, key_path: str) -> str | None:  # ruff:ignore[any-type]
     if (exe := get_value(ip_key, "ExecutablePath")) is not None:
         return exe
     if (ip := get_value(ip_key, None)) is None:
@@ -141,7 +141,7 @@ def _resolve_exe(ip_key: Any, key_path: str) -> str | None:  # noqa: ANN401
     return os.path.join(ip, "python.exe")
 
 
-def load_arch_data(hive_name: str, company: str, tag: str, tag_key: Any, default_arch: int) -> int | None:  # noqa: ANN401
+def load_arch_data(hive_name: str, company: str, tag: str, tag_key: Any, default_arch: int) -> int | None:  # ruff:ignore[any-type]
     arch_str = get_value(tag_key, "SysArchitecture")
     if arch_str is not None:
         key_path = f"{hive_name}/{company}/{tag}/SysArchitecture"
@@ -152,7 +152,7 @@ def load_arch_data(hive_name: str, company: str, tag: str, tag_key: Any, default
     return default_arch
 
 
-def parse_arch(arch_str: Any) -> int:  # noqa: ANN401
+def parse_arch(arch_str: Any) -> int:  # ruff:ignore[any-type]
     if isinstance(arch_str, str):
         if match := _ARCH_RE.match(arch_str):
             return int(next(iter(match.groups())))
@@ -166,7 +166,7 @@ def load_version_data(
     hive_name: str,
     company: str,
     tag: str,
-    tag_key: Any,  # noqa: ANN401
+    tag_key: Any,  # ruff:ignore[any-type]
 ) -> tuple[int | None, int | None, int | None] | None:
     for candidate, key_path in [
         (get_value(tag_key, "SysVersion"), f"{hive_name}/{company}/{tag}/SysVersion"),
@@ -180,7 +180,7 @@ def load_version_data(
     return None
 
 
-def parse_version(version_str: Any) -> tuple[int | None, int | None, int | None]:  # noqa: ANN401
+def parse_version(version_str: Any) -> tuple[int | None, int | None, int | None]:  # ruff:ignore[any-type]
     if isinstance(version_str, str):
         if match := _VERSION_RE.match(version_str):
             g1, g2, g3 = match.groups()
@@ -195,7 +195,7 @@ def parse_version(version_str: Any) -> tuple[int | None, int | None, int | None]
     raise ValueError(error)
 
 
-def load_threaded(hive_name: str, company: str, tag: str, tag_key: Any) -> bool:  # noqa: ANN401
+def load_threaded(hive_name: str, company: str, tag: str, tag_key: Any) -> bool:  # ruff:ignore[any-type]
     display_name = get_value(tag_key, "DisplayName")
     if display_name is not None:
         if isinstance(display_name, str):

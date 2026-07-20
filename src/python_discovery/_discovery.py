@@ -89,7 +89,7 @@ def iter_interpreters(
         yield from _iter_for_spec(spec_str, first_with, cache, env_map, predicate, seen)
 
 
-def _iter_for_spec(  # noqa: PLR0913, PLR0917
+def _iter_for_spec(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     spec_str: str | None,
     try_first_with: tuple[str, ...],
     cache: PyInfoCache | None,
@@ -231,7 +231,7 @@ def _propose_current_and_windows(
         yield current_python, True
 
     if IS_WIN:  # pragma: win32 cover
-        from ._windows import propose_interpreters as win_propose  # noqa: PLC0415
+        from ._windows import propose_interpreters as win_propose  # ruff:ignore[import-outside-top-level]
 
         for interpreter in win_propose(spec, cache, env):
             if _is_new_exe(str(interpreter.executable), tested_exes):

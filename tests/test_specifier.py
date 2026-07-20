@@ -44,7 +44,7 @@ def test_version_eq_different() -> None:
 
 
 def test_version_eq_not_implemented() -> None:
-    result = SimpleVersion.from_string("3.11").__eq__("3.11")  # noqa: PLC2801
+    result = SimpleVersion.from_string("3.11").__eq__("3.11")  # ruff:ignore[unnecessary-dunder-call]
     assert result is NotImplemented
 
 
@@ -69,7 +69,7 @@ def test_version_lt(left: str, right: str, expected: bool) -> None:
 
 
 def test_version_lt_not_implemented() -> None:
-    result = SimpleVersion.from_string("3.11").__lt__("3.12")  # noqa: PLC2801
+    result = SimpleVersion.from_string("3.11").__lt__("3.12")  # ruff:ignore[unnecessary-dunder-call]
     assert result is NotImplemented
 
 
@@ -83,7 +83,7 @@ def test_version_gt() -> None:
 
 
 def test_version_gt_not_implemented() -> None:
-    result = SimpleVersion.from_string("3.11").__gt__("3.11")  # noqa: PLC2801
+    result = SimpleVersion.from_string("3.11").__gt__("3.11")  # ruff:ignore[unnecessary-dunder-call]
     assert result is NotImplemented
 
 
@@ -198,7 +198,7 @@ def test_specifier_eq() -> None:
 
 
 def test_specifier_eq_not_implemented() -> None:
-    result = SimpleSpecifier.from_string(">=3.12").__eq__(">=3.12")  # noqa: PLC2801
+    result = SimpleSpecifier.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call]
     assert result is NotImplemented
 
 
@@ -262,7 +262,7 @@ def test_specifier_set_eq() -> None:
 
 
 def test_specifier_set_eq_not_implemented() -> None:
-    result = SimpleSpecifierSet.from_string(">=3.12").__eq__(">=3.12")  # noqa: PLC2801
+    result = SimpleSpecifierSet.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call]
     assert result is NotImplemented
 
 

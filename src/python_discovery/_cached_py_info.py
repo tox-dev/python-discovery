@@ -8,14 +8,14 @@ import logging
 import os
 import pkgutil
 import secrets
-import subprocess  # noqa: S404
+import subprocess  # ruff:ignore[suspicious-subprocess-import]
 import sys
 import tempfile
 from collections import OrderedDict
 from contextlib import contextmanager
 from pathlib import Path
 from shlex import quote
-from subprocess import Popen, TimeoutExpired  # noqa: S404
+from subprocess import Popen, TimeoutExpired  # ruff:ignore[suspicious-subprocess-import]
 from typing import TYPE_CHECKING, Final
 
 from ._cache import NoOpCache
@@ -32,7 +32,7 @@ _CACHE[Path(sys.executable)] = PythonInfo()
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
 
-def from_exe(  # noqa: PLR0913
+def from_exe(  # ruff:ignore[too-many-arguments]
     cls: type[PythonInfo],
     cache: PyInfoCache | None,
     exe: str,
@@ -197,7 +197,7 @@ def _run_subprocess(
         env["PYTHONUTF8"] = "1"
         _LOGGER.debug("get interpreter info via cmd: %s", LogCmd(cmd))
         try:
-            process = Popen(  # noqa: S603
+            process = Popen(  # ruff:ignore[subprocess-without-shell-equals-true]
                 cmd,
                 universal_newlines=True,
                 stdin=subprocess.PIPE,

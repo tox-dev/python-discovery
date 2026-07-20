@@ -55,7 +55,7 @@ def _parse_version_parts(version: str) -> tuple[int | None, int | None, int | No
         raise ValueError(msg)
     if len(versions) == _MAX_VERSION_PARTS:
         return versions[0], versions[1], versions[2]
-    if len(versions) == 2:  # noqa: PLR2004
+    if len(versions) == 2:  # ruff:ignore[magic-value-comparison]
         return versions[0], versions[1], None
     version_data = versions[0]
     major = int(str(version_data)[0])
@@ -127,7 +127,7 @@ class PythonSpec:
         constraints, or ``None``.
     """
 
-    def __init__(  # noqa: PLR0913, PLR0917
+    def __init__(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
         self,
         str_spec: str,
         implementation: str | None,
@@ -233,7 +233,7 @@ class PythonSpec:
             return len(item.version.release)
         return None
 
-    def satisfies(self, spec: PythonSpec) -> bool:  # noqa: PLR0911
+    def satisfies(self, spec: PythonSpec) -> bool:  # ruff:ignore[too-many-return-statements]
         """
         Check if this spec is compatible with the given *spec* (e.g. PEP-514 on Windows).
 

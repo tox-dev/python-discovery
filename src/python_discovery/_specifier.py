@@ -92,7 +92,7 @@ class SimpleVersion:
     def __hash__(self) -> int:
         return hash((self.release, self.pre_type, self.pre_num))
 
-    def __lt__(self, other: object) -> bool:  # noqa: PLR0911
+    def __lt__(self, other: object) -> bool:  # ruff:ignore[too-many-return-statements]
         if not isinstance(other, SimpleVersion):
             return NotImplemented
         if self.release != other.release:
@@ -225,7 +225,7 @@ class SimpleSpecifier:
             return False
         if candidate < self.version:
             return False
-        if len(self.version.release) >= 2:  # noqa: PLR2004  # pragma: no branch # SimpleVersion always has 3-part release
+        if len(self.version.release) >= 2:  # ruff:ignore[magic-value-comparison]  # pragma: no branch # SimpleVersion always has 3-part release
             upper_parts = list(self.version.release[:-1])
             upper_parts[-1] += 1
             upper = SimpleVersion.from_string(".".join(str(p) for p in upper_parts))

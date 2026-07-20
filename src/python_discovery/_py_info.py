@@ -49,7 +49,7 @@ _CONF_VAR_RE: Final[re.Pattern[str]] = re.compile(
 )
 
 
-class PythonInfo:  # noqa: PLR0904
+class PythonInfo:  # ruff:ignore[too-many-public-methods]
     """Contains information for a Python interpreter."""
 
     def __init__(self) -> None:
@@ -161,7 +161,7 @@ class PythonInfo:  # noqa: PLR0904
         """Detect the tcl and tk libraries using tkinter."""
         tcl_lib, tk_lib = None, None
         try:
-            import tkinter as tk  # noqa: PLC0415
+            import tkinter as tk  # ruff:ignore[import-outside-top-level]
         except ImportError:
             pass
         else:
@@ -177,7 +177,7 @@ class PythonInfo:  # noqa: PLR0904
     @staticmethod
     def _query_tk_library(tcl: tk.Tk) -> str | None:  # pragma: no cover
         """Try to get the TK library path directly from Tcl."""
-        import tkinter as tk  # noqa: PLC0415
+        import tkinter as tk  # ruff:ignore[import-outside-top-level]
 
         try:
             if (tk_lib := tcl.eval("set tk_library")) and os.path.isdir(tk_lib):
@@ -303,8 +303,11 @@ class PythonInfo:  # noqa: PLR0904
         with warnings.catch_warnings():  # disable warning for PEP-632
             warnings.simplefilter("ignore")
             try:
-                from distutils import dist  # noqa: PLC0415  # ty: ignore[unresolved-import]
-                from distutils.command.install import SCHEME_KEYS  # noqa: PLC0415  # ty: ignore[unresolved-import]
+                # ruff:ignore[import-outside-top-level]
+                from distutils import dist  # ty: ignore[unresolved-import]
+
+                # ruff:ignore[import-outside-top-level]
+                from distutils.command.install import SCHEME_KEYS  # ty: ignore[unresolved-import]
             except ImportError:  # pragma: no cover # if removed or not installed ignore
                 return {}
 
@@ -312,7 +315,7 @@ class PythonInfo:  # noqa: PLR0904
             "script_args": "--no-user-cfg",
         })  # conf files not parsed so they do not hijack paths
         if hasattr(sys, "_framework"):  # pragma: no cover # macOS framework builds only
-            sys._framework = None  # noqa: SLF001  # disable macOS static paths for framework
+            sys._framework = None  # ruff:ignore[private-member-access]  # disable macOS static paths for framework
 
         with warnings.catch_warnings():  # disable warning for PEP-632
             warnings.simplefilter("ignore")
@@ -459,12 +462,12 @@ class PythonInfo:  # noqa: PLR0904
 
         :param cache: the cache store to clear.
         """
-        from ._cached_py_info import clear  # noqa: PLC0415
+        from ._cached_py_info import clear  # ruff:ignore[import-outside-top-level]
 
         clear(cache)
         cls._cache_exe_discovery.clear()
 
-    def satisfies(self, spec: PythonSpec, *, impl_must_match: bool) -> bool:  # noqa: PLR0911
+    def satisfies(self, spec: PythonSpec, *, impl_must_match: bool) -> bool:  # ruff:ignore[too-many-return-statements]
         """
         Check if a given specification can be satisfied by this python interpreter instance.
 
@@ -510,7 +513,7 @@ class PythonInfo:  # noqa: PLR0904
             return True
         version_info = self.version_info
         for specifier in spec.version_specifier:
-            assert specifier.version is not None  # noqa: S101
+            assert specifier.version is not None  # ruff:ignore[assert]
             numeric_version = specifier.version_str
             for prefix in ("rc", "b", "a"):
                 if prefix in numeric_version:
@@ -520,7 +523,7 @@ class PythonInfo:  # noqa: PLR0904
             release = ".".join(str(c) for c in [version_info.major, version_info.minor, version_info.micro][:precision])
             if (
                 version_info.releaselevel != "final"
-                and (precision == 3 or specifier.version.pre_type is not None)  # noqa: PLR2004
+                and (precision == 3 or specifier.version.pre_type is not None)  # ruff:ignore[magic-value-comparison]
                 and (suffix := {"alpha": "a", "beta": "b", "candidate": "rc"}.get(version_info.releaselevel))
             ):
                 release = f"{release}{suffix}{version_info.serial}"
@@ -573,7 +576,7 @@ class PythonInfo:  # noqa: PLR0904
         return data
 
     @classmethod
-    def from_exe(  # noqa: PLR0913
+    def from_exe(  # ruff:ignore[too-many-arguments]
         cls,
         exe: str,
         cache: PyInfoCache | None = None,
@@ -593,7 +596,7 @@ class PythonInfo:  # noqa: PLR0904
         :param resolve_to_host: resolve through virtualenv layers to the system interpreter.
         :param env: environment mapping; defaults to :data:`os.environ`.
         """
-        from ._cached_py_info import from_exe  # noqa: PLC0415
+        from ._cached_py_info import from_exe  # ruff:ignore[import-outside-top-level]
 
         env = os.environ if env is None else env
         proposed = from_exe(cls, cache, exe, env=env, raise_on_error=raise_on_error, ignore_cache=ignore_cache)
@@ -703,7 +706,7 @@ class PythonInfo:  # noqa: PLR0904
         msg = "failed to detect {} in {}".format("|".join(possible_names), os.pathsep.join(possible_folders))
         raise RuntimeError(msg)
 
-    def _check_exe(  # noqa: PLR0913
+    def _check_exe(  # ruff:ignore[too-many-arguments]
         self,
         cache: PyInfoCache | None,
         folder: str,
@@ -797,7 +800,7 @@ class PythonInfo:  # noqa: PLR0904
         for base in possible_base:
             lower = base.lower()
             yield lower
-            from ._compat import fs_is_case_sensitive  # noqa: PLC0415
+            from ._compat import fs_is_case_sensitive  # ruff:ignore[import-outside-top-level]
 
             if fs_is_case_sensitive():  # pragma: no branch
                 if base != lower:
