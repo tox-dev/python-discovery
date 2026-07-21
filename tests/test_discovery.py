@@ -437,7 +437,8 @@ def test_predicate_with_fallback_specs(session_cache: DiskCache) -> None:
         proposed.append(str(info.executable))
         return len(proposed) > 1
 
-    result = get_interpreter([f"{major}.{minor}", sys.executable], [], session_cache, predicate=reject_first)
+    threaded = "t" if current.free_threaded else ""
+    result = get_interpreter([f"{major}.{minor}{threaded}", sys.executable], [], session_cache, predicate=reject_first)
     # rejecting the first proposal must not abort discovery; a later proposal (same or fallback spec) is accepted -
     # on hosts where every alias resolves to one interpreter the fallback re-proposes it, so executables may match
     assert result is not None
