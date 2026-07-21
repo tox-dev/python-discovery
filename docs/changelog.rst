@@ -7,6 +7,14 @@
 .. towncrier release notes start
 
 ********************
+ v1.5.0 (2026-07-21)
+********************
+
+Packaging updates and notes for downstreams - 1.5.0
+===================================================
+- Declare support for Python 3.15 and run the test suite against it, currently in beta. (:issue:`104`)
+
+********************
  v1.4.4 (2026-07-08)
 ********************
 
