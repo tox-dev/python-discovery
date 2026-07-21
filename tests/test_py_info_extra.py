@@ -437,7 +437,10 @@ def test_satisfies_version_specifier_prerelease(version_info: VersionInfo, spec_
 
 def test_satisfies_path_not_abs_basename_match() -> None:
     info = copy.deepcopy(CURRENT)
-    basename = Path(info.original_executable).stem
+    # stem drops everything from the first dot, so python3.15t arrives as python3 and stops naming a free-threaded
+    # build; only the Windows .exe belongs off the end.
+    name = Path(info.original_executable).name
+    basename = name[: -len(".exe")] if name.endswith(".exe") else name
     spec = PythonSpec.from_string_spec(basename)
     assert info.satisfies(spec, impl_must_match=False) is True
 
