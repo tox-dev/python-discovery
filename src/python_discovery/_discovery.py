@@ -4,12 +4,14 @@ import logging
 import os
 import sys
 from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from ._compat import fs_path_id
 from ._py_info import PythonInfo
 from ._py_spec import PythonSpec
+from ._specifier import DC_KW, SimpleVersion
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
@@ -197,7 +199,7 @@ def propose_interpreters(
     if spec.path is not None and spec.is_abs:  # pragma: no cover # relative spec.path is never abs
         return
     yield from _propose_from_path(spec, cache, env, tested_exes, all_implementations=all_implementations)
-    yield from _propose_from_uv(cache, env, all_implementations=all_implementations)
+    yield from _propose_from_uv(spec, cache, env, all_implementations=all_implementations)
 
 
 def _propose_explicit(
@@ -260,24 +262,22 @@ def _propose_from_path(
 
 
 def _propose_from_uv(
+    spec: PythonSpec,
     cache: PyInfoCache | None,
     env: Mapping[str, str],
     *,
     all_implementations: bool = False,
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
-    patterns: list[str] = ["*/bin/python", "*/python.exe"]
-    if all_implementations:
-        patterns.extend(("*/bin/pypy*", "*/bin/graalpy", "*/pypy*.exe", "*/bin/graalpy.exe"))
     seen_uv_paths: set[str] = set()
     for root in _uv_python_roots(env):
-        for pattern in patterns:
-            for exe_path in root.glob(pattern):
-                resolved = str(Path(exe_path).resolve())
-                if resolved in seen_uv_paths:
+        for install in _uv_installs(root, spec, all_implementations=all_implementations):
+            for exe_path in _uv_executables(install):
+                if (resolved := str(exe_path.resolve())) in seen_uv_paths:
                     continue
                 seen_uv_paths.add(resolved)
                 if interpreter := PathPythonInfo.from_exe(str(exe_path), cache, raise_on_error=False, env=env):
                     yield interpreter, True
+                    break  # one install directory holds one interpreter
 
 
 def _uv_python_roots(env: Mapping[str, str]) -> Generator[Path, None, None]:
@@ -305,6 +305,114 @@ def _uv_state_dirs(env: Mapping[str, str]) -> Generator[Path, None, None]:
         yield xdg / "uv"
     else:
         yield home / ".local" / "share" / "uv"
+
+
+def _uv_installs(root: Path, spec: PythonSpec, *, all_implementations: bool) -> list[_UvInstall]:
+    try:
+        matching = [
+            install
+            for entry in sorted(root.iterdir())
+            if not entry.name.startswith(".")
+            and entry.is_dir()
+            and _uv_install_matches(install := _parse_uv_install(entry), spec, all_implementations=all_implementations)
+        ]
+    except OSError:
+        return []
+    matching.sort(key=_uv_sort_key)  # stable, so equally ranked installs stay in directory name order
+    return matching
+
+
+def _parse_uv_install(path: Path) -> _UvInstall:
+    implementation, _, remainder = path.name.partition("-")
+    version_str, _, variant = remainder.partition("-")[0].partition("+")
+    try:
+        version = SimpleVersion.from_string(version_str)
+    except ValueError:  # not a uv key, but the directory may still hold an interpreter worth probing
+        return _UvInstall(path=path, key=None)
+    variants = variant.split("+")
+    key = _UvKey(
+        implementation=implementation.lower(),
+        version=version,
+        free_threaded="freethreaded" in variants,
+        debug="debug" in variants,
+    )
+    return _UvInstall(path=path, key=key)
+
+
+@dataclass(**DC_KW)
+class _UvKey:
+    """The ``<implementation>-<version>[+<variant>]-<os>-<arch>-<libc>`` name uv gives an install directory."""
+
+    implementation: str
+    version: SimpleVersion
+    free_threaded: bool
+    debug: bool
+
+
+@dataclass(**DC_KW)
+class _UvInstall:
+    path: Path
+    key: _UvKey | None
+
+
+def _uv_install_matches(install: _UvInstall, spec: PythonSpec, *, all_implementations: bool) -> bool:
+    if (key := install.key) is None:
+        return True
+    if spec.implementation is not None:
+        if spec.implementation.lower() != key.implementation:
+            return False
+    elif not all_implementations and key.implementation != "cpython":
+        # uv resolves a bare `3.8` to `cpython-3.8`; on PATH the equivalent probe finds CPython too
+        return False
+    if spec.free_threaded is not None and spec.free_threaded != key.free_threaded:
+        return False
+    if spec.debug is not None and spec.debug != key.debug:
+        return False
+    return _uv_version_matches(key, spec)
+
+
+def _uv_version_matches(key: _UvKey, spec: PythonSpec) -> bool:
+    # GraalPy keys carry the GraalVM version in older uv releases, so only CPython and PyPy state a Python version
+    if key.implementation not in {"cpython", "pypy"}:
+        return True
+    if spec.version_specifier is not None and not spec.version_specifier.contains(str(key.version)):
+        return False
+    return all(req is None or our == req for our, req in zip(key.version.release, (spec.major, spec.minor, spec.micro)))
+
+
+def _uv_sort_key(install: _UvInstall) -> tuple[int, ...]:
+    """Rank like uv does: CPython first, newest version first, default build ahead of free-threaded and debug."""
+    impl_order: Final[tuple[str, ...]] = ("cpython", "pypy", "graalpy", "pyodide")
+    if (key := install.key) is None:
+        return (len(impl_order) + 1,)
+    version = key.version
+    return (
+        impl_order.index(key.implementation) if key.implementation in impl_order else len(impl_order),
+        # uv's minor version links point at a concrete install that moves on upgrade, so report the target instead
+        int(install.path.is_symlink()),
+        -version.major,
+        -version.minor,
+        -version.micro,
+        -{"a": 0, "b": 1, "rc": 2, None: 3}[version.pre_type],
+        -(version.pre_num or 0),
+        int(key.free_threaded),
+        int(key.debug),
+    )
+
+
+def _uv_executables(install: _UvInstall) -> Generator[Path, None, None]:
+    # some distributions unpack into an `install` subdirectory, which uv resolves the same way
+    base = nested if (nested := install.path / "install").is_dir() else install.path
+    for pattern in (
+        "bin/python",
+        "python.exe",
+        "bin/pypy*",
+        "pypy*.exe",
+        "bin/graalpy",
+        "bin/graalpy.exe",
+        "python*t.exe",  # free-threaded Windows builds that ship no python.exe (astral-sh/uv#8298)
+    ):
+        yield from sorted(base.glob(pattern))
 
 
 def get_paths(env: Mapping[str, str]) -> Generator[Path, None, None]:

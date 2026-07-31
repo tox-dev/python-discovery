@@ -92,7 +92,7 @@ uv follows the XDG convention on macOS too, and falls back to the legacy directo
 exists. python-discovery searches both, in the same order, so a leftover legacy directory cannot hide the store uv
 installs into. A relative ``XDG_DATA_HOME`` does not count, as the XDG specification requires, and Windows ignores it
 outright. Every one of these variables comes from the ``env`` mapping passed to
-:func:`~python_discovery.get_interpreter`, never from the process environment.
+:func:`~python_discovery.get_interpreter`, rather than from the process environment.
 
 Each install lives in its own subdirectory, but the actual binary location varies by OS and implementation:
 
@@ -113,42 +113,51 @@ Each install lives in its own subdirectory, but the actual binary location varie
      - ``<root>/<key>/bin/graalpy``
      - ``<root>/<key>/bin/graalpy.exe``
 
-.. mermaid::
-
-    flowchart LR
-        Call(["iter_interpreters(key)"]) --> Mode{"key is None?"}
-        Mode -->|"narrow"| N1["*/bin/python"]
-        Mode -->|"narrow"| N2["*/python.exe"]
-        Mode -->|"wide"| W1["*/bin/pypy*"]
-        Mode -->|"wide"| W2["*/bin/graalpy"]
-        Mode -->|"wide"| W3["*/pypy*.exe"]
-        Mode -->|"wide"| W4["*/bin/graalpy.exe"]
-
-        N1 --> Dedup[/"realpath dedup"/]
-        N2 --> Dedup
-        W1 --> Dedup
-        W2 --> Dedup
-        W3 --> Dedup
-        W4 --> Dedup
-
-        Dedup --> Interrogate(["subprocess interrogation"])
-
-        style Call fill:#4a90d9,stroke:#2a5f8f,color:#fff
-        style Mode fill:#d9904a,stroke:#8f5f2a,color:#fff
-        style N1 fill:#3a7fc2,stroke:#1f4d7a,color:#fff
-        style N2 fill:#3a7fc2,stroke:#1f4d7a,color:#fff
-        style W1 fill:#9f4ad9,stroke:#5f2a8f,color:#fff
-        style W2 fill:#9f4ad9,stroke:#5f2a8f,color:#fff
-        style W3 fill:#9f4ad9,stroke:#5f2a8f,color:#fff
-        style W4 fill:#9f4ad9,stroke:#5f2a8f,color:#fff
-        style Dedup fill:#c2873a,stroke:#7a4c1f,color:#fff
-        style Interrogate fill:#4a9f4a,stroke:#2a6f2a,color:#fff
-
 GraalPy keeps its ``bin/`` segment on Windows (an upstream choice in uv); PyPy and CPython do not. python-discovery
 globs all of these patterns regardless of the host OS, because globs that do not match anything are essentially
 free, and the cross-platform list is short. Symlinked aliases inside an install (``bin/python``,
 ``bin/python3``, ``bin/python3.14`` all pointing at the same real file) are deduplicated by resolved path before
-the subprocess interrogation, so each install is interrogated once.
+the subprocess interrogation, so each install is interrogated once. python-discovery also follows the ``install``
+subdirectory some distributions unpack into, as uv does.
+
+Which uv installs get interrogated
+------------------------------------
+
+Interrogating an interpreter costs a subprocess, and a uv install directory announces what it holds in its own name:
+``<implementation>-<version>[+<variant>]-<os>-<arch>-<libc>``, for example
+``cpython-3.14.6+freethreaded-macos-aarch64-none``. python-discovery reads that name and skips the installs the spec
+already rules out, then probes what is left in uv's preference order:
+
+.. mermaid::
+
+    flowchart LR
+        Dirs[/"store subdirectories"/] --> Parse{"name is a uv key?"}
+        Parse -->|"no"| Last["probe last"]
+        Parse -->|"yes"| Filter["drop what the spec rules out:<br>implementation, version, free-threaded, debug"]
+        Filter --> Sort["CPython → PyPy → GraalPy,<br>newest version first,<br>default build before variants"]
+        Sort --> Interrogate(["subprocess interrogation"])
+        Last --> Interrogate
+
+        style Dirs fill:#4a90d9,stroke:#2a5f8f,color:#fff
+        style Parse fill:#d9904a,stroke:#8f5f2a,color:#fff
+        style Filter fill:#9f4ad9,stroke:#5f2a8f,color:#fff
+        style Sort fill:#c2873a,stroke:#7a4c1f,color:#fff
+        style Interrogate fill:#4a9f4a,stroke:#2a6f2a,color:#fff
+
+python-discovery reads the variant suffix the same way :class:`~python_discovery.PythonSpec` does: ``3.14t`` wants
+``+freethreaded``, ``3.14d`` wants ``+debug``. A spec that says nothing about a variant leaves it unconstrained, so
+``3.14`` still reaches a ``+debug`` install, after the default build rather than instead of it.
+
+A bare version spec such as ``3.8`` matches CPython only, which is what uv resolves it to and what the equivalent
+``python3.8`` probe on ``PATH`` finds in practice. Ask for ``pypy3.8`` or enumerate with
+:func:`~python_discovery.iter_interpreters` to reach the other implementations - PyPy ships a ``bin/python`` symlink,
+so a store-wide glob would otherwise hand back PyPy for ``3.8`` whenever the filesystem listed it first.
+
+Two names carry less information than they appear to. GraalPy keys named after the GraalVM release
+(``graalpy-24.1.1``, from older uv versions) do not constrain the version, and uv's minor version links
+(``cpython-3.15`` pointing at ``cpython-3.15.0b3``) move on the next patch release, so the concrete install ranks
+ahead of the link. Anything that is not a uv key - a hand-made ``UV_PYTHON_INSTALL_DIR`` layout, say - stays in
+the running, at the back of the queue.
 
 Selecting one interpreter vs. enumerating all of them
 -------------------------------------------------------

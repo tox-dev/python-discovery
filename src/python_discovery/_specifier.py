@@ -9,7 +9,9 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
-_DC_KW = {"frozen": True, "kw_only": True, "slots": True} if sys.version_info >= (3, 10) else {"frozen": True}
+DC_KW: Final[dict[str, bool]] = (
+    {"frozen": True, "kw_only": True, "slots": True} if sys.version_info >= (3, 10) else {"frozen": True}
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -38,7 +40,7 @@ _SPECIFIER_RE: Final[re.Pattern[str]] = re.compile(
 _PRE_ORDER: Final[dict[str, int]] = {"a": 1, "b": 2, "rc": 3}
 
 
-@dataclass(**_DC_KW)
+@dataclass(**DC_KW)
 class SimpleVersion:
     """
     Simple PEP 440-like version parser using only standard library.
@@ -125,7 +127,7 @@ class SimpleVersion:
         return f"SimpleVersion('{self.version_str}')"
 
 
-@dataclass(**_DC_KW)
+@dataclass(**DC_KW)
 class SimpleSpecifier:
     """
     Simple PEP 440-like version specifier using only standard library.
@@ -247,7 +249,7 @@ class SimpleSpecifier:
         return f"SimpleSpecifier('{self.spec_str}')"
 
 
-@dataclass(**_DC_KW)
+@dataclass(**DC_KW)
 class SimpleSpecifierSet:
     """
     Simple PEP 440-like specifier set using only standard library.
@@ -305,6 +307,7 @@ class SimpleSpecifierSet:
 
 
 __all__ = [
+    "DC_KW",
     "SimpleSpecifier",
     "SimpleSpecifierSet",
     "SimpleVersion",

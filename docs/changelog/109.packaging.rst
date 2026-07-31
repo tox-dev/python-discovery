@@ -1,2 +1,2 @@
-Drop the ``platformdirs`` runtime dependency; it was only used to locate uv's interpreter store, which is now
-derived from uv's own rules - by :user:`gaborbernat`.
+Drop the ``platformdirs`` runtime dependency; locating uv's store was the only thing it did - by
+:user:`gaborbernat`.
