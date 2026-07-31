@@ -1,3 +1,0 @@
-Pick uv-managed interpreters by install directory name instead of globbing the store. A bare ``3.8`` now means
-CPython, the way uv resolves it, rather than whichever implementation the filesystem happened to list first, and
-probing runs newest version first - by :user:`gaborbernat`.

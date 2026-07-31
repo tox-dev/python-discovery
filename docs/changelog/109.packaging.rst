@@ -1,2 +1,0 @@
-Drop the ``platformdirs`` runtime dependency; locating uv's store was the only thing it did - by
-:user:`gaborbernat`.

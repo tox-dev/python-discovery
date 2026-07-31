@@ -7,6 +7,24 @@
 .. towncrier release notes start
 
 ********************
+ v1.5.1 (2026-07-31)
+********************
+
+Bug fixes - 1.5.1
+=================
+- Locate uv's interpreter store the way uv does, using XDG on macOS (``~/.local/share/uv/python``) and roaming
+  ``%APPDATA%\uv\python`` on Windows, neither of which ``platformdirs`` reported. The uv variables now come from the
+  ``env`` mapping rather than ``os.environ`` - by :user:`gaborbernat`. (:issue:`109`)
+- Pick uv-managed interpreters by install directory name instead of globbing the store. A bare ``3.8`` now means
+  CPython, the way uv resolves it, rather than whichever implementation the filesystem happened to list first, and
+  probing runs newest version first - by :user:`gaborbernat`. (:issue:`110`)
+
+Packaging updates and notes for downstreams - 1.5.1
+===================================================
+- Drop the ``platformdirs`` runtime dependency; locating uv's store was the only thing it did - by
+  :user:`gaborbernat`. (:issue:`109`)
+
+********************
  v1.5.0 (2026-07-21)
 ********************
 

@@ -1,3 +1,0 @@
-Locate uv's interpreter store the way uv does, using XDG on macOS (``~/.local/share/uv/python``) and roaming
-``%APPDATA%\uv\python`` on Windows, neither of which ``platformdirs`` reported. The uv variables now come from the
-``env`` mapping rather than ``os.environ`` - by :user:`gaborbernat`.
