@@ -68,9 +68,33 @@ detects these shims and resolves them to the actual binary.
 How uv-managed Pythons are discovered
 ---------------------------------------
 
-`uv <https://docs.astral.sh/uv/>`_ installs Python interpreters under a single root directory (configurable via
-``UV_PYTHON_INSTALL_DIR``, otherwise defaulting under ``XDG_DATA_HOME`` or the platform user-data path). Each
-install lives in its own subdirectory, but the actual binary location varies by OS and implementation:
+`uv <https://docs.astral.sh/uv/>`_ installs Python interpreters under a single root directory. ``UV_PYTHON_INSTALL_DIR``
+overrides it; otherwise the store is the ``python`` bucket of uv's state directory, which uv derives as follows:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 40 40
+
+   * - Platform
+     - Legacy state directory
+     - Current state directory
+   * - Windows
+     - ``%APPDATA%\uv\data``
+     - ``%APPDATA%\uv`` (roaming, not local)
+   * - macOS
+     - ``~/Library/Application Support/uv``
+     - ``$XDG_DATA_HOME/uv`` or ``~/.local/share/uv``
+   * - Other
+     - same as current
+     - ``$XDG_DATA_HOME/uv`` or ``~/.local/share/uv``
+
+uv follows the XDG convention on macOS too, and falls back to the legacy directory only when that directory already
+exists. python-discovery searches both, in the same order, so a leftover legacy directory cannot hide the store uv
+installs into. A relative ``XDG_DATA_HOME`` does not count, as the XDG specification requires, and Windows ignores it
+outright. Every one of these variables comes from the ``env`` mapping passed to
+:func:`~python_discovery.get_interpreter`, never from the process environment.
+
+Each install lives in its own subdirectory, but the actual binary location varies by OS and implementation:
 
 .. list-table::
    :header-rows: 1

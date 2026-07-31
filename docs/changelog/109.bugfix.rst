@@ -1,0 +1,6 @@
+Locate uv's managed interpreter store the way uv itself does, instead of via ``platformdirs``. uv follows the XDG
+convention on every non-Windows platform, so on macOS the store lives in ``~/.local/share/uv/python`` rather than
+``~/Library/Application Support/uv/python``, and on Windows it lives in roaming ``%APPDATA%\uv\python`` rather than
+local ``%LOCALAPPDATA%\uv\uv\python``. Discovery now searches both the current and the legacy directory, and reads
+the uv variables from the ``env`` mapping passed to ``get_interpreter``/``iter_interpreters`` rather than from
+``os.environ`` - by :user:`gaborbernat`.

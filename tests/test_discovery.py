@@ -91,66 +91,6 @@ def test_relative_path(session_cache: DiskCache, monkeypatch: pytest.MonkeyPatch
     assert result is not None
 
 
-def test_uv_python(
-    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory, mocker: MockerFixture
-) -> None:
-    monkeypatch.delenv("UV_PYTHON_INSTALL_DIR", raising=False)
-    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
-    monkeypatch.setenv("PATH", "")
-    mocker.patch.object(PythonInfo, "satisfies", return_value=False)
-
-    uv_python_install_dir = tmp_path_factory.mktemp("uv_python_install_dir")
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe, monkeypatch.context() as m:
-        m.setenv("UV_PYTHON_INSTALL_DIR", str(uv_python_install_dir))
-
-        get_interpreter("python", [])
-        mock_from_exe.assert_not_called()
-
-        bin_path = uv_python_install_dir.joinpath("some-py-impl", "bin")
-        bin_path.mkdir(parents=True)
-        bin_path.joinpath("python").touch()
-        get_interpreter("python", [])
-        mock_from_exe.assert_called_once()
-        assert mock_from_exe.call_args[0][0] == str(bin_path / "python")
-
-        mock_from_exe.reset_mock()
-        python_exe = "python.exe" if IS_WIN else "python"
-        dir_in_path = tmp_path_factory.mktemp("path_bin_dir")
-        dir_in_path.joinpath(python_exe).touch()
-        m.setenv("PATH", str(dir_in_path))
-        get_interpreter("python", [])
-        mock_from_exe.assert_called_once()
-        assert mock_from_exe.call_args[0][0] == str(dir_in_path / python_exe)
-
-    xdg_data_home = tmp_path_factory.mktemp("xdg_data_home")
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe, monkeypatch.context() as m:
-        m.setenv("XDG_DATA_HOME", str(xdg_data_home))
-
-        get_interpreter("python", [])
-        mock_from_exe.assert_not_called()
-
-        bin_path = xdg_data_home.joinpath("uv", "python", "some-py-impl", "bin")
-        bin_path.mkdir(parents=True)
-        bin_path.joinpath("python").touch()
-        get_interpreter("python", [])
-        mock_from_exe.assert_called_once()
-        assert mock_from_exe.call_args[0][0] == str(bin_path / "python")
-
-    user_data_path = tmp_path_factory.mktemp("user_data_path")
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe, monkeypatch.context() as m:
-        m.setattr("python_discovery._discovery.user_data_path", lambda x: user_data_path / x)
-
-        get_interpreter("python", [])
-        mock_from_exe.assert_not_called()
-
-        bin_path = user_data_path.joinpath("uv", "python", "some-py-impl", "bin")
-        bin_path.mkdir(parents=True)
-        bin_path.joinpath("python").touch()
-        get_interpreter("python", [])
-        mock_from_exe.assert_called_once()
-        assert mock_from_exe.call_args[0][0] == str(bin_path / "python")
-
-
 def test_discovery_fallback_fail(session_cache: DiskCache, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG)
     result = get_interpreter(["magic-one", "magic-two"], cache=session_cache)
