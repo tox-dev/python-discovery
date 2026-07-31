@@ -7,8 +7,6 @@ from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
-from platformdirs import user_data_path
-
 from ._compat import fs_path_id
 from ._py_info import PythonInfo
 from ._py_spec import PythonSpec
@@ -267,25 +265,46 @@ def _propose_from_uv(
     *,
     all_implementations: bool = False,
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
-    if uv_python_dir := os.getenv("UV_PYTHON_INSTALL_DIR"):
-        uv_python_path = Path(uv_python_dir).expanduser()
-    elif xdg_data_home := os.getenv("XDG_DATA_HOME"):
-        uv_python_path = Path(xdg_data_home).expanduser() / "uv" / "python"
-    else:
-        uv_python_path = user_data_path("uv") / "python"
-
     patterns: list[str] = ["*/bin/python", "*/python.exe"]
     if all_implementations:
         patterns.extend(("*/bin/pypy*", "*/bin/graalpy", "*/pypy*.exe", "*/bin/graalpy.exe"))
     seen_uv_paths: set[str] = set()
-    for pattern in patterns:
-        for exe_path in uv_python_path.glob(pattern):
-            resolved = str(Path(exe_path).resolve())
-            if resolved in seen_uv_paths:
-                continue
-            seen_uv_paths.add(resolved)
-            if interpreter := PathPythonInfo.from_exe(str(exe_path), cache, raise_on_error=False, env=env):
-                yield interpreter, True
+    for root in _uv_python_roots(env):
+        for pattern in patterns:
+            for exe_path in root.glob(pattern):
+                resolved = str(Path(exe_path).resolve())
+                if resolved in seen_uv_paths:
+                    continue
+                seen_uv_paths.add(resolved)
+                if interpreter := PathPythonInfo.from_exe(str(exe_path), cache, raise_on_error=False, env=env):
+                    yield interpreter, True
+
+
+def _uv_python_roots(env: Mapping[str, str]) -> Generator[Path, None, None]:
+    """Yield uv's store roots, legacy first; searching both keeps a stale legacy directory from hiding the live one."""
+    if install_dir := env.get("UV_PYTHON_INSTALL_DIR"):
+        yield Path(install_dir).expanduser()
+        return
+    for state_dir in _uv_state_dirs(env):
+        yield state_dir / "python"
+
+
+def _uv_state_dirs(env: Mapping[str, str]) -> Generator[Path, None, None]:
+    """Yield uv's legacy state directory then its current one, the order uv prefers them in."""
+    windows = sys.platform == "win32"
+    home = Path(env.get("USERPROFILE" if windows else "HOME") or "~").expanduser()
+    if windows:
+        app_data = Path(env["APPDATA"]) if "APPDATA" in env else home / "AppData" / "Roaming"
+        yield app_data / "uv" / "data"
+        yield app_data / "uv"
+        return
+    if sys.platform == "darwin":
+        yield home / "Library" / "Application Support" / "uv"
+    # uv ignores a relative XDG_DATA_HOME, as the XDG specification requires
+    if (xdg_data_home := env.get("XDG_DATA_HOME")) and (xdg := Path(xdg_data_home)).is_absolute():
+        yield xdg / "uv"
+    else:
+        yield home / ".local" / "share" / "uv"
 
 
 def get_paths(env: Mapping[str, str]) -> Generator[Path, None, None]:
