@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +15,7 @@ release = __version__
 copyright = f"2026-{datetime.now(tz=timezone.utc).year}, {company}"  # ruff:ignore[builtin-variable-shadowing]
 
 extensions = [
+    "sphinx_llm.txt",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.extlinks",
@@ -58,3 +60,5 @@ html_theme_options = {
     "sidebar_hide_name": True,
 }
 html_css_files = ["custom.css"]
+
+markdown_http_base = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
