@@ -59,6 +59,7 @@ test = [
   "pytest>=8.3.5",
   "pytest-mock>=3.14",
   "setuptools>=75.1",
+  "vermin>=1.6",
 ]
 docs = [
   "furo>=2025.12.19",
@@ -87,50 +88,57 @@ lint.select = [
   "ALL",
 ]
 lint.ignore = [
-  "COM812", # Conflict with formatter
-  "CPY",    # No copyright statements
-  "D203",   # `one-blank-line-before-class` and `no-blank-line-before-class` are incompatible
-  "D212",   # `multi-line-summary-first-line` and `multi-line-summary-second-line` are incompatible
-  "DOC201", # `return` is not documented in docstring
-  "DOC402", # `yield` is not documented in docstring
-  "DOC501", # `raises` is not documented in docstring
-  "ISC001", # Conflict with formatter
-  "S104",   # Possible binding to all interface
+  "CPY",                                       # No copyright statements
+  "docstring-missing-exception",               # `raises` is not documented in docstring
+  "docstring-missing-returns",                 # `return` is not documented in docstring
+  "docstring-missing-yields",                  # `yield` is not documented in docstring
+  "hardcoded-bind-all-interfaces",             # Possible binding to all interface
+  "incorrect-blank-line-before-class",         # `one-blank-line-before-class` and `no-blank-line-before-class` are incompatible
+  "missing-trailing-comma",                    # Conflict with formatter
+  "multi-line-summary-first-line",             # `multi-line-summary-first-line` and `multi-line-summary-second-line` are incompatible
+  "single-line-implicit-string-concatenation", # Conflict with formatter
 ]
 lint.per-file-ignores."docs/**/*.py" = [
-  "INP001", # no __init__.py in docs directory
+  "implicit-namespace-package", # no __init__.py in docs directory
 ]
 lint.per-file-ignores."src/python_discovery/_discovery.py" = [
   "PTH", # shim resolution uses string-based os.path for consistency with env variables
 ]
 lint.per-file-ignores."src/python_discovery/_py_info.py" = [
-  "PTH", # must use os.path — file runs as subprocess script with only stdlib
+  "PTH", # string-based os.path kept for parity with the interrogation script data
+]
+lint.per-file-ignores."src/python_discovery/_py_info_collect.py" = [
+  "ANN",                              # file must parse on Python 2.7 for the version gate: no annotations
+  "missing-required-import",          # `from __future__ import annotations` is a SyntaxError below 3.7
+  "module-import-not-at-top-of-file", # the version gate must run before importing sysconfig, absent on 3.0/3.1
+  "PTH",                              # must use os.path — file runs as subprocess script with only stdlib
+  "UP",                               # pyupgrade pushes syntax newer than the 2.7 parse floor, e.g. f-strings
 ]
 lint.per-file-ignores."src/python_discovery/_windows/_pep514.py" = [
   "PTH", # os.path.exists is monkeypatched in tests; pathlib.Path.exists bypasses the mock
 ]
 lint.per-file-ignores."tasks/**/*.py" = [
-  "D",      # release helper scripts, not API
-  "INP001", # no __init__.py in tasks directory
-  "S404",   # subprocess import (release tooling)
-  "S603",   # `subprocess` call: argv built from trusted inputs (version, gh CLI)
+  "D",                                    # release helper scripts, not API
+  "implicit-namespace-package",           # no __init__.py in tasks directory
+  "subprocess-without-shell-equals-true", # `subprocess` call: argv built from trusted inputs (version, gh CLI)
+  "suspicious-subprocess-import",         # subprocess import (release tooling)
 ]
 lint.per-file-ignores."tests/**/*.py" = [
-  "D",       # don't care about documentation in tests
-  "FBT",     # don't care about booleans as positional arguments in tests
-  "INP001",  # no implicit namespace
-  "PLC0415", # imports inside test functions (conditional on mocking)
-  "PLC2701", # private imports needed to test internal APIs
-  "PLR0913", # too many arguments (pytest fixtures)
-  "PLR0917", # too many positional arguments (pytest fixtures)
-  "PLR2004", # Magic value used in comparison
-  "S101",    # asserts allowed in tests
-  "S404",    # subprocess import
-  "S603",    # `subprocess` call: check for execution of untrusted input
-  "SLF001",  # private member access needed to test internals
+  "assert",                               # asserts allowed in tests
+  "D",                                    # don't care about documentation in tests
+  "FBT",                                  # don't care about booleans as positional arguments in tests
+  "implicit-namespace-package",           # no implicit namespace
+  "import-outside-top-level",             # imports inside test functions (conditional on mocking)
+  "import-private-name",                  # private imports needed to test internal APIs
+  "magic-value-comparison",               # Magic value used in comparison
+  "private-member-access",                # private member access needed to test internals
+  "subprocess-without-shell-equals-true", # `subprocess` call: check for execution of untrusted input
+  "suspicious-subprocess-import",         # subprocess import
+  "too-many-arguments",                   # too many arguments (pytest fixtures)
+  "too-many-positional-arguments",        # too many positional arguments (pytest fixtures)
 ]
 lint.per-file-ignores."tests/windows/winreg_mock_values.py" = [
-  "F821", # undefined name (winreg available only on Windows)
+  "undefined-name", # undefined name (winreg available only on Windows)
 ]
 lint.isort = { known-first-party = [
   "python_discovery",
@@ -151,7 +159,11 @@ max_supported_python = "3.15"
 src.exclude = [ "tests/windows/winreg_mock_values.py" ]
 
 [[tool.ty.overrides]]
-include = [ "src/python_discovery/_py_info.py", "src/python_discovery/_py_spec.py" ]
+include = [
+  "src/python_discovery/_py_info.py",
+  "src/python_discovery/_py_info_collect.py",
+  "src/python_discovery/_py_spec.py",
+]
 rules.unused-ignore-comment = "ignore"
 rules.invalid-argument-type = "ignore"
 rules.invalid-return-type = "ignore"

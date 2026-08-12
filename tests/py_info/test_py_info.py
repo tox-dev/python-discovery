@@ -224,8 +224,10 @@ def test_system_executable_no_exact_match(
         path = tmp_path / str(pos)
         path.write_text("", encoding="utf-8")
         py_info = _make_py_info(i)
-        py_info.system_executable = CURRENT.system_executable
-        py_info.executable = CURRENT.system_executable
+        system_executable = CURRENT.system_executable
+        assert system_executable is not None
+        py_info.system_executable = system_executable
+        py_info.executable = system_executable
         py_info.base_executable = str(path)  # ty: ignore[unresolved-attribute]
         if pos == position:
             selected = py_info

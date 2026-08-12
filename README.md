@@ -16,6 +16,9 @@ the right one for you.
 Give it a requirement like `python3.12` or `>=3.11,<3.13`, and it searches all known locations, verifies each candidate,
 and returns detailed metadata about the match. Results are cached to disk so repeated lookups are fast.
 
+The library runs on Python 3.8+ and discovers interpreters as old as Python 3.6; anything older is skipped with a
+warning naming the version it found.
+
 ## Usage
 
 ```python

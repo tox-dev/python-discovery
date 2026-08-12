@@ -243,6 +243,18 @@ The timeout applies to each individual interpreter being queried. If you set a v
 legitimate interpreters may be skipped; if too high, the discovery process may take longer to fail
 when encountering problematic interpreters.
 
+Supported Python versions
+-------------------------
+
+Two floors apply: python-discovery itself runs on Python 3.8+ (``requires-python``), while discovery
+reaches down to Python 3.6 - old enough to cover RHEL 8's system Python.
+
+python-discovery skips candidates below 3.6 with one warning naming the executable, the version
+found, and the floor; the verdict is cached, so the interpreter is not queried again. Candidates too
+old to run the version check at all (before Python 2.7) fail as a generic query error. An
+absolute-path spec for a below-floor interpreter raises :class:`RuntimeError` with the same message.
+The floor moves only in a major release.
+
 Spec format reference
 -----------------------
 
