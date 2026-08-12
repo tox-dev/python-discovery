@@ -55,3 +55,26 @@ jobs:
         env:
           PYTEST_ADDOPTS: "-vv --durations=20"
           DIFF_AGAINST: HEAD
+  old-target:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
+          cache-dependency-glob: "pyproject.toml"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the wheel
+        run: uv build --wheel --out-dir dist .
+      - name: Discover Python 3.6
+        run: tasks/old_target_check.sh 3.6 discover
+      - name: Discover Python 3.7
+        run: tasks/old_target_check.sh 3.7 discover
+      - name: Reject Python 3.5
+        run: tasks/old_target_check.sh 3.5 rejected
+      - name: Reject Python 2.7
+        run: tasks/old_target_check.sh 2.7 rejected

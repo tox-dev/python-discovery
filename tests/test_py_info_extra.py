@@ -13,14 +13,7 @@ import pytest
 from python_discovery import DiskCache, PythonInfo, PythonSpec
 from python_discovery._py_info import VersionInfo
 
-try:
-    import tkinter as tk  # pragma: no cover
-except ImportError:  # pragma: no cover
-    tk = None  # type: ignore[assignment]
-
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from pytest_mock import MockerFixture
 
 CURRENT = PythonInfo.current_system()
@@ -45,168 +38,6 @@ def test_has_venv_attribute() -> None:
     assert isinstance(info.has_venv, bool)
 
 
-def test_tcl_tk_libs_with_env(mocker: MockerFixture) -> None:
-    mocker.patch.dict(os.environ, {"TCL_LIBRARY": "/some/path"})
-    mocker.patch.object(PythonInfo, "_get_tcl_tk_libs", return_value=("/tcl", "/tk"))
-    info = PythonInfo()
-    assert info.tcl_lib == "/tcl"
-    assert info.tk_lib == "/tk"
-
-
-def test_get_tcl_tk_libs_returns_tuple() -> None:
-    tcl_path, tk_path = PythonInfo._get_tcl_tk_libs()
-    assert tcl_path is None or isinstance(tcl_path, str)
-    assert tk_path is None or isinstance(tk_path, str)
-
-
-@pytest.mark.skipif(tk is None, reason="tkinter not available")
-def test_get_tcl_tk_libs_tcl_error(mocker: MockerFixture) -> None:  # pragma: no cover
-    mock_tcl = MagicMock()
-    mock_tcl.eval.side_effect = tk.TclError("fail")
-    mocker.patch("tkinter.Tcl", return_value=mock_tcl)
-
-    tcl, _tk = PythonInfo._get_tcl_tk_libs()
-    assert tcl is None
-
-
-def test_fast_get_system_executable_not_venv() -> None:
-    info = PythonInfo()
-    info.real_prefix = None
-    info.base_prefix = info.prefix
-    result = info._fast_get_system_executable()
-    assert result is not None
-    assert Path(result).samefile(info.original_executable)
-
-
-def test_fast_get_system_executable_real_prefix() -> None:
-    info = PythonInfo()
-    info.real_prefix = "/some/real/prefix"
-    assert info._fast_get_system_executable() is None
-
-
-def test_fast_get_system_executable_no_base_executable(mocker: MockerFixture) -> None:
-    info = PythonInfo()
-    info.real_prefix = None
-    info.base_prefix = "/different/prefix"
-    mocker.patch.object(sys, "_base_executable", None, create=True)
-    assert info._fast_get_system_executable() is None
-
-
-def test_fast_get_system_executable_same_as_current(mocker: MockerFixture) -> None:
-    info = PythonInfo()
-    info.real_prefix = None
-    info.base_prefix = "/different/prefix"
-    mocker.patch.object(sys, "_base_executable", sys.executable, create=True)
-    assert info._fast_get_system_executable() is None
-
-
-@pytest.fixture
-def posix_info() -> PythonInfo:
-    info = PythonInfo()
-    info.os = "posix"
-    return info
-
-
-def test_resolve_executable_symlink_not_posix() -> None:
-    info = PythonInfo()
-    info.os = "nt"
-    assert info._resolve_executable_symlink("/some/python") == str(Path("/some/python").resolve())
-
-
-def _layout_regular_file(tmp_path: Path) -> tuple[Path, Path]:
-    exe = tmp_path / "python"
-    exe.touch()
-    return exe, exe
-
-
-def _layout_broken_symlink(tmp_path: Path) -> tuple[Path, Path]:
-    link = tmp_path / "python"
-    link.symlink_to(tmp_path / "missing")
-    return link, link
-
-
-def _layout_absolute_symlink(tmp_path: Path) -> tuple[Path, Path]:
-    exe = tmp_path / "install" / "bin" / "python3.12"
-    exe.parent.mkdir(parents=True)
-    exe.touch()
-    link = tmp_path / "symdir" / "python3"
-    link.parent.mkdir()
-    link.symlink_to(exe)
-    return link, exe
-
-
-def _layout_relative_chain(tmp_path: Path) -> tuple[Path, Path]:
-    exe = tmp_path / "python3.12"
-    exe.touch()
-    (tmp_path / "python3").symlink_to("python3.12")
-    link = tmp_path / "python"
-    link.symlink_to("python3")
-    return link, exe
-
-
-def _layout_tree_symlink(tmp_path: Path) -> tuple[Path, Path]:
-    real_bin = tmp_path / "install" / "bin"
-    real_bin.mkdir(parents=True)
-    (real_bin / "python3").touch()
-    tree_link = tmp_path / "tree"
-    tree_link.symlink_to(tmp_path / "install")
-    via_tree = tree_link / "bin" / "python3"
-    return via_tree, via_tree
-
-
-def _layout_normpath_mismatch(tmp_path: Path) -> tuple[Path, Path]:
-    real_dir = tmp_path / "deep" / "real"
-    real_dir.mkdir(parents=True)
-    (tmp_path / "deep" / "exe").touch()
-    (real_dir / "python").symlink_to("../exe")
-    dir_link = tmp_path / "link"
-    dir_link.symlink_to(real_dir)
-    via_link = dir_link / "python"
-    return via_link, via_link
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
-@pytest.mark.parametrize(
-    "layout",
-    [
-        pytest.param(_layout_regular_file, id="regular-file"),
-        pytest.param(_layout_broken_symlink, id="broken-symlink"),
-        pytest.param(_layout_absolute_symlink, id="absolute-symlink"),
-        pytest.param(_layout_relative_chain, id="relative-chain"),
-        pytest.param(_layout_tree_symlink, id="tree-preserved"),
-        pytest.param(_layout_normpath_mismatch, id="normpath-mismatch"),
-    ],
-)
-def test_resolve_executable_symlink(
-    tmp_path: Path,
-    posix_info: PythonInfo,
-    layout: Callable[[Path], tuple[Path, Path]],
-) -> None:
-    path, expected = layout(tmp_path)
-    assert posix_info._resolve_executable_symlink(str(path), framework=False) == str(expected)
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
-def test_resolve_executable_symlink_framework_kept(tmp_path: Path, posix_info: PythonInfo) -> None:
-    link, _exe = _layout_absolute_symlink(tmp_path)
-    assert posix_info._resolve_executable_symlink(str(link), framework=True) == str(link)
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
-def test_resolve_executable_symlink_stdlib_landmark_kept(tmp_path: Path, posix_info: PythonInfo) -> None:
-    exe = tmp_path / "install" / "bin" / "python3.12"
-    exe.parent.mkdir(parents=True)
-    exe.touch()
-    alias_bin = tmp_path / "alias" / "bin"
-    alias_bin.mkdir(parents=True)
-    landmark = tmp_path / "alias" / "lib" / Path(os.__file__).parent.name / "os.py"
-    landmark.parent.mkdir(parents=True)
-    landmark.touch()
-    link = alias_bin / "python3"
-    link.symlink_to(exe)
-    assert posix_info._resolve_executable_symlink(str(link), framework=False) == str(link)
-
-
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
 @pytest.mark.skipif(bool(CURRENT.sysconfig_vars.get("PYTHONFRAMEWORK")), reason="framework builds keep recorded path")
 def test_from_exe_resolves_executable_only_symlink(  # pragma: no cover # skipped on framework interpreter hosts
@@ -222,52 +53,6 @@ def test_from_exe_resolves_executable_only_symlink(  # pragma: no cover # skippe
     assert info.system_executable is not None
     assert Path(info.system_executable).samefile(system_exe)
     assert Path(info.system_executable).parent != tmp_path
-
-
-def test_try_posix_fallback_not_posix() -> None:
-    info = PythonInfo()
-    info.os = "nt"
-    assert info._try_posix_fallback_executable("/some/python") is None
-
-
-def test_try_posix_fallback_old_python() -> None:
-    info = PythonInfo()
-    info.os = "posix"
-    info.version_info = VersionInfo(3, 10, 0, "final", 0)
-    assert info._try_posix_fallback_executable("/some/python") is None
-
-
-def test_try_posix_fallback_finds_versioned(tmp_path: Path) -> None:
-    info = PythonInfo()
-    info.os = "posix"
-    info.version_info = VersionInfo(3, 12, 0, "final", 0)
-    info.implementation = "CPython"
-    base_exe = str(tmp_path / "python")
-    versioned = tmp_path / "python3"
-    versioned.touch()
-    result = info._try_posix_fallback_executable(base_exe)
-    assert result == str(versioned)
-
-
-def test_try_posix_fallback_pypy(tmp_path: Path) -> None:
-    info = PythonInfo()
-    info.os = "posix"
-    info.version_info = VersionInfo(3, 12, 0, "final", 0)
-    info.implementation = "PyPy"
-    base_exe = str(tmp_path / "python")
-    pypy = tmp_path / "pypy3"
-    pypy.touch()
-    result = info._try_posix_fallback_executable(base_exe)
-    assert result == str(pypy)
-
-
-def test_try_posix_fallback_not_found(tmp_path: Path) -> None:
-    info = PythonInfo()
-    info.os = "posix"
-    info.version_info = VersionInfo(3, 12, 0, "final", 0)
-    info.implementation = "CPython"
-    base_exe = str(tmp_path / "python")
-    assert info._try_posix_fallback_executable(base_exe) is None
 
 
 def test_version_str() -> None:
@@ -459,12 +244,6 @@ def test_satisfies_path_win32(mocker: MockerFixture) -> None:
     spec = PythonSpec.from_string_spec("python")
     spec.path = "python"
     assert info.satisfies(spec, impl_must_match=False) is True
-
-
-def test_distutils_install() -> None:
-    info = PythonInfo()
-    result = info._distutils_install()
-    assert isinstance(result, dict)
 
 
 def test_install_path() -> None:

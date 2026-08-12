@@ -18,6 +18,7 @@ from python_discovery._cached_py_info import (
     _load_cached_py_info,
     _resolve_py_info_script,
     _run_subprocess,
+    _script_hash,
     gen_cookie,
 )
 
@@ -47,7 +48,7 @@ def test_log_cmd_repr_with_env() -> None:
 def test_resolve_py_info_script_file_exists() -> None:
     with _resolve_py_info_script() as script:
         assert script.exists()
-        assert script.name == "_py_info.py"
+        assert script.name == "_py_info_collect.py"
 
 
 def test_resolve_py_info_script_fallback_to_pkgutil(mocker: MockerFixture) -> None:
@@ -225,6 +226,7 @@ def test_from_exe_retry_on_first_failure(
 
 def test_get_via_file_cache_hash_oserror(tmp_path: Path, mocker: MockerFixture) -> None:
     cache = DiskCache(tmp_path)
+    _script_hash.cache_clear()
     mocker.patch("python_discovery._cached_py_info.Path.read_bytes", side_effect=OSError("permission denied"))
     result = _get_via_file_cache(PythonInfo, cache, Path(sys.executable), sys.executable, dict(os.environ))
     assert isinstance(result, PythonInfo)
@@ -238,3 +240,97 @@ def test_get_via_file_cache_py_info_none(tmp_path: Path, mocker: MockerFixture) 
     )
     result = _get_via_file_cache(PythonInfo, cache, Path("/fake"), "/fake", dict(os.environ))
     assert isinstance(result, RuntimeError)
+
+
+def _write_fake_python(tmp_path: Path, stderr: str, code: int = 79) -> Path:
+    """A stand-in interpreter: logs every invocation, then fails interrogation with the given stderr and exit code."""
+    exe = tmp_path / "python"
+    exe.write_text(f'#!/bin/sh\necho "$@" >> "$0.log"\necho "{stderr}" >&2\nexit {code}\n')
+    exe.chmod(0o755)
+    return exe
+
+
+def _interrogations(exe: Path) -> list[str]:
+    return Path(f"{exe}.log").read_text(encoding="utf-8").splitlines()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
+def test_from_exe_too_old_python_warns(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    exe = _write_fake_python(tmp_path, stderr="unsupported Python version 3.5.10")
+    assert PythonInfo.from_exe(str(exe), raise_on_error=False, ignore_cache=True) is None
+    record = next(iter(caplog.records))
+    assert record.levelno == logging.WARNING
+    assert record.getMessage() == f"{exe} is Python 3.5.10, older than the minimum 3.6 python-discovery can query"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
+def test_from_exe_too_old_python_skips_retry(tmp_path: Path) -> None:
+    exe = _write_fake_python(tmp_path, stderr="unsupported Python version 3.5.10")
+    PythonInfo.from_exe(str(exe), raise_on_error=False, ignore_cache=True)
+    assert len(_interrogations(exe)) == 1
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
+def test_from_exe_too_old_python_raises_by_default(tmp_path: Path) -> None:
+    exe = _write_fake_python(tmp_path, stderr="unsupported Python version 3.5.10")
+    with pytest.raises(RuntimeError, match=r"older than the minimum 3\.6 python-discovery can query"):
+        PythonInfo.from_exe(str(exe), ignore_cache=True)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
+def test_from_exe_too_old_python_verdict_cached(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    cache = DiskCache(tmp_path / "cache")
+    exe = _write_fake_python(tmp_path, stderr="unsupported Python version 3.5.10")
+    assert PythonInfo.from_exe(str(exe), cache, raise_on_error=False, ignore_cache=True) is None
+    assert PythonInfo.from_exe(str(exe), cache, raise_on_error=False, ignore_cache=True) is None
+    assert len(_interrogations(exe)) == 1
+    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 1
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
+def test_from_exe_marker_without_version(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    exe = _write_fake_python(tmp_path, stderr="unsupported Python version ")
+    assert PythonInfo.from_exe(str(exe), raise_on_error=False, ignore_cache=True) is None
+    record = next(iter(caplog.records))
+    assert record.getMessage() == f"{exe} is Python unknown, older than the minimum 3.6 python-discovery can query"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
+@pytest.mark.parametrize(
+    ("stderr", "code"),
+    [
+        pytest.param("SyntaxError: invalid syntax", 1, id="syntax-error"),
+        pytest.param("unsupported Python version 3.5.10", 1, id="marker-wrong-exit-code"),
+        pytest.param("something crashed", 79, id="exit-code-without-marker"),
+    ],
+)
+def test_from_exe_query_failure_retries(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, stderr: str, code: int
+) -> None:
+    caplog.set_level(logging.INFO)
+    exe = _write_fake_python(tmp_path, stderr=stderr, code=code)
+    assert PythonInfo.from_exe(str(exe), raise_on_error=False, ignore_cache=True) is None
+    assert not [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert any("failed to query" in record.getMessage() for record in caplog.records)
+    assert len(_interrogations(exe)) == 2
+
+
+def test_from_exe_cache_entry_with_bad_content(tmp_path: Path) -> None:
+    cache = DiskCache(tmp_path)
+    path = Path(sys.executable)
+    env = dict(os.environ)
+    result = _get_via_file_cache(PythonInfo, cache, path, sys.executable, env)
+    assert isinstance(result, PythonInfo)
+
+    store = cache.py_info(path)
+    data = store.read()
+    assert data is not None
+    data["content"] = "garbage"
+    store.write(data)
+
+    required = _get_via_file_cache(PythonInfo, cache, path, sys.executable, env)
+    assert isinstance(required, PythonInfo)
+    assert isinstance(store.read(), dict)

@@ -1,4 +1,4 @@
-"""Concrete Python interpreter information, also used as subprocess interrogation script (stdlib only)."""
+"""Concrete Python interpreter information, collected in-process or via subprocess interrogation."""
 
 from __future__ import annotations
 
@@ -6,22 +6,22 @@ import json
 import logging
 import os
 import platform
-import re
-import struct
 import sys
-import sysconfig
-import warnings
 from collections import OrderedDict
 from itertools import product
 from string import digits
 from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple
 
+from ._py_info_collect import PythonInfoCollector
+
 if TYPE_CHECKING:
-    import tkinter as tk
     from collections.abc import Generator, Mapping
+    from typing import Union
 
     from ._cache import PyInfoCache
     from ._py_spec import PythonSpec
+
+    InfoValue = Union[str, int, bool, None, "tuple[int | str, ...]", "list[str]", "dict[str, str | int | None]"]
 
 
 class VersionInfo(NamedTuple):
@@ -40,246 +40,47 @@ def _get_path_extensions() -> list[str]:
 
 
 EXTENSIONS: Final[list[str]] = _get_path_extensions()
-_32BIT_POINTER_SIZE: Final[int] = 4
-_CONF_VAR_RE: Final[re.Pattern[str]] = re.compile(
-    r"""
-    \{ \w+  }   # sysconfig variable placeholder like {base}
-    """,
-    re.VERBOSE,
-)
 
 
 class PythonInfo:  # ruff:ignore[too-many-public-methods]
     """Contains information for a Python interpreter."""
 
+    platform: str
+    implementation: str
+    pypy_version_info: tuple[int, ...]
+    version_info: VersionInfo
+    architecture: int
+    sysconfig_platform: str | None
+    version_nodot: str | None
+    version: str
+    os: str
+    free_threaded: bool
+    debug_build: bool
+    prefix: str | None
+    base_prefix: str | None
+    real_prefix: str | None
+    base_exec_prefix: str | None
+    exec_prefix: str | None
+    executable: str
+    original_executable: str
+    system_executable: str | None
+    has_venv: bool
+    path: list[str]
+    file_system_encoding: str
+    stdout_encoding: str | None
+    sysconfig_scheme: str | None
+    sysconfig_paths: dict[str, str]
+    distutils_install: dict[str, str]
+    sysconfig: dict[str, str | None]
+    sysconfig_vars: dict[str, str | int | None]
+    tcl_lib: str | None
+    tk_lib: str | None
+    system_stdlib: str
+    system_stdlib_platform: str
+    max_size: int
+
     def __init__(self) -> None:
-        self._init_identity()
-        self._init_prefixes()
-        self._init_schemes()
-        self._init_sysconfig()
-
-    def _init_identity(self) -> None:
-        self.platform = sys.platform
-        self.implementation = platform.python_implementation()
-        if self.implementation == "GraalVM":
-            self.implementation = "GraalPy"
-        if self.implementation == "PyPy":
-            self.pypy_version_info = tuple(sys.pypy_version_info)  # ty: ignore[unresolved-attribute] # pypy only
-
-        self.version_info = VersionInfo(*sys.version_info)
-        # same as stdlib platform.architecture to account for pointer size != max int
-        self.architecture = 32 if struct.calcsize("P") == _32BIT_POINTER_SIZE else 64
-        self.sysconfig_platform = sysconfig.get_platform()
-        self.version_nodot = sysconfig.get_config_var("py_version_nodot")
-        self.version = sys.version
-        self.os = os.name
-        self.free_threaded = sysconfig.get_config_var("Py_GIL_DISABLED") == 1
-        self.debug_build = bool(sysconfig.get_config_var("Py_DEBUG"))
-
-    def _init_prefixes(self) -> None:
-        def abs_path(value: str | None) -> str | None:
-            return None if value is None else os.path.abspath(value)
-
-        self.prefix = abs_path(getattr(sys, "prefix", None))
-        self.base_prefix = abs_path(getattr(sys, "base_prefix", None))
-        self.real_prefix = abs_path(getattr(sys, "real_prefix", None))
-        self.base_exec_prefix = abs_path(getattr(sys, "base_exec_prefix", None))
-        self.exec_prefix = abs_path(getattr(sys, "exec_prefix", None))
-
-        self.executable = abs_path(sys.executable)
-        self.original_executable = abs_path(self.executable)
-        self.system_executable = self._fast_get_system_executable()
-
-        try:
-            __import__("venv")
-            has = True
-        except ImportError:  # pragma: no cover # venv is always available in standard CPython
-            has = False
-        self.has_venv = has
-        self.path = sys.path
-        self.file_system_encoding = sys.getfilesystemencoding()
-        self.stdout_encoding = getattr(sys.stdout, "encoding", None)
-
-    def _init_schemes(self) -> None:
-        scheme_names = sysconfig.get_scheme_names()
-
-        if "venv" in scheme_names:  # pragma: >=3.11 cover
-            self.sysconfig_scheme = "venv"
-            self.sysconfig_paths = {
-                i: sysconfig.get_path(i, expand=False, scheme=self.sysconfig_scheme) for i in sysconfig.get_path_names()
-            }
-            self.distutils_install = {}
-        # debian / ubuntu python 3.10 without `python3-distutils` will report mangled `local/bin` / etc. names
-        elif sys.version_info[:2] == (3, 10) and "deb_system" in scheme_names:  # pragma: no cover # Debian/Ubuntu 3.10
-            self.sysconfig_scheme = "posix_prefix"
-            self.sysconfig_paths = {
-                i: sysconfig.get_path(i, expand=False, scheme=self.sysconfig_scheme) for i in sysconfig.get_path_names()
-            }
-            self.distutils_install = {}
-        else:  # pragma: no cover # "venv" scheme always present on Python 3.12+
-            self.sysconfig_scheme = None
-            self.sysconfig_paths = {i: sysconfig.get_path(i, expand=False) for i in sysconfig.get_path_names()}
-            self.distutils_install = self._distutils_install().copy()
-
-    def _init_sysconfig(self) -> None:
-        makefile = getattr(sysconfig, "get_makefile_filename", getattr(sysconfig, "_get_makefile_filename", None))
-        self.sysconfig = {
-            k: v
-            for k, v in [
-                ("makefile_filename", makefile() if makefile is not None else None),
-            ]
-            if k is not None
-        }
-
-        config_var_keys = set()
-        for element in self.sysconfig_paths.values():
-            config_var_keys.update(k[1:-1] for k in _CONF_VAR_RE.findall(element))
-        config_var_keys.add("PYTHONFRAMEWORK")
-        config_var_keys.update(("Py_ENABLE_SHARED", "INSTSONAME", "LIBDIR"))
-
-        self.sysconfig_vars = {i: sysconfig.get_config_var(i or "") for i in config_var_keys}
-
-        if "TCL_LIBRARY" in os.environ:
-            self.tcl_lib, self.tk_lib = self._get_tcl_tk_libs()
-        else:
-            self.tcl_lib, self.tk_lib = None, None
-
-        confs = {
-            k: (self.system_prefix if isinstance(v, str) and v.startswith(self.prefix) else v)
-            for k, v in self.sysconfig_vars.items()
-        }
-        self.system_stdlib = self.sysconfig_path("stdlib", confs)
-        self.system_stdlib_platform = self.sysconfig_path("platstdlib", confs)
-        self.max_size = getattr(sys, "maxsize", getattr(sys, "maxint", None))
-        self._creators = None  # virtualenv-specific, set via monkey-patch
-
-    @staticmethod
-    def _get_tcl_tk_libs() -> tuple[
-        str | None,
-        str | None,
-    ]:  # pragma: no cover # tkinter availability varies; tested indirectly via __init__
-        """Detect the tcl and tk libraries using tkinter."""
-        tcl_lib, tk_lib = None, None
-        try:
-            import tkinter as tk  # ruff:ignore[import-outside-top-level]
-        except ImportError:
-            pass
-        else:
-            try:
-                tcl = tk.Tcl()
-                tcl_lib = tcl.eval("info library")
-                tk_lib = PythonInfo._resolve_tk_lib(tcl, tcl_lib)
-            except tk.TclError:
-                pass
-
-        return tcl_lib, tk_lib
-
-    @staticmethod
-    def _query_tk_library(tcl: tk.Tk) -> str | None:  # pragma: no cover
-        """Try to get the TK library path directly from Tcl."""
-        import tkinter as tk  # ruff:ignore[import-outside-top-level]
-
-        try:
-            if (tk_lib := tcl.eval("set tk_library")) and os.path.isdir(tk_lib):
-                return tk_lib
-        except tk.TclError:
-            pass
-        return None
-
-    @staticmethod
-    def _resolve_tk_lib(tcl: tk.Tk, tcl_lib: str) -> str | None:  # pragma: no cover
-        """Resolve the TK library path by direct query or path construction."""
-        if (tk_lib := PythonInfo._query_tk_library(tcl)) is not None:
-            return tk_lib
-        tk_version = tcl.eval("package require Tk")
-        tcl_parent = os.path.dirname(tcl_lib)
-        for version in (tk_version, ".".join(tk_version.split(".")[:2]), tk_version.split(".")[0]):
-            tk_lib_path = os.path.join(tcl_parent, f"tk{version}")
-            if os.path.isdir(tk_lib_path) and os.path.exists(os.path.join(tk_lib_path, "tk.tcl")):
-                return tk_lib_path
-        return None
-
-    def _fast_get_system_executable(self) -> str | None:
-        """Try to get the system executable by just looking at properties."""
-        # if we're not in a virtual environment, this is already a system python, so return the original executable
-        # note we must choose the original and not the pure executable as shim scripts might throw us off
-        if not (self.real_prefix or (self.base_prefix is not None and self.base_prefix != self.prefix)):
-            return self._resolve_executable_symlink(self.original_executable)
-
-        # if this is NOT a virtual environment, can't determine easily, bail out
-        if self.real_prefix is not None:
-            return None
-
-        base_executable = getattr(sys, "_base_executable", None)  # some platforms may set this to help us
-        if base_executable is None:  # use the saved system executable if present
-            return None
-
-        # we know we're in a virtual environment, can not be us
-        if sys.executable == base_executable:
-            return None
-
-        # We're not in a venv and base_executable exists; use it directly
-        if os.path.exists(base_executable):  # pragma: >=3.11 cover
-            return self._resolve_executable_symlink(base_executable)
-
-        # Try fallback for POSIX virtual environments
-        return self._try_posix_fallback_executable(base_executable)  # pragma: >=3.11 cover
-
-    def _resolve_executable_symlink(self, path: str, *, framework: bool | None = None) -> str:
-        """
-        Resolve symlinks of the executable itself, but never of its parent directories.
-
-        Mirrors CPython's ``getpath.realpath`` (and ``venv`` in python/cpython#115237): an executable-only symlink
-        resolves to the real interpreter so its home can be located, while a fully symlinked interpreter tree is
-        kept as-is. Like ``getpath``, resolution stops as soon as the stdlib landmark is reachable from the current
-        directory - an alias such as Debian's ``/usr/bin/python3`` is a usable home and stays untouched.
-        """
-        result = os.path.abspath(path)
-        if self.os != "posix":  # CPython only does this where HAVE_READLINK
-            return result
-        if framework is None:
-            framework = bool(sysconfig.get_config_var("PYTHONFRAMEWORK"))
-        if framework:  # macOS framework builds self-locate via dyld from the real binary; e.g. for Homebrew
-            return result  # resolving would pin the versioned Cellar path into the recorded home
-        real_path = os.path.realpath(result)
-        if not os.path.exists(real_path):  # symlink loop or broken symlink
-            return result
-        while os.path.islink(result):
-            if self._stdlib_landmark_exists(os.path.dirname(result)):
-                return result
-            link = os.readlink(result)
-            candidate = link if os.path.isabs(link) else os.path.normpath(os.path.join(os.path.dirname(result), link))
-            # normpath through a symlinked directory may point at a different file - stop resolving there
-            if not (os.path.exists(candidate) and os.path.samefile(real_path, candidate)):
-                return result
-            result = candidate
-        return result
-
-    @staticmethod
-    def _stdlib_landmark_exists(dir_path: str) -> bool:
-        lib_name = os.path.basename(os.path.dirname(os.__file__))
-        return any(
-            os.path.exists(os.path.join(dir_path, os.pardir, lib, lib_name, "os.py")) for lib in ("lib", "lib64")
-        )
-
-    def _try_posix_fallback_executable(self, base_executable: str) -> str | None:
-        """Find a versioned Python binary as fallback for POSIX virtual environments."""
-        major, minor = self.version_info.major, self.version_info.minor
-        if self.os != "posix" or (major, minor) < (3, 11):
-            return None
-
-        # search relative to the directory of sys._base_executable
-        base_dir = os.path.dirname(base_executable)
-        candidates = [f"python{major}", f"python{major}.{minor}"]
-        if self.implementation == "PyPy":
-            candidates.extend(["pypy", "pypy3", f"pypy{major}", f"pypy{major}.{minor}"])
-
-        for candidate in candidates:
-            full_path = os.path.join(base_dir, candidate)
-            if os.path.exists(full_path):
-                return full_path
-
-        return None  # in this case we just can't tell easily without poking around FS and calling them, bail
+        self.__dict__.update(vars(self.from_dict(PythonInfoCollector().to_dict())))
 
     def install_path(self, key: str) -> str:
         """
@@ -294,36 +95,6 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             config_var = {k: "" if v in prefixes else v for k, v in self.sysconfig_vars.items()}
             result = self.sysconfig_path(key, config_var=config_var).lstrip(os.sep)
         return result
-
-    @staticmethod
-    def _distutils_install() -> dict[str, str]:
-        # use distutils primarily because that's what pip does
-        # https://github.com/pypa/pip/blob/main/src/pip/_internal/locations.py#L95
-        # note here we don't import Distribution directly to allow setuptools to patch it
-        with warnings.catch_warnings():  # disable warning for PEP-632
-            warnings.simplefilter("ignore")
-            try:
-                # ruff:ignore[import-outside-top-level]
-                from distutils import dist  # ty: ignore[unresolved-import]
-
-                # ruff:ignore[import-outside-top-level]
-                from distutils.command.install import SCHEME_KEYS  # ty: ignore[unresolved-import]
-            except ImportError:  # pragma: no cover # if removed or not installed ignore
-                return {}
-
-        distribution = dist.Distribution({
-            "script_args": "--no-user-cfg",
-        })  # conf files not parsed so they do not hijack paths
-        if hasattr(sys, "_framework"):  # pragma: no cover # macOS framework builds only
-            sys._framework = None  # ruff:ignore[private-member-access]  # disable macOS static paths for framework
-
-        with warnings.catch_warnings():  # disable warning for PEP-632
-            warnings.simplefilter("ignore")
-            install = distribution.get_command_obj("install", create=True)
-
-        install.prefix = os.sep  # paths generated are relative to prefix that contains the path sep
-        install.finalize_options()
-        return {key: (getattr(install, f"install_{key}")[1:]).lstrip(os.sep) for key in SCHEME_KEYS}
 
     @property
     def version_str(self) -> str:
@@ -351,7 +122,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         """``True`` if this interpreter runs inside a PEP 405 venv (has ``base_prefix``)."""
         return self.base_prefix is not None
 
-    def sysconfig_path(self, key: str, config_var: dict[str, str] | None = None, sep: str = os.sep) -> str:
+    def sysconfig_path(self, key: str, config_var: dict[str, str | int | None] | None = None, sep: str = os.sep) -> str:
         """
         Return the sysconfig install path for a scheme *key*, optionally substituting config variables.
 
@@ -568,7 +339,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         """Serialize this interpreter information to a JSON string."""
         return json.dumps(self.to_dict(), indent=2)
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self) -> dict[str, InfoValue]:
         """Convert this interpreter information to a plain dictionary."""
         data = {var: (getattr(self, var) if var != "_creators" else None) for var in vars(self)}
         version_info = data["version_info"]
@@ -622,14 +393,14 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         return cls.from_dict(raw.copy())
 
     @classmethod
-    def from_dict(cls, data: dict[str, object]) -> PythonInfo:
+    def from_dict(cls, data: dict[str, InfoValue]) -> PythonInfo:
         """
         Reconstruct a :class:`PythonInfo` from a plain dictionary.
 
         :param data: dictionary produced by :meth:`to_dict`.
         """
         data["version_info"] = VersionInfo(**data["version_info"])  # restore this to a named tuple structure
-        result = cls()
+        result = cls.__new__(cls)  # skip __init__, data replaces the full state
         result.__dict__ = data.copy()
         return result
 
@@ -851,27 +622,9 @@ def normalize_isa(isa: str) -> str:
     }.get(low, low)
 
 
-def _main() -> None:  # pragma: no cover
-    argv = sys.argv[1:]
-
-    if len(argv) >= 1:
-        start_cookie = argv[0]
-        argv = argv[1:]
-    else:
-        start_cookie = ""
-
-    if len(argv) >= 1:
-        end_cookie = argv[0]
-        argv = argv[1:]
-    else:
-        end_cookie = ""
-
-    sys.argv = sys.argv[:1] + argv
-
-    result = PythonInfo().to_json()
-    sys.stdout.write("".join((start_cookie[::-1], result, end_cookie[::-1])))
-    sys.stdout.flush()
-
-
-if __name__ == "__main__":
-    _main()
+__all__ = [
+    "KNOWN_ARCHITECTURES",
+    "PythonInfo",
+    "VersionInfo",
+    "normalize_isa",
+]
