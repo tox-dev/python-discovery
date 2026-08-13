@@ -75,25 +75,19 @@ def test_bad_exe_py_info_no_raise(
 
 @pytest.mark.parametrize(
     "spec",
-    itertools.chain(
-        [sys.executable],
-        [
-            f"{impl}{'.'.join(str(i) for i in ver)}{'t' if CURRENT.free_threaded else ''}{arch}"
-            for impl, ver, arch in itertools.product(
-                (
-                    [CURRENT.implementation]
-                    + (["python"] if CURRENT.implementation == "CPython" else [])
-                    + (
-                        [CURRENT.implementation.lower()]
-                        if CURRENT.implementation != CURRENT.implementation.lower()
-                        else []
-                    )
-                ),
-                [sys.version_info[0 : i + 1] for i in range(3)],
-                ["", f"-{CURRENT.architecture}"],
-            )
-        ],
-    ),
+    [sys.executable]
+    + [
+        f"{impl}{'.'.join(str(i) for i in ver)}{'t' if CURRENT.free_threaded else ''}{arch}"
+        for impl, ver, arch in itertools.product(
+            (
+                [CURRENT.implementation]
+                + (["python"] if CURRENT.implementation == "CPython" else [])
+                + ([CURRENT.implementation.lower()] if CURRENT.implementation != CURRENT.implementation.lower() else [])
+            ),
+            [sys.version_info[0 : i + 1] for i in range(3)],
+            ["", f"-{CURRENT.architecture}"],
+        )
+    ],
 )
 def test_satisfy_py_info(spec: str) -> None:
     parsed_spec = PythonSpec.from_string_spec(spec)
