@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-import vermin
 
 import python_discovery
 from python_discovery import PythonInfo
@@ -26,6 +25,8 @@ SCRIPT = Path(python_discovery.__file__).parent / "_py_info_collect.py"
 
 
 def test_script_parses_down_to_python27() -> None:
+    import vermin
+
     py2, py3 = vermin.detect(SCRIPT.read_text(encoding="utf-8"))
     assert py2 is not None, "script no longer parses on Python 2.7, the version gate cannot run there"
     assert py2 <= (2, 7)
