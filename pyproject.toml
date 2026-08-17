@@ -181,15 +181,15 @@ rules.unresolved-attribute = "ignore"
 ini_options.markers = [ "graalpy" ]
 
 [tool.coverage]
+run.source = [
+  "python_discovery",
+  "tests",
+]
 run.branch = true
 run.dynamic_context = "test_function"
 run.parallel = true
 run.plugins = [
   "covdefaults",
-]
-run.source = [
-  "python_discovery",
-  "tests",
 ]
 paths.source = [
   "src",
