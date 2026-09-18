@@ -161,6 +161,38 @@ def test_get_paths_no_path_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert paths
 
 
+@pytest.mark.parametrize(
+    ("raw_path", "expected"),
+    [
+        pytest.param("{first}{sep}", ["first"], id="trailing"),
+        pytest.param("{sep}{first}", ["first"], id="leading"),
+        pytest.param("{first}{sep}{sep}{second}", ["first", "second"], id="doubled"),
+    ],
+)
+def test_get_paths_skips_empty_entries(tmp_path: Path, raw_path: str, expected: list[str]) -> None:
+    """An empty PATH entry means "current directory" - it must never be searched for interpreters."""
+    dirs = {}
+    for name in ("first", "second"):
+        dirs[name] = tmp_path / name
+        dirs[name].mkdir()
+        (dirs[name] / "dummy").touch()
+
+    paths = list(get_paths({"PATH": raw_path.format(first=dirs["first"], second=dirs["second"], sep=os.pathsep)}))
+
+    assert paths == [dirs[name] for name in expected]
+
+
+def test_get_paths_empty_entry_does_not_yield_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reproduces the exploit: an empty PATH entry used to resolve to the caller's CWD."""
+    cwd_marker = tmp_path / "python3.11"
+    cwd_marker.touch(mode=0o755)
+    monkeypatch.chdir(tmp_path)
+
+    paths = list(get_paths({"PATH": f"{os.pathsep}"}))
+
+    assert not any(path.resolve() == tmp_path.resolve() for path in paths)
+
+
 def test_lazy_path_dump_debug(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("_VIRTUALENV_DEBUG", "1")
     a_dir = tmp_path
