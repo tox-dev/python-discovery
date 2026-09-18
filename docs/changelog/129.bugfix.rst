@@ -1,1 +1,0 @@
-Skip empty ``PATH`` entries during interpreter discovery - by :user:`gaborbernat`.

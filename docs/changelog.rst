@@ -7,6 +7,21 @@
 .. towncrier release notes start
 
 ********************
+ v1.6.1 (2026-09-18)
+********************
+
+Bug fixes - 1.6.1
+=================
+- Skip empty ``PATH`` entries during interpreter discovery - by :user:`gaborbernat`. (:issue:`129`)
+
+Improved documentation - 1.6.1
+==============================
+- Document :attr:`~python_discovery.PythonInfo.system_exe` across the tutorial, the how-to guide and the explanation of
+  how resolution reaches a base interpreter. The class diagram in the how-to guide had
+  :attr:`~python_discovery.PythonInfo.system_executable` typed ``str`` rather than ``str | None`` - by
+  :user:`gaborbernat`. (:issue:`128`)
+
+********************
  v1.6.0 (2026-08-28)
 ********************
 
