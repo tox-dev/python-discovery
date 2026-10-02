@@ -14,7 +14,7 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -56,7 +56,7 @@ jobs:
           PYTEST_ADDOPTS: "-vv --durations=20"
           DIFF_AGAINST: HEAD
   old-target:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
