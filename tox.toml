@@ -36,12 +36,12 @@ commands = [["pre-commit", "run", "--all-files", "--show-diff-on-failure"]]
 
 [env."type-3.8"]
 description = "run type check on code base (3.8)"
-deps = ["gitpython>=3.1.46", "packaging>=26", "ty==0.0.17"]
+deps = ["gitpython>=3.2", "packaging>=26.2", "ty==0.0.84"]
 commands = [["ty", "check", "--output-format", "concise", "--error-on-warning", "--python-version", "3.8", "."]]
 
 [env."type-3.14"]
 description = "run type check on code base (3.14)"
-deps = ["gitpython>=3.1.46", "packaging>=26", "ty==0.0.17"]
+deps = ["gitpython>=3.2", "packaging>=26.2", "ty==0.0.84"]
 commands = [["ty", "check", "--output-format", "concise", "--error-on-warning", "--python-version", "3.14", "."]]
 
 [env.docs]
@@ -64,7 +64,7 @@ commands = [
 [env.pkg_meta]
 description = "check that the long description is valid"
 skip_install = true
-deps = ["check-wheel-contents>=0.6.3", "twine>=6.2", "uv>=0.10.4"]
+deps = ["check-wheel-contents>=0.6.3", "twine>=6.2", "uv>=0.12.22"]
 commands = [
   ["uv", "build", "--sdist", "--wheel", "--out-dir", "{env_tmp_dir}", "."],
   ["twine", "check", "{env_tmp_dir}{/}*"],
