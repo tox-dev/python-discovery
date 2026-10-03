@@ -321,7 +321,7 @@ class PythonInfoCollector:
             "script_args": "--no-user-cfg",
         })  # conf files not parsed so they do not hijack paths
         if hasattr(sys, "_framework"):  # pragma: no cover # macOS framework builds only
-            sys._framework = None  # ruff:ignore[private-member-access]  # disable macOS static paths for framework
+            sys._framework = None  # ty: ignore[invalid-assignment]  # ruff:ignore[private-member-access]  # disable macOS static paths for framework
 
         with warnings.catch_warnings():  # disable warning for PEP-632
             warnings.simplefilter("ignore")

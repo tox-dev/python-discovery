@@ -79,7 +79,7 @@ def no_framework(mocker: MockerFixture) -> None:
     mocker.patch.object(
         sysconfig,
         "get_config_var",
-        side_effect=lambda name: "" if name == "PYTHONFRAMEWORK" else get_config_var(name),
+        side_effect=lambda name: "" if name == "PYTHONFRAMEWORK" else get_config_var(name),  # ty: ignore[deprecated]  # resolves the deprecated Literal["SO"] overload even though name is a generic str
     )
 
 
@@ -187,7 +187,7 @@ def test_system_executable_framework_symlink_kept(tmp_path: Path, mocker: Mocker
     mocker.patch.object(
         sysconfig,
         "get_config_var",
-        side_effect=lambda name: "Python" if name == "PYTHONFRAMEWORK" else get_config_var(name),
+        side_effect=lambda name: "Python" if name == "PYTHONFRAMEWORK" else get_config_var(name),  # ty: ignore[deprecated]  # resolves the deprecated Literal["SO"] overload even though name is a generic str
     )
     mocker.patch.object(sys, "executable", str(link))
     assert PythonInfo().system_executable == str(link)

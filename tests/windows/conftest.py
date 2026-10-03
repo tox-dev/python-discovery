@@ -43,7 +43,7 @@ def _load_registry_data(
     glob: dict[str, object] = {"winreg": winreg}
     mock_value_str = (Path(__file__).parent / "winreg_mock_values.py").read_text(encoding="utf-8")
     exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin]
-    return loc["enum_collect"], loc["value_collect"], loc["key_open"], loc["hive_open"]  # type: ignore[return-value]
+    return loc["enum_collect"], loc["value_collect"], loc["key_open"], loc["hive_open"]  # ty: ignore[invalid-return-type]
 
 
 class _Key:
@@ -65,7 +65,7 @@ def _make_enum_key(enum_collect: dict[object, dict[int, object]]) -> object:
         result = enum_collect[key_id][at]
         if isinstance(result, OSError):
             raise result
-        return result  # type: ignore[return-value]
+        return result  # ty: ignore[invalid-return-type]
 
     return _enum_key
 
