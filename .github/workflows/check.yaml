@@ -70,11 +70,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build the wheel
         run: uv build --wheel --out-dir dist .
-      - name: Discover Python 3.6
-        run: tasks/old_target_check.sh 3.6 discover
-      - name: Discover Python 3.7
-        run: tasks/old_target_check.sh 3.7 discover
-      - name: Reject Python 3.5
-        run: tasks/old_target_check.sh 3.5 rejected
-      - name: Reject Python 2.7
-        run: tasks/old_target_check.sh 2.7 rejected
+      - parallel:
+          - name: Discover Python 3.6
+            run: tasks/old_target_check.sh 3.6 discover
+          - name: Discover Python 3.7
+            run: tasks/old_target_check.sh 3.7 discover
+          - name: Reject Python 3.5
+            run: tasks/old_target_check.sh 3.5 rejected
+          - name: Reject Python 2.7
+            run: tasks/old_target_check.sh 2.7 rejected
