@@ -16,12 +16,11 @@ from ._py_info_collect import PythonInfoCollector
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
-    from typing import Union
 
     from ._cache import PyInfoCache
     from ._py_spec import PythonSpec
 
-    InfoValue = Union[str, int, bool, None, "tuple[int | str, ...]", "list[str]", "dict[str, str | int | None]"]
+    InfoValue = str | int | bool | None | tuple[int | str, ...] | list[str] | dict[str, str | int | None]
 
 
 class VersionInfo(NamedTuple):
@@ -272,7 +271,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             return False
         return all(
             req is None or our is None or our == req
-            for our, req in zip(self.version_info[0:3], (spec.major, spec.minor, spec.micro))
+            for our, req in zip(self.version_info[0:3], (spec.major, spec.minor, spec.micro), strict=False)
         )
 
     def _satisfies_path(self, spec: PythonSpec) -> bool:

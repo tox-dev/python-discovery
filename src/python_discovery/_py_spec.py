@@ -257,7 +257,9 @@ class PythonSpec:
             return False
         return all(
             req is None or our is None or our == req
-            for our, req in zip((self.major, self.minor, self.micro), (spec.major, spec.minor, spec.micro))
+            for our, req in zip(
+                (self.major, self.minor, self.micro), (spec.major, spec.minor, spec.micro), strict=False
+            )
         )
 
     def __repr__(self) -> str:
