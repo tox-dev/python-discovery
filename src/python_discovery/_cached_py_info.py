@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import os
 import pkgutil
 import secrets
@@ -41,6 +42,9 @@ _CACHE: OrderedDict[Path, PythonInfo | Exception] = OrderedDict()
 _CACHE[Path(sys.executable)] = PythonInfo()
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 _PY_INFO_SCRIPT: Final[Path] = Path(__file__).resolve().parent / "_py_info_collect.py"
+_DEFAULT_QUERY_TIMEOUT: Final[float] = 15.0
+# poll(2) takes its timeout as a C int of milliseconds, the tightest limit among the waits communicate() goes through.
+_MAX_QUERY_TIMEOUT: Final[float] = (2**31 - 1) / 1000
 
 
 class _UnsupportedInterpreterError(RuntimeError):
@@ -214,7 +218,7 @@ def _run_subprocess(
 ) -> tuple[Exception | None, PythonInfo | None]:
     start_cookie = gen_cookie()
     end_cookie = gen_cookie()
-    timeout = float(env.get("PY_DISCOVERY_TIMEOUT", "15"))
+    timeout = _query_timeout(env.get("PY_DISCOVERY_TIMEOUT"))
     with _resolve_py_info_script() as py_info_script:
         cmd = [exe, str(py_info_script), start_cookie, end_cookie]
         env = dict(env)
@@ -262,6 +266,25 @@ def _run_subprocess(
         failure.__cause__ = exc
         return failure, None
     return None, result
+
+
+@lru_cache(maxsize=None)
+def _query_timeout(raw: str | None) -> float | None:
+    """Seconds to wait for an interpreter to answer, from ``PY_DISCOVERY_TIMEOUT``; ``None`` waits without a limit."""
+    if raw is None:
+        return _DEFAULT_QUERY_TIMEOUT
+    try:
+        timeout = float(raw)
+    except ValueError:
+        timeout = math.nan
+    if math.isnan(timeout) or timeout <= 0:
+        # The cache makes this warn once per value rather than once per interpreter queried.
+        _LOGGER.warning(
+            "ignoring PY_DISCOVERY_TIMEOUT=%r, not a positive number of seconds; using %s", raw, _DEFAULT_QUERY_TIMEOUT
+        )
+        return _DEFAULT_QUERY_TIMEOUT
+    # A wait longer than the platform can express is unlimited in practice; communicate(None) is how to ask for that.
+    return timeout if timeout <= _MAX_QUERY_TIMEOUT else None
 
 
 def _query_failure(exe: str, out: str, err: str | None, code: int | None) -> RuntimeError:

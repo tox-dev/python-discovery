@@ -16,6 +16,7 @@ from python_discovery._cached_py_info import (
     LogCmd,
     _get_via_file_cache,
     _load_cached_py_info,
+    _query_timeout,
     _resolve_py_info_script,
     _run_subprocess,
     _script_hash,
@@ -124,15 +125,57 @@ def test_run_subprocess_timeout(mocker: MockerFixture) -> None:
     assert mock_process.communicate.call_count == 2
 
 
-def test_run_subprocess_custom_timeout(mocker: MockerFixture) -> None:
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        pytest.param("30", 30.0, id="seconds"),
+        pytest.param(" 0.5 ", 0.5, id="padded-fraction"),
+        pytest.param("inf", None, id="inf"),
+        pytest.param("1e30", None, id="beyond-platform-wait"),
+    ],
+)
+def test_run_subprocess_custom_timeout(
+    mocker: MockerFixture, caplog: pytest.LogCaptureFixture, raw: str, expected: float | None
+) -> None:
+    _query_timeout.cache_clear()
+    caplog.set_level(logging.WARNING, logger="python_discovery")
     mock_process = MagicMock()
     mock_process.communicate.return_value = (json.dumps(PythonInfo().to_dict()), "")
     mock_process.returncode = 0
     mocker.patch("python_discovery._cached_py_info.Popen", return_value=mock_process)
-    env = dict(os.environ)
-    env["PY_DISCOVERY_TIMEOUT"] = "30"
+    env = {**os.environ, "PY_DISCOVERY_TIMEOUT": raw}
     _run_subprocess(PythonInfo, sys.executable, env)
-    mock_process.communicate.assert_called_once_with(timeout=30.0)
+    mock_process.communicate.assert_called_once_with(timeout=expected)
+    assert not caplog.records
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        pytest.param("", id="empty"),
+        pytest.param("abc", id="words"),
+        pytest.param("0x10", id="hex"),
+        pytest.param("nan", id="nan"),
+        pytest.param("0", id="zero"),
+        pytest.param("-1", id="negative"),
+    ],
+)
+def test_run_subprocess_invalid_timeout_warns_once(
+    mocker: MockerFixture, caplog: pytest.LogCaptureFixture, raw: str
+) -> None:
+    _query_timeout.cache_clear()
+    caplog.set_level(logging.WARNING, logger="python_discovery")
+    mock_process = MagicMock()
+    mock_process.communicate.return_value = (json.dumps(PythonInfo().to_dict()), "")
+    mock_process.returncode = 0
+    mocker.patch("python_discovery._cached_py_info.Popen", return_value=mock_process)
+    env = {**os.environ, "PY_DISCOVERY_TIMEOUT": raw}
+    _run_subprocess(PythonInfo, sys.executable, env)
+    _run_subprocess(PythonInfo, sys.executable, env)
+    assert mock_process.communicate.call_args_list == [mocker.call(timeout=15.0)] * 2
+    assert [r.message for r in caplog.records] == [
+        f"ignoring PY_DISCOVERY_TIMEOUT={raw!r}, not a positive number of seconds; using 15.0"
+    ]
 
 
 def test_run_subprocess_nonzero_exit(mocker: MockerFixture) -> None:
