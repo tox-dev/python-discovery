@@ -1,0 +1,3 @@
+Ignore a ``PY_DISCOVERY_TIMEOUT`` that is not a positive number of seconds with a warning and use the default,
+treat ``inf`` or a value beyond the platform wait limit as no timeout, instead of failing discovery with
+``ValueError`` or ``OverflowError`` or timing every interpreter out at once - by :user:`darrenhuai`.
