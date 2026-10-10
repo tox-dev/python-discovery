@@ -136,7 +136,7 @@ def _read_cache_entry(
 ) -> PythonInfo | _UnsupportedInterpreterError | None:
     if not py_info_store.exists() or (data := py_info_store.read()) is None:
         return None
-    if all(data.get(key) == value for key, value in entry_meta.items()):
+    if isinstance(data, dict) and all(data.get(key) == value for key, value in entry_meta.items()):
         if isinstance(unsupported := data.get("unsupported"), str):
             return _UnsupportedInterpreterError(unsupported)
         if isinstance(content := data.get("content"), dict):
@@ -152,10 +152,10 @@ def _load_cached_py_info(
 ) -> PythonInfo | None:
     try:
         py_info = cls.from_dict(content.copy())
-    except (KeyError, TypeError):
-        py_info_store.remove()
-        return None
-    if (sys_exe := py_info.system_executable) is not None and not Path(sys_exe).exists():
+        stale = (sys_exe := py_info.system_executable) is not None and not Path(sys_exe).is_file()
+    except (AttributeError, KeyError, OSError, TypeError):
+        stale = True
+    if stale:
         py_info_store.remove()
         return None
     return py_info
