@@ -31,6 +31,7 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          python-version: "3.15"
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -79,7 +80,7 @@ jobs:
           echo "Next version: $next"
           echo "version=$next" >> $GITHUB_OUTPUT
       - name: Install tox
-        run: uv tool install --python-preference only-managed --python 3.14 tox@latest --with tox-uv
+        run: uv tool install --python-preference only-managed --python 3.15 tox@latest --with tox-uv
       - name: Run release process
         run: tox run -e release -- ${STEPS_VERSION_OUTPUTS_VERSION}
         env:
