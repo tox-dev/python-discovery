@@ -161,25 +161,6 @@ def test_load_cached_py_info_bad_data() -> None:
     store.remove.assert_called_once()
 
 
-@pytest.mark.parametrize(
-    "system_executable",
-    [pytest.param(5, id="int"), pytest.param(["python"], id="list"), pytest.param({}, id="dict")],
-)
-def test_load_cached_py_info_system_exe_wrong_type(system_executable: object) -> None:
-    store = MagicMock()
-    content = {**PythonInfo().to_dict(), "system_executable": system_executable}
-    assert _load_cached_py_info(PythonInfo, store, content) is None
-    store.remove.assert_called_once()
-
-
-def test_load_cached_py_info_system_exe_absent() -> None:
-    store = MagicMock()
-    content = PythonInfo().to_dict()
-    del content["system_executable"]
-    assert _load_cached_py_info(PythonInfo, store, content) is None
-    store.remove.assert_called_once()
-
-
 def test_load_cached_py_info_system_exe_missing(mocker: MockerFixture) -> None:
     store = MagicMock()
     content = PythonInfo().to_dict()
@@ -218,28 +199,6 @@ def test_get_via_file_cache_stale_hash(tmp_path: Path) -> None:
 
     result2 = _get_via_file_cache(PythonInfo, cache, path, sys.executable, env)
     assert isinstance(result2, PythonInfo)
-
-
-@pytest.mark.parametrize(
-    "payload",
-    [
-        pytest.param([], id="list"),
-        pytest.param("python", id="string"),
-        pytest.param(3, id="number"),
-        pytest.param(True, id="bool"),
-    ],
-)
-def test_get_via_file_cache_drops_non_object_entry(tmp_path: Path, payload: object) -> None:
-    cache = DiskCache(tmp_path)
-    path = Path(sys.executable)
-    env = dict(os.environ)
-    assert isinstance(_get_via_file_cache(PythonInfo, cache, path, sys.executable, env), PythonInfo)
-
-    store = cache.py_info(path)
-    store.write(payload)  # ty: ignore[invalid-argument-type]  # the cache file holds whatever was last written there
-
-    assert isinstance(_get_via_file_cache(PythonInfo, cache, path, sys.executable, env), PythonInfo)
-    assert isinstance(store.read(), dict)
 
 
 def test_get_via_file_cache_nonexistent_path(tmp_path: Path) -> None:

@@ -1,3 +1,2 @@
-Drop a py_info cache entry that holds valid JSON of the wrong shape, such as a top-level list or a missing or
-non-path ``system_executable``, and query the interpreter again instead of raising ``AttributeError`` or ``TypeError``
-- by :user:`darrenhuai`.
+Discard malformed interpreter cache entries and query the interpreter again, including entries with missing,
+non-string or unusable ``system_executable`` paths - by :user:`darrenhuai`.
