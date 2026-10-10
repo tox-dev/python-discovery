@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from python_discovery import __version__
@@ -12,7 +12,7 @@ company = "tox-dev"
 name = "python-discovery"
 version = ".".join(__version__.split(".")[:2])
 release = __version__
-copyright = f"2026-{datetime.now(tz=UTC).year}, {company}"  # ruff:ignore[builtin-variable-shadowing]
+copyright = f"2026-{datetime.now(tz=timezone.utc).year}, {company}"  # ruff:ignore[builtin-variable-shadowing]
 
 extensions = [
     "sphinx_llm.txt",
@@ -50,7 +50,7 @@ project = name
 
 html_theme = "furo"
 html_title = project
-html_last_updated_fmt = datetime.now(tz=UTC).isoformat()
+html_last_updated_fmt = datetime.now(tz=timezone.utc).isoformat()
 pygments_dark_style = "monokai"
 html_show_sourcelink = False
 html_static_path = ["_static"]

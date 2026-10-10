@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Final
 from ._compat import fs_path_id
 from ._py_info import PythonInfo
 from ._py_spec import PythonSpec
-from ._specifier import SimpleVersion
+from ._specifier import DC_KW, SimpleVersion
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
@@ -339,7 +339,7 @@ def _parse_uv_install(path: Path) -> _UvInstall:
     return _UvInstall(path=path, key=key)
 
 
-@dataclass(frozen=True, kw_only=True, slots=True)
+@dataclass(**DC_KW)
 class _UvKey:
     """The ``<implementation>-<version>[+<variant>]-<os>-<arch>-<libc>`` name uv gives an install directory."""
 
@@ -349,7 +349,7 @@ class _UvKey:
     debug: bool
 
 
-@dataclass(frozen=True, kw_only=True, slots=True)
+@dataclass(**DC_KW)
 class _UvInstall:
     path: Path
     key: _UvKey | None
@@ -377,10 +377,7 @@ def _uv_version_matches(key: _UvKey, spec: PythonSpec) -> bool:
         return True
     if spec.version_specifier is not None and not spec.version_specifier.contains(str(key.version)):
         return False
-    return all(
-        req is None or our == req
-        for our, req in zip(key.version.release, (spec.major, spec.minor, spec.micro), strict=False)
-    )
+    return all(req is None or our == req for our, req in zip(key.version.release, (spec.major, spec.minor, spec.micro)))
 
 
 def _uv_sort_key(install: _UvInstall) -> tuple[int, ...]:

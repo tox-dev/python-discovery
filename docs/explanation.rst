@@ -280,7 +280,7 @@ when encountering problematic interpreters.
 Supported Python versions
 -------------------------
 
-Two floors apply: python-discovery itself runs on Python 3.11+ (``requires-python``), while discovery
+Two floors apply: python-discovery itself runs on Python 3.9+ (``requires-python``), while discovery
 reaches down to Python 3.6 - old enough to cover RHEL 8's system Python.
 
 python-discovery skips candidates below 3.6 with one warning naming the executable, the version

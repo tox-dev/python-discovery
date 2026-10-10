@@ -507,7 +507,7 @@ def test_select_most_likely_prefers_machine_match(
     target = copy.deepcopy(CURRENT)
     target.sysconfig_platform = target_platform
     discovered = [copy.deepcopy(CURRENT) for _ in discovered_platforms]
-    for d, plat in zip(discovered, discovered_platforms, strict=False):
+    for d, plat in zip(discovered, discovered_platforms):
         d.sysconfig_platform = plat
     result = PythonInfo._select_most_likely(discovered, target)
     assert result.sysconfig_platform == discovered_platforms[expected_idx]

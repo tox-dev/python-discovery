@@ -12,7 +12,8 @@ import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-    from typing import Self
+
+    from typing_extensions import Self
 
 
 def _create_winreg_mock() -> ModuleType:
