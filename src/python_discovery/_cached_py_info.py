@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import math
 import os
 import pkgutil
 import secrets
@@ -43,7 +42,7 @@ _CACHE[Path(sys.executable)] = PythonInfo()
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 _PY_INFO_SCRIPT: Final[Path] = Path(__file__).resolve().parent / "_py_info_collect.py"
 _DEFAULT_QUERY_TIMEOUT: Final[float] = 15.0
-# poll(2) takes its timeout as a C int of milliseconds, the tightest limit among the waits communicate() goes through.
+# poll(2) limits milliseconds to a signed C int.
 _MAX_QUERY_TIMEOUT: Final[float] = (2**31 - 1) / 1000
 
 
@@ -268,23 +267,20 @@ def _run_subprocess(
     return None, result
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=128)
 def _query_timeout(raw: str | None) -> float | None:
-    """Seconds to wait for an interpreter to answer, from ``PY_DISCOVERY_TIMEOUT``; ``None`` waits without a limit."""
     if raw is None:
         return _DEFAULT_QUERY_TIMEOUT
     try:
         timeout = float(raw)
     except ValueError:
-        timeout = math.nan
-    if math.isnan(timeout) or timeout <= 0:
-        # The cache makes this warn once per value rather than once per interpreter queried.
-        _LOGGER.warning(
-            "ignoring PY_DISCOVERY_TIMEOUT=%r, not a positive number of seconds; using %s", raw, _DEFAULT_QUERY_TIMEOUT
-        )
-        return _DEFAULT_QUERY_TIMEOUT
-    # A wait longer than the platform can express is unlimited in practice; communicate(None) is how to ask for that.
-    return timeout if timeout <= _MAX_QUERY_TIMEOUT else None
+        timeout = 0.0
+    if timeout > 0:
+        return timeout if timeout <= _MAX_QUERY_TIMEOUT else None
+    _LOGGER.warning(
+        "ignoring PY_DISCOVERY_TIMEOUT=%r, not a positive number of seconds; using %s", raw, _DEFAULT_QUERY_TIMEOUT
+    )
+    return _DEFAULT_QUERY_TIMEOUT
 
 
 def _query_failure(exe: str, out: str, err: str | None, code: int | None) -> RuntimeError:

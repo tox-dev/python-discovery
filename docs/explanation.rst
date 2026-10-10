@@ -275,8 +275,8 @@ If your system consistently hits timeouts, you can customize the timeout via the
 
 The timeout applies to each individual interpreter being queried. If you set a value that is too low,
 legitimate interpreters may be skipped; if too high, the discovery process may take longer to fail
-when encountering problematic interpreters. A value that is not a positive number of seconds is ignored
-with a warning, and ``inf`` disables the timeout.
+when encountering problematic interpreters. For invalid values, python-discovery logs a warning and uses
+the default of 15 seconds. Set ``inf`` to disable the timeout.
 
 Supported Python versions
 -------------------------
