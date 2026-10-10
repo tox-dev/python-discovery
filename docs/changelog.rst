@@ -7,6 +7,17 @@
 .. towncrier release notes start
 
 ********************
+ v1.6.2 (2026-10-10)
+********************
+
+Bug fixes - 1.6.2
+=================
+- Discard malformed interpreter cache entries and query the interpreter again, including entries with missing,
+  non-string or unusable ``system_executable`` paths - by :user:`darrenhuai`. (:issue:`141`)
+- Use the default interpreter query timeout and warn for invalid ``PY_DISCOVERY_TIMEOUT`` values. Accept ``inf``
+  or values above the subprocess wait limit to disable the timeout - by :user:`darrenhuai`. (:issue:`143`)
+
+********************
  v1.6.1 (2026-09-18)
 ********************
 
