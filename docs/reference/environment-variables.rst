@@ -36,3 +36,7 @@ Setting this variable extends the allowed time for each interpreter query.
 - Setting the value too low may skip legitimate interpreters
 - Setting it too high increases discovery time when encountering problematic interpreters
 - The value is read from the environment dict passed to :func:`~python_discovery.get_interpreter`
+- For invalid values, including empty strings, ``nan``, ``0`` and negative numbers, python-discovery logs a warning
+  and uses the default of 15 seconds
+- ``inf`` or a value above 2,147,483.647 seconds (about 24.9 days) disables the timeout. This limit applies on all
+  platforms because some subprocess waits accept a signed 32-bit count of milliseconds

@@ -1,0 +1,2 @@
+Use the default interpreter query timeout and warn for invalid ``PY_DISCOVERY_TIMEOUT`` values. Accept ``inf``
+or values above the subprocess wait limit to disable the timeout - by :user:`darrenhuai`.
