@@ -1,10 +1,10 @@
 How-to guides
 =============
 
-Search specific directories first
------------------------------------
+Try specific executables first
+------------------------------
 
-If you know a likely location for the interpreter, pass it via ``try_first_with`` to check there
+If you know the path to an interpreter executable, pass it via ``try_first_with`` to check it
 before the normal search. This is useful when you have a custom Python install outside the
 standard locations.
 
@@ -12,7 +12,7 @@ standard locations.
 
    from python_discovery import get_interpreter
 
-   info = get_interpreter("python3.12", try_first_with=["/opt/python/bin"])
+   info = get_interpreter("python3.12", try_first_with=["/opt/python/bin/python3.12"])
    if info is not None:
        print(info.executable)
 
