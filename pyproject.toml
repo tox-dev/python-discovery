@@ -71,10 +71,9 @@ docs = [
   "towncrier>=25.8",
 ]
 release = [
-  "gitpython>=3.2",
-  "packaging>=26.2",
-  "pre-commit>=4.5.1",
-  "towncrier>=25.8",
+  "prek>=0.2",
+  "release-creator @ git+https://github.com/tox-dev/release-creator@bc0ed8337b5065a916896affa8ded78a44217d0c",
+  "towncrier>=26.9",
 ]
 
 [tool.hatch]
@@ -225,11 +224,14 @@ template = "docs/changelog/template.jinja2"
 title_format = false
 issue_format = ":issue:`{issue}`"
 type = [
-  { directory = "breaking", name = "Backward incompatible changes", showcontent = true },
-  { directory = "deprecation", name = "Deprecations (removal in next major release)", showcontent = true },
-  { directory = "feature", name = "Features", showcontent = true },
-  { directory = "bugfix", name = "Bug fixes", showcontent = true },
-  { directory = "doc", name = "Improved documentation", showcontent = true },
-  { directory = "packaging", name = "Packaging updates and notes for downstreams", showcontent = true },
-  { directory = "contrib", name = "Contributor-facing changes", showcontent = true },
+  { directory = "feature", name = "Added", showcontent = true },
+  { directory = "change", name = "Changes", showcontent = true },
+  { directory = "bugfix", name = "Fixed", showcontent = true },
+  { directory = "doc", name = "Documentation", showcontent = true },
+  { directory = "breaking", name = "Breaking changes", showcontent = true },
+  { directory = "security", name = "Security", showcontent = true },
+  { directory = "performance", name = "Performance", showcontent = true },
+  { directory = "deprecation", name = "Deprecated", showcontent = true },
+  { directory = "removal", name = "Removed", showcontent = true },
+  { directory = "packaging", name = "Packaging", showcontent = true },
 ]

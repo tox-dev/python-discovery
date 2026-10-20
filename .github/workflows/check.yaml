@@ -93,7 +93,12 @@ jobs:
         with:
           python-version: "3.15"
           enable-cache: false
-      - run: uv tool install towncrier
+      - name: Create release tools environment
+        run: uv venv --python 3.15 "$RUNNER_TEMP/release-tools"
+      - name: Install locked release tools
+        run: uv pip sync --preview-features pylock --python "$RUNNER_TEMP/release-tools/bin/python" --group release pylock.toml
+      - name: Add release tools to PATH
+        run: echo "$RUNNER_TEMP/release-tools/bin" >> "$GITHUB_PATH"
       - uses: tox-dev/github-workflows/validate-news@65ca97430da17d7c6f3cf636c0fd16dc3474481e
   gate:
     name: Required checks pass
