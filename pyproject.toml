@@ -9,13 +9,15 @@ requires = [
 
 [project]
 name = "python-discovery"
+import-names = [ "python_discovery" ]
 description = "Python interpreter discovery"
 keywords = [
   "discovery",
   "interpreter",
   "python",
 ]
-license.file = "LICENSE"
+license = "MIT"
+license-files = [ "LICENSE" ]
 maintainers = [
   { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
 ]
@@ -23,7 +25,6 @@ requires-python = ">=3.9"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX",
@@ -46,7 +47,7 @@ dynamic = [
 dependencies = [
   "filelock>=3.16.1",
 ]
-urls.Changelog = "https://github.com/tox-dev/python-discovery/releases"
+urls.Changelog = "https://github.com/tox-dev/python-discovery/blob/main/docs/changelog.rst"
 urls.Documentation = "https://python-discovery.readthedocs.io"
 urls.Homepage = "https://github.com/tox-dev/python-discovery"
 urls.Source = "https://github.com/tox-dev/python-discovery"
