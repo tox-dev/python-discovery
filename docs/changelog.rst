@@ -113,20 +113,8 @@ Added
 Fixed
 =====
 
-- Restore discovery of Python 3.6 and 3.7 interpreters: the interrogation script had grown 3.8-only syntax and is now
-  kept to Python 3.6. Candidates below 3.6 log one warning naming the version found instead of two debug-level query
-  attempts, and the verdict is cached so they are queried only once; an absolute-path spec for one raises
-  ``RuntimeError`` with the same message - by :user:`gaborbernat`. (:issue:`116`)
 - Prefer the version-matched system executable when CPython reports an existing generic executable for a copied POSIX
   virtual environment. (:issue:`124`) - by :user:`gaborbernat`.
-
-.. _release-1-5-3-documentation:
-
-Documentation
-=============
-
-- Document the version floors: runs on Python 3.8+, discovers interpreters down to 3.6 - by :user:`gaborbernat`.
-  (:issue:`116`)
 
 .. _release-1-5-2:
 
@@ -139,7 +127,17 @@ Documentation
 Fixed
 =====
 
-- Move interpreter interrogation into a Python 3.6-compatible collector. (:pr:`117`) - by :user:`gaborbernat`.
+- Restore discovery of Python 3.6 and 3.7 interpreters. Earlier interrogation used Python 3.8 syntax and silently
+  skipped these candidates. Interpreters below 3.6 now produce one warning; an absolute-path spec raises
+  ``RuntimeError`` with that message. (:pr:`117`, :issue:`116`) - by :user:`gaborbernat`.
+
+.. _release-1-5-2-documentation:
+
+Documentation
+=============
+
+- Document that the library runs on Python 3.8+ and discovers interpreters down to 3.6. (:pr:`117`, :issue:`116`) - by
+  :user:`gaborbernat`.
 
 .. _release-1-5-1:
 
@@ -178,8 +176,7 @@ Packaging
 Added
 =====
 
-- Declare support for Python 3.15 and run the test suite against it, currently in beta. (:pr:`104`) - by
-  :user:`gaborbernat`.
+- Add Python 3.15 support. (:pr:`104`) - by :user:`gaborbernat`.
 
 .. _release-1-4-4:
 
@@ -281,11 +278,7 @@ Fixed
 Fixed
 =====
 
-- export normalize_isa and deprecate KNOWN_ARCHITECTURES - by :user:`rahuldevikar`. (:issue:`59`)
-- discover uv-managed Pythons on Windows. Previously the glob assumed Unix layout (``<root>/<key>/bin/python``) and
-  silently found nothing on Windows, where uv places ``python.exe`` directly under the install root - by
-  :user:`gaborbernat`. (:issue:`65`)
-- Canonicalize GraalVM to match GraalPy Python interpreter in PythonSpec and PythonInfo. - by :user:`timfel`. (:pr:`73`)
+- Canonicalize GraalVM as GraalPy in interpreter specs and results - by :user:`timfel`. (:pr:`73`)
 
 .. _release-1-3-0:
 
@@ -313,7 +306,14 @@ Added
 Added
 =====
 
-- Export ``normalize_isa`` and deprecate ``KNOWN_ARCHITECTURES`` (:pull:`62`) - by :user:`rahuldevikar`.
+- Export ``normalize_isa`` (:pull:`62`) - by :user:`rahuldevikar`.
+
+.. _release-1-2-2-deprecated:
+
+Deprecated
+==========
+
+- Deprecate ``KNOWN_ARCHITECTURES`` (:pull:`62`) - by :user:`rahuldevikar`.
 
 .. _release-1-2-1:
 
@@ -346,13 +346,6 @@ Added
 *********************
  v1.1.3 (2026-03-10)
 *********************
-
-.. _release-1-1-3-fixed:
-
-Fixed
-=====
-
-- Add ``loongarch64`` to known ISAs (:pull:`50`) - by :user:`iv-m`.
 
 .. _release-1-1-2:
 
@@ -387,7 +380,6 @@ Fixed
 =====
 
 - Add a timeout to interpreter probing (:pull:`42`) - by :user:`gaborbernat`.
-- Add ``i686`` to known ISAs (:pull:`43`) - by :user:`gaborbernat`.
 
 .. _release-1-1-0:
 
