@@ -72,9 +72,14 @@ docs = [
   "sphinxcontrib-towncrier>=0.4",
   "towncrier>=25.8",
 ]
+pkg-meta = [
+  "check-wheel-contents>=0.6.3",
+  "twine>=6.2",
+  "uv>=0.12.22",
+]
 release = [
   "prek>=0.2",
-  "release-creator @ git+https://github.com/tox-dev/release-creator@cf1d89453fc88887e5cf924f6bc1b83157d3a6ac",
+  "release-creator @ git+https://github.com/tox-dev/release-creator@80ecd0e952a0e0c50d08129ec89aaa8306ea0b05",
   "towncrier>=26.9",
 ]
 
@@ -85,6 +90,7 @@ metadata.hooks.fancy-pypi-readme.fragments = [ { path = "README.md" } ]
 
 [tool.uv]
 dependency-groups.docs = { requires-python = ">=3.12" }
+dependency-groups.pkg-meta = { requires-python = ">=3.10" }
 dependency-groups.release = { requires-python = ">=3.15" }
 
 [tool.ruff]

@@ -68,7 +68,7 @@ commands = [ [ "pre-commit", "run", "--all-files", "--show-diff-on-failure" ] ]
 [env.pkg_meta]
 description = "check that the long description is valid"
 skip_install = true
-deps = [ "check-wheel-contents>=0.6.3", "twine>=6.2", "uv>=0.12.22" ]
+dependency_groups = [ "pkg-meta" ]
 commands = [
   [ "uv", "build", "--sdist", "--wheel", "--out-dir", "{env_tmp_dir}", "." ],
   [ "twine", "check", "{env_tmp_dir}{/}*" ],

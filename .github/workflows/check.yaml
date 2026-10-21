@@ -83,7 +83,7 @@ jobs:
             run: tasks/old_target_check.sh 2.7 rejected
   changelog:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -101,20 +101,21 @@ jobs:
             --python "$RUNNER_TEMP/release-tools/bin/python" --group release pylock.toml
       - name: Add release tools to PATH
         run: echo "$RUNNER_TEMP/release-tools/bin" >> "$GITHUB_PATH"
-      - uses: tox-dev/github-workflows/validate-news@5e11f2254a4dcb7102747d312ad7db48a2e9b0cb
+      - uses: tox-dev/github-workflows/validate-news@7afb8fc8fd51942c5deedf9012dd49ed9c7b5bc1
   gate:
     name: Required checks pass
     if: always()
     needs: [test, old-target, changelog]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - env:
           NEEDS_JSON: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          jq -e '
+          jq -e --arg event "$EVENT_NAME" '
             all(
               to_entries[];
               .value.result == "success" or
-              (.key == "changelog" and .value.result == "skipped")
+              (.key == "changelog" and .value.result == "skipped" and $event != "pull_request")
             )
           ' <<< "$NEEDS_JSON"

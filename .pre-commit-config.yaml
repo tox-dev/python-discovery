@@ -37,6 +37,15 @@ repos:
         additional_dependencies:
           - mdformat-gfm==1.0.0
           - mdformat-ruff==0.1.3
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: 479be5958357ba5ab65ce47172117348516860e9 # frozen: v3.14.1-1
+    hooks:
+      - id: shfmt
+        args: ["-i", "2"]
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: 745eface02aef23e168a8afb6b5737818efbea95 # frozen: v0.11.0.1
+    hooks:
+      - id: shellcheck
   - repo: https://github.com/LilSpazJoekp/docstrfmt
     rev: c1813841673cdcd6cf602dde1edb78a5d5e45235 # frozen: v2.2.1
     hooks:
