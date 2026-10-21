@@ -21,7 +21,8 @@
 {{ underline * definitions[category]['name']|length }}
 {% if definitions[category]['showcontent'] %}
 {% for text, values in sections[section][category].items() %}
-- {{ text }}{% if values %} ({{ values|join(', ') }}){% endif %}
+{% set missing = values | reject("in", text) | reject("in", text | replace(":pr:", ":issue:")) | list %}
+- {{ text }}{% if missing %} ({{ missing|join(', ') }}){% endif %}
 
 {% endfor %}
 
