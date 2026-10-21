@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   upgrade:
-    uses: tox-dev/github-workflows/.github/workflows/upgrade-release-tools.yaml@144f8e68b7d4c7c44e32258b1305e4402bc4e392
+    uses: tox-dev/github-workflows/.github/workflows/upgrade-release-tools.yaml@5e11f2254a4dcb7102747d312ad7db48a2e9b0cb
     permissions:
       actions: write
       contents: write
@@ -20,5 +20,5 @@ jobs:
       commit-message: "build(deps): refresh release lock"
       pull-request-title: "build(deps): refresh release tool lock"
       pull-request-body: |-
-        Refresh the locked release tools to the latest versions allowed by the `release` dependency group.
-        `pylock.toml` records the exact versions used during release preparation and GitHub note rendering.
+        Refresh the project lock after a seven-day release cooldown.
+        `pylock.toml` records the selected runtime, docs, test, and release dependencies.
