@@ -11,7 +11,7 @@ env:
   dists-artifact-name: python-package-distributions
 jobs:
   build:
-    uses: tox-dev/github-workflows/.github/workflows/validate-python-release.yaml@e8d429040f73cd95af722543a0a09717bf3bb0aa
+    uses: tox-dev/github-workflows/.github/workflows/validate-python-release.yaml@8db87d4730353b61630d66cbc592d6bed0c85d2b
     permissions:
       contents: read
       pull-requests: read
@@ -104,7 +104,7 @@ jobs:
         with:
           name: generated-notes
           path: ${{ runner.temp }}/generated-notes
-      - uses: tox-dev/github-workflows/render-release-notes@e8d429040f73cd95af722543a0a09717bf3bb0aa
+      - uses: tox-dev/github-workflows/render-release-notes@8db87d4730353b61630d66cbc592d6bed0c85d2b
         with:
           tag: ${{ github.ref_name }}
           changelog: docs/changelog.rst
@@ -130,7 +130,7 @@ jobs:
         with:
           name: release-notes
           path: ${{ runner.temp }}/release-notes
-      - uses: tox-dev/github-workflows/publish-github-release@e8d429040f73cd95af722543a0a09717bf3bb0aa
+      - uses: tox-dev/github-workflows/publish-github-release@8db87d4730353b61630d66cbc592d6bed0c85d2b
         env:
           GH_TOKEN: ${{ github.token }}
         with:
@@ -160,7 +160,7 @@ jobs:
           version: latest-known
           python-version: "3.15"
           enable-cache: false
-      - uses: tox-dev/github-workflows/reconcile-pypi-artifacts@e8d429040f73cd95af722543a0a09717bf3bb0aa
+      - uses: tox-dev/github-workflows/reconcile-pypi-artifacts@8db87d4730353b61630d66cbc592d6bed0c85d2b
         id: stage
         with:
           project: python-discovery
@@ -190,7 +190,7 @@ jobs:
         with:
           name: pypi-missing-manifest
           path: ${{ runner.temp }}/pypi-manifest
-      - uses: tox-dev/github-workflows/select-pypi-artifacts@e8d429040f73cd95af722543a0a09717bf3bb0aa
+      - uses: tox-dev/github-workflows/select-pypi-artifacts@8db87d4730353b61630d66cbc592d6bed0c85d2b
         with:
           dist: dist
           manifest: ${{ runner.temp }}/pypi-manifest/pypi-missing-names.txt
@@ -220,7 +220,7 @@ jobs:
           version: latest-known
           python-version: "3.15"
           enable-cache: false
-      - uses: tox-dev/github-workflows/reconcile-pypi-artifacts@e8d429040f73cd95af722543a0a09717bf3bb0aa
+      - uses: tox-dev/github-workflows/reconcile-pypi-artifacts@8db87d4730353b61630d66cbc592d6bed0c85d2b
         with:
           project: python-discovery
           version: ${{ github.ref_name }}
@@ -237,7 +237,7 @@ jobs:
         with:
           name: release-notes
           path: ${{ runner.temp }}/release-notes
-      - uses: tox-dev/github-workflows/publish-github-release@e8d429040f73cd95af722543a0a09717bf3bb0aa
+      - uses: tox-dev/github-workflows/publish-github-release@8db87d4730353b61630d66cbc592d6bed0c85d2b
         env:
           GH_TOKEN: ${{ github.token }}
         with:
