@@ -93,6 +93,25 @@ def test_relative_path(session_cache: DiskCache, monkeypatch: pytest.MonkeyPatch
     assert result is not None
 
 
+@pytest.mark.parametrize(
+    "sep",
+    [
+        pytest.param("/", id="slash"),
+        pytest.param("\\", id="backslash", marks=pytest.mark.skipif(not IS_WIN, reason="Windows separator")),
+    ],
+)
+def test_relative_path_with_parent_reference(
+    session_cache: DiskCache, monkeypatch: pytest.MonkeyPatch, sep: str
+) -> None:
+    sys_executable = Path(PythonInfo.current_system(session_cache).system_executable)
+    monkeypatch.chdir(str(sys_executable.parent))
+    relative = sep.join((os.pardir, sys_executable.parent.name, sys_executable.name))
+    result = get_interpreter(relative, [], session_cache)
+    assert result is not None
+    assert os.pardir not in Path(result.executable).parts
+    assert Path(result.executable).samefile(sys_executable)
+
+
 def test_discovery_fallback_fail(session_cache: DiskCache, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG)
     result = get_interpreter(["magic-one", "magic-two"], cache=session_cache)

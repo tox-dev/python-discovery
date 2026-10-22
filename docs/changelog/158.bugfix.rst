@@ -1,0 +1,2 @@
+Accept relative interpreter paths that step up a directory, such as ``../venv/bin/python``, which were found and
+queried but never matched the spec - by :user:`darrenhuai`.

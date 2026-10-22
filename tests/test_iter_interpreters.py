@@ -64,6 +64,20 @@ def test_iter_interpreters_with_abs_path_yields_one(session_cache: DiskCache) ->
     assert results[0].executable == sys.executable
 
 
+@pytest.mark.usefixtures("uv_dir")
+def test_iter_interpreters_relative_path_with_parent_reference(
+    session_cache: DiskCache, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sys_executable = Path(PythonInfo.current_system(session_cache).system_executable)
+    monkeypatch.chdir(str(sys_executable.parent))
+    monkeypatch.setenv("PATH", "")
+    relative = str(Path(os.pardir) / sys_executable.parent.name / sys_executable.name)
+    results = list(iter_interpreters(relative, cache=session_cache))
+    assert len(results) == 1
+    assert os.pardir not in Path(results[0].executable).parts
+    assert Path(results[0].executable).samefile(sys_executable)
+
+
 def test_iter_interpreters_sequence_dedups_across_keys(session_cache: DiskCache) -> None:
     results = list(iter_interpreters([sys.executable, sys.executable], cache=session_cache))
     assert len(results) == 1

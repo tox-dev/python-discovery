@@ -158,7 +158,8 @@ def _check_exe(path: str, tested_exes: set[str]) -> str | None:
     if exe_id in tested_exes:
         return None
     tested_exes.add(exe_id)
-    return str(Path(path).absolute())
+    # unlike Path.absolute(), abspath collapses "..", which PythonInfo._satisfies_path relies on
+    return os.path.abspath(path)
 
 
 def _is_new_exe(exe_raw: str, tested_exes: set[str]) -> bool:
