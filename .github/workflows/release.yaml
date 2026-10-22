@@ -11,7 +11,7 @@ env:
   dists-artifact-name: python-package-distributions
 jobs:
   build:
-    uses: tox-dev/github-workflows/.github/workflows/validate-python-release.yaml@2b4ed19340a7ec97020f4fd0a403531845c49356
+    uses: tox-dev/github-workflows/.github/workflows/validate-python-release.yaml@24e7c78489b6e2adb7b8f881761a5c2dbfe03fee
     permissions:
       contents: read
     with:
@@ -34,11 +34,10 @@ jobs:
           version: latest-known
           python-version: "3.15"
           enable-cache: false
-      - name: Create release tools environment
-        run: uv venv --python 3.15 "$RUNNER_TEMP/release-tools"
       - name: Install locked release tools
-        run: >-
-          uv pip sync --preview-features pylock --python "$RUNNER_TEMP/release-tools/bin/python" --group release pylock.toml
+        uses: tox-dev/github-workflows/install-locked-tools@24e7c78489b6e2adb7b8f881761a5c2dbfe03fee
+        with:
+          venv: ${{ runner.temp }}/release-tools
       - name: Select previous tag
         id: select
         env:
@@ -89,19 +88,17 @@ jobs:
           version: latest-known
           python-version: "3.15"
           enable-cache: false
-      - name: Create release tools environment
-        run: uv venv --python 3.15 "$RUNNER_TEMP/release-tools"
       - name: Install locked release tools
-        run: |
-          uv pip sync --preview-features pylock \
-            --python "$RUNNER_TEMP/release-tools/bin/python" --group release pylock.toml
+        uses: tox-dev/github-workflows/install-locked-tools@24e7c78489b6e2adb7b8f881761a5c2dbfe03fee
+        with:
+          venv: ${{ runner.temp }}/release-tools
       - name: Add release tools to PATH
         run: echo "$RUNNER_TEMP/release-tools/bin" >>"$GITHUB_PATH"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: generated-notes
           path: ${{ runner.temp }}/generated-notes
-      - uses: tox-dev/github-workflows/render-release-notes@2b4ed19340a7ec97020f4fd0a403531845c49356
+      - uses: tox-dev/github-workflows/render-release-notes@24e7c78489b6e2adb7b8f881761a5c2dbfe03fee
         with:
           tag: ${{ github.ref_name }}
           changelog: docs/changelog.rst
@@ -127,7 +124,7 @@ jobs:
         with:
           name: release-notes
           path: ${{ runner.temp }}/release-notes
-      - uses: tox-dev/github-workflows/publish-github-release@2b4ed19340a7ec97020f4fd0a403531845c49356
+      - uses: tox-dev/github-workflows/publish-github-release@24e7c78489b6e2adb7b8f881761a5c2dbfe03fee
         env:
           GH_TOKEN: ${{ github.token }}
         with:
@@ -157,7 +154,7 @@ jobs:
           version: latest-known
           python-version: "3.15"
           enable-cache: false
-      - uses: tox-dev/github-workflows/reconcile-pypi-artifacts@2b4ed19340a7ec97020f4fd0a403531845c49356
+      - uses: tox-dev/github-workflows/reconcile-pypi-artifacts@24e7c78489b6e2adb7b8f881761a5c2dbfe03fee
         id: stage
         with:
           project: python-discovery
@@ -187,7 +184,7 @@ jobs:
         with:
           name: pypi-missing-manifest
           path: ${{ runner.temp }}/pypi-manifest
-      - uses: tox-dev/github-workflows/select-pypi-artifacts@2b4ed19340a7ec97020f4fd0a403531845c49356
+      - uses: tox-dev/github-workflows/select-pypi-artifacts@24e7c78489b6e2adb7b8f881761a5c2dbfe03fee
         with:
           dist: dist
           manifest: ${{ runner.temp }}/pypi-manifest/pypi-missing-names.txt
@@ -217,7 +214,7 @@ jobs:
           version: latest-known
           python-version: "3.15"
           enable-cache: false
-      - uses: tox-dev/github-workflows/reconcile-pypi-artifacts@2b4ed19340a7ec97020f4fd0a403531845c49356
+      - uses: tox-dev/github-workflows/reconcile-pypi-artifacts@24e7c78489b6e2adb7b8f881761a5c2dbfe03fee
         with:
           project: python-discovery
           version: ${{ github.ref_name }}
@@ -234,7 +231,7 @@ jobs:
         with:
           name: release-notes
           path: ${{ runner.temp }}/release-notes
-      - uses: tox-dev/github-workflows/publish-github-release@2b4ed19340a7ec97020f4fd0a403531845c49356
+      - uses: tox-dev/github-workflows/publish-github-release@24e7c78489b6e2adb7b8f881761a5c2dbfe03fee
         env:
           GH_TOKEN: ${{ github.token }}
         with:
