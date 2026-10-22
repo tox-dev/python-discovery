@@ -82,6 +82,25 @@ release = [
   "release-creator>=0.5.1",
   "towncrier>=26.9",
 ]
+release-check = [
+  "prek>=0.2",
+]
+release-news = [
+  "release-creator>=0.5.1",
+  "towncrier>=26.9",
+]
+release-notes = [
+  "release-creator>=0.5.1",
+]
+release-prepare = [
+  "prek>=0.2",
+  "release-creator>=0.5.1",
+  "towncrier>=26.9",
+]
+release-validate = [
+  "prek>=0.2",
+  "release-creator>=0.5.1",
+]
 
 [tool.hatch]
 version.source = "vcs"
@@ -92,6 +111,11 @@ metadata.hooks.fancy-pypi-readme.fragments = [ { path = "README.md" } ]
 dependency-groups.docs = { requires-python = ">=3.12" }
 dependency-groups.pkg-meta = { requires-python = ">=3.10" }
 dependency-groups.release = { requires-python = ">=3.15" }
+dependency-groups.release-check = { requires-python = ">=3.15" }
+dependency-groups.release-news = { requires-python = ">=3.15" }
+dependency-groups.release-notes = { requires-python = ">=3.15" }
+dependency-groups.release-prepare = { requires-python = ">=3.15" }
+dependency-groups.release-validate = { requires-python = ">=3.15" }
 
 [tool.ruff]
 target-version = "py39"
