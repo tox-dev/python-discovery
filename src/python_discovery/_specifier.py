@@ -227,12 +227,10 @@ class SimpleSpecifier:
             return False
         if candidate < self.version:
             return False
-        if len(self.version.release) >= 2:  # ruff:ignore[magic-value-comparison]  # pragma: no branch # SimpleVersion always has 3-part release
-            upper_parts = list(self.version.release[:-1])
-            upper_parts[-1] += 1
-            upper = SimpleVersion.from_string(".".join(str(p) for p in upper_parts))
-            return candidate < upper
-        return True  # pragma: no cover
+        # ~=X.Y is >=X.Y, ==X.*: compare all but the last part the spec wrote (release is padded to three).
+        # A bare ~=X still compares its one part, so it stays ==X.*.
+        prefix = max(self.version_str.count("."), 1)
+        return candidate.release[:prefix] == self.version.release[:prefix]
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SimpleSpecifier):

@@ -211,6 +211,9 @@ def test_satisfies_version_specifier_fails() -> None:
         pytest.param(VersionInfo(3, 15, 0, "final", 0), "<3.15.0a6", False, id="final_not_less_than_prerelease"),
         pytest.param(VersionInfo(3, 15, 0, "final", 0), ">=3.15", True, id="final_match_major_minor"),
         pytest.param(VersionInfo(3, 15, 1, "alpha", 1), ">=3.15.0", True, id="later_micro_prerelease_match"),
+        pytest.param(VersionInfo(3, 13, 7, "final", 0), "~=3.10", True, id="compatible_release_later_minor"),
+        pytest.param(VersionInfo(4, 0, 0, "final", 0), "~=3.10", False, id="compatible_release_next_major"),
+        pytest.param(VersionInfo(3, 13, 0, "alpha", 1), "~=3.12.0", False, id="compatible_release_next_minor_alpha"),
     ],
 )
 def test_satisfies_version_specifier_prerelease(version_info: VersionInfo, spec_str: str, expected: bool) -> None:

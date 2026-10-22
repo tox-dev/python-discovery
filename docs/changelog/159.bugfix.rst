@@ -1,0 +1,2 @@
+Match ``~=X.Y`` compatible-release specifiers against later minor versions, as PEP 440 defines, instead of only
+the same minor; ``~=3.10`` now accepts 3.11 and newer 3.x - by :user:`darrenhuai`.

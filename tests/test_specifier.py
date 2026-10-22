@@ -149,6 +149,12 @@ def test_specifier_parse_wildcard() -> None:
         pytest.param("~=3.12.0", "3.13.0", False, id="compatible-next-minor"),
         pytest.param("~=3.12.0", "3.11.0", False, id="compatible-below"),
         pytest.param("~=3.12.0", "3.11.9", False, id="compatible-just-below"),
+        pytest.param("~=3.12.0", "3.13.0a1", False, id="compatible-next-minor-prerelease"),
+        pytest.param("~=3.10", "3.13.7", True, id="compatible-two-part-next-minor"),
+        pytest.param("~=3.10", "3.9.25", False, id="compatible-two-part-below"),
+        pytest.param("~=3.10", "4.0.0", False, id="compatible-two-part-next-major"),
+        pytest.param("~=3.10", "4.0.0a1", False, id="compatible-two-part-next-major-prerelease"),
+        pytest.param("~=3.13rc1", "3.14.0", True, id="compatible-two-part-prerelease-next-minor"),
         pytest.param(">=3.12", "not_a_version", False, id="invalid-version"),
     ],
 )
@@ -297,3 +303,5 @@ def test_specifier_compatible_release_major_only() -> None:
     spec = SimpleSpecifier.from_string("~=3")
     assert spec.contains("3.0.0") is True
     assert spec.contains("3.0.5") is True
+    assert spec.contains("3.13.7") is True
+    assert spec.contains("4.0.0") is False

@@ -299,6 +299,19 @@ def test_iter_interpreters_uv_layout(
         ),
         pytest.param(
             (
+                "cpython-3.9.25-macos-aarch64-none/bin/python",
+                "cpython-3.10.19-macos-aarch64-none/bin/python",
+                "cpython-3.13.7-macos-aarch64-none/bin/python",
+            ),
+            "~=3.10",
+            [
+                "cpython-3.13.7-macos-aarch64-none/bin/python",
+                "cpython-3.10.19-macos-aarch64-none/bin/python",
+            ],
+            id="compatible-release-keeps-later-minors",
+        ),
+        pytest.param(
+            (
                 "cpython-3.14.6-macos-aarch64-none/bin/python",
                 "cpython-3.14.6+freethreaded-macos-aarch64-none/bin/python",
             ),
