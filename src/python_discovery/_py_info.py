@@ -295,7 +295,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             return True
         version_info = self.version_info
         for specifier in spec.version_specifier:
-            assert specifier.version is not None  # ruff:ignore[assert]
+            if specifier.version is None:  # a hand-built spec can carry an unparsable version, which matches nothing
+                return False
             numeric_version = specifier.version_str
             for prefix in ("rc", "b", "a"):
                 if prefix in numeric_version:

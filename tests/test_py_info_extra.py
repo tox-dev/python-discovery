@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from python_discovery import DiskCache, PythonInfo, PythonSpec
+from python_discovery import DiskCache, PythonInfo, PythonSpec, SimpleSpecifierSet
 from python_discovery._py_info import VersionInfo
 
 if TYPE_CHECKING:
@@ -192,6 +192,12 @@ def test_satisfies_version_specifier() -> None:
 
 def test_satisfies_version_specifier_fails() -> None:
     spec = PythonSpec.from_string_spec(f">{sys.version_info.major + 1}")
+    assert CURRENT.satisfies(spec, impl_must_match=False) is False
+
+
+def test_satisfies_version_specifier_unparsable_version() -> None:
+    specifier = SimpleSpecifierSet.from_string(">=3.x")
+    spec = PythonSpec(">=3.x", None, None, None, None, None, None, version_specifier=specifier)
     assert CURRENT.satisfies(spec, impl_must_match=False) is False
 
 

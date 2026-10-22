@@ -367,4 +367,7 @@ and machine segments, leaves the string unrecognized, so it falls back to a lite
 
 `Version specifiers <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
 (``>=``, ``<=``, ``~=``, ``!=``, ``==``, ``===``) are supported. Multiple specifiers can be comma-separated,
-for example ``>=3.11,<3.13``.
+for example ``>=3.11,<3.13``. Each version is a release of up to three numbers with an optional ``a``, ``b`` or
+``rc`` pre-release suffix, such as ``3.12`` or ``3.13.0rc1``; ``==`` and ``!=`` also take a trailing ``.*``
+wildcard, as in ``==3.12.*``. A specifier with a version outside that form, such as
+``>=3.x``, ``>=3.10.post1`` or ``>=3.12 <4`` (missing comma), falls back to a literal executable-name match.

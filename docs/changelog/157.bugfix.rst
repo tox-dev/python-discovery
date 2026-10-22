@@ -1,0 +1,2 @@
+Treat version specifiers whose version cannot be parsed, such as ``>=3.x`` or ``>=3.12 <4``, as literal executable
+paths instead of raising a bare ``AssertionError`` during discovery - by :user:`darrenhuai`.

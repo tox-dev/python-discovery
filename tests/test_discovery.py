@@ -100,7 +100,7 @@ def test_discovery_fallback_fail(session_cache: DiskCache, caplog: pytest.LogCap
     assert "accepted" not in caplog.text
 
 
-@pytest.mark.parametrize("missing", ["magic-one", "python."])
+@pytest.mark.parametrize("missing", ["magic-one", "python.", ">=3.12 <4"])
 def test_discovery_fallback_ok(missing: str, session_cache: DiskCache, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG)
     result = get_interpreter([missing, sys.executable], cache=session_cache)
