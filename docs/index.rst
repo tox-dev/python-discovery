@@ -53,3 +53,4 @@ repeated lookups are fast.
    :hidden:
 
    changelog
+   contributing

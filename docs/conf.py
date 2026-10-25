@@ -28,9 +28,11 @@ extensions = [
 towncrier_draft_autoversion_mode = "draft"
 towncrier_draft_include_empty = True
 towncrier_draft_working_directory = Path(__file__).parent.parent
+autosectionlabel_maxdepth = 2
 
 extlinks = {
     "issue": ("https://github.com/tox-dev/python-discovery/issues/%s", "#%s"),
+    "pr": ("https://github.com/tox-dev/python-discovery/pull/%s", "PR #%s"),
     "pull": ("https://github.com/tox-dev/python-discovery/pull/%s", "PR #%s"),
     "user": ("https://github.com/%s", "@%s"),
 }
