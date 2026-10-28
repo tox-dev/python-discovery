@@ -37,6 +37,12 @@ no advisory. Classify by who supplies the dangerous input, not by how bad the ou
   an empty `PATH` entry.
 - A cache entry from one interpreter being reported for another, or surviving a change of the binary.
 - Interrogation output from one candidate being parsed as another candidate's metadata.
+- A spec's version, implementation, architecture, free-threading or debug constraint passing for a shim or launcher
+  while the interpreter it resolves to fails it.
+- A PEP 514 record or a spec making discovery run a program other than the candidate with its registered arguments.
+- Another local user writing a shared cache directory so a victim accepts an interpreter, or metadata, that discovery
+  would otherwise reject.
+- A small candidate response exhausting memory or processes.
 
 **Out of scope**
 
@@ -45,6 +51,6 @@ no advisory. Classify by who supplies the dangerous input, not by how bad the ou
 - Values in the process environment (`PATH`, `PYENV_ROOT`, `UV_PYTHON_INSTALL_DIR`, `PY_DISCOVERY_TIMEOUT`) and the
   Windows registry entries of PEP 514.
 - A `.python-version` file choosing among interpreters that discovery would find anyway.
-- Tampering with a cache directory the caller owns.
+- Tampering with a cache directory only the caller can write.
 
 If you cannot tell which side a finding falls on, report it privately and we will decide.
