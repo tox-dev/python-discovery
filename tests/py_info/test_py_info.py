@@ -15,7 +15,7 @@ import pytest
 from packaging.markers import default_environment
 from setuptools.dist import Distribution
 
-from python_discovery import DiskCache, PythonInfo, PythonSpec
+from python_discovery import DiskCache, MarkerEnvironment, PythonInfo, PythonSpec
 from python_discovery import _cached_py_info as cached_py_info
 from python_discovery._py_info import VersionInfo
 
@@ -498,6 +498,10 @@ def test_marker_environment_matches_target_interpreter() -> None:
     info: Final[PythonInfo | None] = PythonInfo.from_exe(sys.executable, ignore_cache=True, resolve_to_host=False)
     assert info is not None
     assert info.marker_environment == default_environment()
+
+
+def test_marker_environment_type_has_standard_keys() -> None:
+    assert MarkerEnvironment.__required_keys__ == default_environment().keys()
 
 
 def test_marker_environment_uses_target_platform(tmp_path: Path) -> None:

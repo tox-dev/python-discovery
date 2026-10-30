@@ -153,7 +153,7 @@ Once you have a :class:`~python_discovery.PythonInfo`, you can inspect everythin
             +platform: str
             +sysconfig_vars: dict
             +sysconfig_paths: dict
-            +marker_environment: dict[str, str]
+            +marker_environment: MarkerEnvironment
             +machine: str
             +free_threaded: bool
             +debug_build: bool
@@ -182,7 +182,8 @@ Once you have a :class:`~python_discovery.PythonInfo`, you can inspect everythin
    info.marker_environment
 
 Use ``marker_environment`` to evaluate :pep:`508` dependency markers for the discovered interpreter. The mapping
-contains all standard marker keys, including its implementation version and operating system.
+contains all standard marker keys, including its implementation version and operating system. The exported
+``MarkerEnvironment`` type names those keys for type checkers.
 
 Prefer :attr:`~python_discovery.PythonInfo.system_exe` over the raw
 :attr:`~python_discovery.PythonInfo.system_executable` field it reads. The field is typed ``str | None`` because it

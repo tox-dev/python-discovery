@@ -11,7 +11,7 @@ import sys
 from collections import OrderedDict
 from itertools import product
 from string import digits
-from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple
+from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple, TypedDict
 
 from ._py_info_collect import PythonInfoCollector
 
@@ -57,7 +57,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
     os: str
     free_threaded: bool
     debug_build: bool
-    marker_environment: dict[str, str]
+    marker_environment: MarkerEnvironment
     prefix: str | None
     base_prefix: str | None
     real_prefix: str | None
@@ -629,6 +629,20 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
                     yield upper
 
 
+class MarkerEnvironment(TypedDict):
+    implementation_name: str
+    implementation_version: str
+    os_name: str
+    platform_machine: str
+    platform_release: str
+    platform_system: str
+    platform_version: str
+    python_full_version: str
+    platform_python_implementation: str
+    python_version: str
+    sys_platform: str
+
+
 KNOWN_ARCHITECTURES: frozenset[str] = frozenset({
     "arm64",
     "loongarch64",
@@ -672,6 +686,7 @@ def normalize_isa(isa: str) -> str:
 
 __all__ = [
     "KNOWN_ARCHITECTURES",
+    "MarkerEnvironment",
     "PythonInfo",
     "VersionInfo",
     "normalize_isa",
