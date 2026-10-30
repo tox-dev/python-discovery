@@ -1,0 +1,1 @@
+Link every documentation page to its source and edit view on GitHub, and add a GitHub icon to the footer.
