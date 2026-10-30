@@ -195,6 +195,18 @@ def test_satisfies_version_specifier_fails() -> None:
     assert CURRENT.satisfies(spec, impl_must_match=False) is False
 
 
+@pytest.mark.parametrize(
+    ("suffix", "expected"),
+    [
+        pytest.param("t", CURRENT.free_threaded, id="free-threaded"),
+        pytest.param("", True, id="any-build"),
+    ],
+)
+def test_satisfies_version_specifier_free_threaded(suffix: str, expected: bool) -> None:
+    spec = PythonSpec.from_string_spec(f">={sys.version_info.major}.{sys.version_info.minor}{suffix}")
+    assert CURRENT.satisfies(spec, impl_must_match=False) is expected
+
+
 def test_satisfies_version_specifier_unparsable_version() -> None:
     specifier = SimpleSpecifierSet.from_string(">=3.x")
     spec = PythonSpec(">=3.x", None, None, None, None, None, None, version_specifier=specifier)

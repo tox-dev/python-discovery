@@ -364,10 +364,19 @@ and machine segments, leaves the string unrecognized, so it falls back to a lite
    * - ``cpython>=3.11``
      - `Version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
        restricted to CPython
+   * - ``>=3.13t``
+     - `Version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
+       restricted to free-threaded builds
 
 `Version specifiers <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
 (``>=``, ``<=``, ``~=``, ``!=``, ``==``, ``===``) are supported. Multiple specifiers can be comma-separated,
 for example ``>=3.11,<3.13``. Each version is a release of up to three numbers with an optional ``a``, ``b`` or
 ``rc`` pre-release suffix, such as ``3.12`` or ``3.13.0rc1``; ``==`` and ``!=`` also take a trailing ``.*``
-wildcard, as in ``==3.12.*``. A specifier with any item outside that form, such as ``>=3.x``, ``>=3.10.post1``,
-``>=3.12 <4`` (missing comma) or ``>=3.12,foo``, falls back to a literal executable-name match.
+wildcard, as in ``==3.12.*``.
+
+The ABI flags, ``-arch`` and ``-machine`` parts described above follow the last specifier and apply to the whole set:
+``>=3.13t`` asks for a free-threaded 3.13 or newer, ``cpython>=3.11,<3.14-64`` for a 64-bit CPython in that range.
+Without ``t`` a specifier accepts any build, while a plain ``3.13`` asks for the default (GIL) build. A string that
+starts with a comparison operator but does not parse this way, such as ``>=3.x``, ``>=3.10.post1``, ``>=3.12 <4``
+(missing comma) or ``>=3.13t,<3.15`` (a flag on an inner item), raises :exc:`ValueError` instead of being looked up as
+an executable name.

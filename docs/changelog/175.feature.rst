@@ -1,0 +1,3 @@
+Accept the free-threaded, debug, architecture and machine suffixes after a version specifier, as in ``>=3.13t`` or
+``cpython>=3.11,<3.14-64``, and raise ``ValueError`` for a spec that starts with a comparison operator but does not
+parse, such as ``>=3.13.``, instead of looking it up as an executable name.

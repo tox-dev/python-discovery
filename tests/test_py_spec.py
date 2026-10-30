@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sys
 from typing import TYPE_CHECKING
 
@@ -23,15 +24,6 @@ if TYPE_CHECKING:
         "python.",
         "cpython..",
         "pypy...",
-        ">=3.x",
-        ">=3.12 <4",
-        ">=3.10.post1",
-        "cpython>=v3.10",
-        ">=3.12,<4.x",
-        ">=3.x,<4",
-        "<,4",
-        ">=3.12,foo",
-        ">=3.12, 4",
     ],
 )
 def test_bad_py_spec(text: str) -> None:
@@ -43,6 +35,49 @@ def test_bad_py_spec(text: str) -> None:
     del content["str_spec"]
     del content["path"]
     assert all(v is None for v in content.values())
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param(">=3.x", id="non-numeric-version"),
+        pytest.param(">=3.13.", id="trailing-dot"),
+        pytest.param(">=3.10.post1", id="post-release"),
+        pytest.param("cpython>=v3.10", id="v-prefix"),
+        pytest.param(">=3.12 <4", id="missing-comma"),
+        pytest.param(">=3.12,<4.x", id="bad-last-item"),
+        pytest.param(">=3.x,<4", id="bad-first-item"),
+        pytest.param("<,4", id="operator-without-version"),
+        pytest.param(">=3.12,foo", id="item-without-operator"),
+        pytest.param(">=", id="bare-operator"),
+        pytest.param(">=3.13t,<3.15", id="modifier-before-last-item"),
+    ],
+)
+def test_invalid_specifier_raises(text: str) -> None:
+    with pytest.raises(ValueError, match=f"^invalid version specifier {re.escape(repr(text))}$"):
+        PythonSpec.from_string_spec(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param(">=3.13t", (">=3.13", True, None, None, None), id="free-threaded"),
+        pytest.param(">=3.13td", (">=3.13", True, True, None, None), id="free-threaded-debug"),
+        pytest.param(">=3.13-dbg", (">=3.13", None, True, None, None), id="debug"),
+        pytest.param(">=3.11,<3.14t", (">=3.11,<3.14", True, None, None, None), id="set"),
+        pytest.param("cpython>=3.12-64-arm64", (">=3.12", None, None, 64, "arm64"), id="arch-machine"),
+        pytest.param(">=3.13", (">=3.13", None, None, None, None), id="any-build"),
+    ],
+)
+def test_specifier_modifiers(text: str, expected: tuple[str, bool | None, bool | None, int | None, str | None]) -> None:
+    spec = PythonSpec.from_string_spec(text)
+    assert (
+        str(spec.version_specifier),
+        spec.free_threaded,
+        spec.debug,
+        spec.architecture,
+        spec.machine,
+    ) == expected
 
 
 def test_py_spec_first_digit_only_major() -> None:
