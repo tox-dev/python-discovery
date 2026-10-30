@@ -20,6 +20,7 @@ from python_discovery import _cached_py_info as cached_py_info
 from python_discovery._py_info import VersionInfo
 
 if TYPE_CHECKING:
+    from packaging.markers import Environment
     from pytest_mock import MockerFixture
 
 IS_PYPY = PythonInfo.current_system().implementation == "PyPy"
@@ -504,7 +505,7 @@ def test_marker_environment_uses_target_platform(tmp_path: Path) -> None:
         'import platform\nplatform.machine = lambda: "target-machine"\nplatform.release = lambda: "target-release"\n',
         encoding="utf-8",
     )
-    expected = default_environment()
+    expected: Final[Environment] = default_environment()
     assert expected["platform_machine"] != "target-machine"
     assert expected["platform_release"] != "target-release"
     info: Final[PythonInfo | None] = PythonInfo.from_exe(
@@ -527,18 +528,7 @@ def test_marker_environment_survives_json_round_trip() -> None:
 
 def test_marker_environment_formats_prerelease(mocker: MockerFixture) -> None:
     version: Final[VersionInfo] = VersionInfo(*sys.implementation.version)
-    mocker.patch.object(
-        sys.implementation,
-        "version",
-        mocker.create_autospec(
-            version,
-            major=version.major,
-            minor=version.minor,
-            micro=version.micro,
-            releaselevel="candidate",
-            serial=1,
-        ),
-    )
+    mocker.patch.object(sys.implementation, "version", version._replace(releaselevel="candidate", serial=1))
 
     assert PythonInfo().marker_environment["implementation_version"] == (
         f"{version.major}.{version.minor}.{version.micro}c1"
