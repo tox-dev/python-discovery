@@ -9,9 +9,10 @@ import sys
 import sysconfig
 from pathlib import Path
 from textwrap import dedent
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 import pytest
+from packaging.markers import default_environment
 from setuptools.dist import Distribution
 
 from python_discovery import DiskCache, PythonInfo, PythonSpec
@@ -490,6 +491,58 @@ def test_py_info_json_round_trip() -> None:
     restored = PythonInfo.from_json(json_str)
     assert restored.sysconfig_platform == CURRENT.sysconfig_platform
     assert restored.machine == CURRENT.machine
+
+
+def test_marker_environment_matches_target_interpreter() -> None:
+    info: Final[PythonInfo | None] = PythonInfo.from_exe(sys.executable, ignore_cache=True, resolve_to_host=False)
+    assert info is not None
+    assert info.marker_environment == default_environment()
+
+
+def test_marker_environment_uses_target_platform(tmp_path: Path) -> None:
+    (tmp_path / "sitecustomize.py").write_text(
+        'import platform\nplatform.machine = lambda: "target-machine"\nplatform.release = lambda: "target-release"\n',
+        encoding="utf-8",
+    )
+    expected = default_environment()
+    assert expected["platform_machine"] != "target-machine"
+    assert expected["platform_release"] != "target-release"
+    info: Final[PythonInfo | None] = PythonInfo.from_exe(
+        sys.executable,
+        ignore_cache=True,
+        resolve_to_host=False,
+        env={**os.environ, "PYTHONPATH": str(tmp_path)},
+    )
+    assert info is not None
+    assert info.marker_environment == {
+        **expected,
+        "platform_machine": "target-machine",
+        "platform_release": "target-release",
+    }
+
+
+def test_marker_environment_survives_json_round_trip() -> None:
+    assert PythonInfo.from_json(CURRENT.to_json()).marker_environment == CURRENT.marker_environment
+
+
+def test_marker_environment_formats_prerelease(mocker: MockerFixture) -> None:
+    version: Final[VersionInfo] = VersionInfo(*sys.implementation.version)
+    mocker.patch.object(
+        sys.implementation,
+        "version",
+        mocker.create_autospec(
+            version,
+            major=version.major,
+            minor=version.minor,
+            micro=version.micro,
+            releaselevel="candidate",
+            serial=1,
+        ),
+    )
+
+    assert PythonInfo().marker_environment["implementation_version"] == (
+        f"{version.major}.{version.minor}.{version.micro}c1"
+    )
 
 
 @pytest.mark.parametrize(

@@ -57,6 +57,7 @@ urls.Tracker = "https://github.com/tox-dev/python-discovery/issues"
 test = [
   "covdefaults>=2.3",
   "coverage>=7.6.1",
+  "packaging>=23.2",
   "pytest>=8.3.5",
   "pytest-mock>=3.14.1",
   "setuptools>=75.3.4",

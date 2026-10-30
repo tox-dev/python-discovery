@@ -57,6 +57,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
     os: str
     free_threaded: bool
     debug_build: bool
+    marker_environment: dict[str, str]
     prefix: str | None
     base_prefix: str | None
     real_prefix: str | None
