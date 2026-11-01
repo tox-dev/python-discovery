@@ -47,8 +47,9 @@ def get_interpreter(
     :return: the first matching interpreter, or ``None`` if no match is found.
     """
     specs = [key] if isinstance(key, str) else key
+    first_with = tuple(try_first_with or ())
     for spec_str in specs:
-        if result := _find_interpreter(spec_str, try_first_with or (), cache, env, predicate):
+        if result := _find_interpreter(spec_str, first_with, cache, env, predicate):
             return result
     return None
 
