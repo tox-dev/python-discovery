@@ -276,11 +276,26 @@ def test_system_include() -> None:
     assert isinstance(result, str)
 
 
-def test_system_include_fallback(mocker: MockerFixture) -> None:
+@pytest.mark.parametrize(
+    ("distutils_install", "existing", "expected"),
+    [
+        pytest.param({}, [], "include", id="no-headers-path"),
+        pytest.param({"headers": "headers/UNKNOWN"}, ["headers"], "headers", id="headers"),
+        pytest.param({"headers": "headers/UNKNOWN"}, [], "include", id="headers-missing"),
+        pytest.param({"headers": "headers/UNKNOWN"}, ["include", "headers"], "include", id="include-present"),
+    ],
+)
+def test_system_include_fallback(
+    tmp_path: Path, distutils_install: dict[str, str], existing: list[str], expected: str
+) -> None:
     info = copy.deepcopy(CURRENT)
-    mocker.patch("os.path.exists", side_effect=lambda p: "include" not in p or "dist" in p.lower())
-    result = info.system_include
-    assert isinstance(result, str)
+    info.prefix, info.base_prefix, info.real_prefix = str(tmp_path), None, None
+    info.sysconfig_vars = {"base": str(tmp_path)}
+    info.sysconfig_paths = {"include": "{base}/include"}
+    info.distutils_install = distutils_install
+    for name in existing:
+        (tmp_path / name).mkdir()
+    assert info.system_include == str(tmp_path / expected)
 
 
 def test_sysconfig_path_missing_key() -> None:
