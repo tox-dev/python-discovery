@@ -65,6 +65,9 @@ detects these shims and resolves them to the actual binary.
 `mise <https://mise.jdx.dev/>`_ and `asdf <https://asdf-vm.com/>`_ work similarly, using the
 ``MISE_DATA_DIR`` and ``ASDF_DATA_DIR`` environment variables to locate their installations.
 
+A version must name one directory below the version manager's installation root. Discovery skips ``.`` and ``..`` and
+version names containing a path separator, then tries the next configured version.
+
 How uv-managed Pythons are discovered
 ---------------------------------------
 

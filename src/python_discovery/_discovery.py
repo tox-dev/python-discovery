@@ -509,6 +509,9 @@ _VERSION_MANAGER_LAYOUTS: list[tuple[str, tuple[str, ...]]] = [
 
 def _resolve_shim_to_binary(exe_name: str, versions_dir: str, env: Mapping[str, str]) -> str | None:
     for version in _active_versions(env):
+        if version in {"", ".", ".."} or os.path.basename(version) != version:
+            _LOGGER.debug("ignoring invalid version name %r", version)
+            continue
         resolved = os.path.join(versions_dir, version, "bin", exe_name)
         if Path(resolved).is_file() and os.access(resolved, os.X_OK):
             return resolved
