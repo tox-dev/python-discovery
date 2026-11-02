@@ -1,0 +1,2 @@
+Bare interpreter names now search ``PATH`` without probing a matching file in the working directory. Use ``./name``
+when the working directory contains the intended interpreter.
