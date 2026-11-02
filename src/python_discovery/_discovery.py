@@ -288,7 +288,8 @@ def _uv_python_roots(env: Mapping[str, str]) -> Generator[Path, None, None]:
         yield Path(install_dir).expanduser()
         return
     for state_dir in _uv_state_dirs(env):
-        yield state_dir / "python"
+        if state_dir.is_absolute():  # a relative profile path would search the caller's working directory
+            yield state_dir / "python"
 
 
 def _uv_state_dirs(env: Mapping[str, str]) -> Generator[Path, None, None]:
@@ -296,7 +297,10 @@ def _uv_state_dirs(env: Mapping[str, str]) -> Generator[Path, None, None]:
     windows = sys.platform == "win32"
     home = Path(env.get("USERPROFILE" if windows else "HOME") or "~").expanduser()
     if windows:
-        app_data = Path(env["APPDATA"]) if "APPDATA" in env else home / "AppData" / "Roaming"
+        default_app_data = home / "AppData" / "Roaming"
+        app_data = Path(env.get("APPDATA") or default_app_data)
+        if not app_data.is_absolute():
+            app_data = default_app_data
         yield app_data / "uv" / "data"
         yield app_data / "uv"
         return

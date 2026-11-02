@@ -91,7 +91,8 @@ overrides it; otherwise the store is the ``python`` bucket of uv's state directo
 uv follows the XDG convention on macOS too, and falls back to the legacy directory only when that directory already
 exists. python-discovery searches both, in the same order, so a leftover legacy directory cannot hide the store uv
 installs into. A relative ``XDG_DATA_HOME`` does not count, as the XDG specification requires, and Windows ignores it
-outright. Every one of these variables comes from the ``env`` mapping passed to
+outright. An empty or relative ``APPDATA`` uses the profile default, and discovery skips any relative store root.
+Every one of these variables comes from the ``env`` mapping passed to
 :func:`~python_discovery.get_interpreter`, rather than from the process environment.
 
 Each install lives in its own subdirectory, but the actual binary location varies by OS and implementation:
