@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import stat
@@ -138,11 +139,14 @@ def test_discovery_invalid_specifier_raises(session_cache: DiskCache) -> None:
     [pytest.param(False, id="list"), pytest.param(True, id="iterator")],
 )
 def test_discovery_fallback_reuses_preferred_paths(
-    tmp_path: Path, session_cache: DiskCache, *, use_iterator: bool
+    tmp_path: Path, session_cache: DiskCache, mocker: MockerFixture, *, use_iterator: bool
 ) -> None:
-    preferred = tmp_path / "preferred"
-    subprocess.check_call([sys.executable, "-m", "venv", "--without-pip", "--copies", str(preferred)])
-    executable = preferred / ("Scripts/python.exe" if IS_WIN else "bin/python")
+    executable = tmp_path / "preferred" / ("Scripts/python.exe" if IS_WIN else "bin/python")
+    executable.parent.mkdir(parents=True)
+    executable.touch()
+    preferred_info = copy.deepcopy(PythonInfo.current_system(session_cache))
+    preferred_info.executable = str(executable)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=preferred_info)
     paths = [str(executable)]
     result = get_interpreter(
         ["missing-interpreter", ">=3"],
