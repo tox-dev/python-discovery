@@ -145,7 +145,7 @@ def test_discovery_fallback_reuses_preferred_paths(
     executable = preferred / ("Scripts/python.exe" if IS_WIN else "bin/python")
     paths = [str(executable)]
     result = get_interpreter(
-        ["missing-interpreter", str(sys.version_info.major)],
+        ["missing-interpreter", ">=3"],
         try_first_with=iter(paths) if use_iterator else paths,
         cache=session_cache,
         env={**os.environ, "PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
@@ -157,7 +157,7 @@ def test_discovery_fallback_reuses_preferred_paths(
 
 def test_discovery_stops_reading_preferred_paths_after_match(session_cache: DiskCache) -> None:
     preferred_paths = iter([sys.executable, "unneeded"])
-    result = get_interpreter(str(sys.version_info.major), try_first_with=preferred_paths, cache=session_cache)
+    result = get_interpreter(">=3", try_first_with=preferred_paths, cache=session_cache)
     assert result is not None
     assert next(preferred_paths) == "unneeded"
 
