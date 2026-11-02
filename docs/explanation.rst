@@ -13,7 +13,7 @@ order. It stops as soon as it finds an interpreter that matches your spec.
         Start["get_interpreter()"] --> AbsPath{"Is spec an<br>absolute path?"}
         AbsPath -->|Yes| TryAbs["Use path directly"]
         AbsPath -->|No| TryFirst["try_first_with paths"]
-        TryFirst --> RelPath{"Is spec a<br>relative path?"}
+        TryFirst --> RelPath{"Does spec name a<br>relative directory?"}
         RelPath -->|Yes| TryRel["Resolve relative to cwd"]
         RelPath -->|No| Current["Current interpreter"]
         Current --> Win{"Windows?"}
@@ -329,7 +329,8 @@ A spec string follows the pattern ``[impl][version][t][d][-arch][-machine]``. Ev
 Order matters: the parts appear in the sequence shown above. Combine the ABI flags as ``python3.13td``
 (free-threaded then debug, the order CPython uses in ``sys.abiflags``), and keep ``-arch`` before
 ``-machine`` as in ``python3.13d-64-arm64``. Mixing ``d`` with ``-dbg`` in one spec, or swapping the arch
-and machine segments, leaves the string unrecognized, so it falls back to a literal executable-name match.
+and machine segments, leaves the string unrecognized, so it falls back to a literal executable-name match on ``PATH``.
+Only a spec with a directory component, such as ``./python3`` or ``venv/bin/python``, searches the working directory.
 
 **Full examples:**
 

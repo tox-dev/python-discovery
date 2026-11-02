@@ -216,7 +216,8 @@ def _propose_explicit(
             yield PythonInfo.from_exe(exe_raw, cache, env=env), True
 
     if spec.path is not None:
-        if exe_raw := _check_exe(spec.path, tested_exes):  # pragma: no branch
+        # Unparsed bare names reach spec.path; only an explicit directory should search the working directory.
+        if os.path.dirname(spec.path) and (exe_raw := _check_exe(spec.path, tested_exes)):
             yield PythonInfo.from_exe(exe_raw, cache, env=env), True
     else:
         yield from _propose_current_and_windows(spec, cache, env, tested_exes)
