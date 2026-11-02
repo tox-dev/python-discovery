@@ -15,7 +15,9 @@ order. It stops as soon as it finds an interpreter that matches your spec.
         AbsPath -->|No| TryFirst["try_first_with paths"]
         TryFirst --> RelPath{"Does spec name a<br>relative directory?"}
         RelPath -->|Yes| TryRel["Resolve relative to cwd"]
-        RelPath -->|No| Current["Current interpreter"]
+        RelPath -->|No| Bare{"Bare executable name?"}
+        Bare -->|Yes| PATH
+        Bare -->|No| Current["Current interpreter"]
         Current --> Win{"Windows?"}
         Win -->|Yes| PEP514["PEP 514 registry"]
         Win -->|No| PATH
