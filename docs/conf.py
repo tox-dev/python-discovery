@@ -10,6 +10,7 @@ from python_discovery import __version__
 
 company = "tox-dev"
 name = "python-discovery"
+repository = f"https://github.com/{company}/{name}"
 version = ".".join(__version__.split(".")[:2])
 release = __version__
 copyright = f"2026-{datetime.now(tz=timezone.utc).year}, {company}"  # ruff:ignore[builtin-variable-shadowing]
@@ -31,9 +32,9 @@ towncrier_draft_working_directory = Path(__file__).parent.parent
 autosectionlabel_maxdepth = 2
 
 extlinks = {
-    "issue": ("https://github.com/tox-dev/python-discovery/issues/%s", "#%s"),
-    "pr": ("https://github.com/tox-dev/python-discovery/pull/%s", "PR #%s"),
-    "pull": ("https://github.com/tox-dev/python-discovery/pull/%s", "PR #%s"),
+    "issue": (f"{repository}/issues/%s", "#%s"),
+    "pr": (f"{repository}/pull/%s", "PR #%s"),
+    "pull": (f"{repository}/pull/%s", "PR #%s"),
     "user": ("https://github.com/%s", "@%s"),
 }
 
@@ -60,6 +61,18 @@ html_theme_options = {
     "light_logo": "logo.svg",
     "dark_logo": "logo.svg",
     "sidebar_hide_name": True,
+    "source_repository": repository,
+    "source_branch": "main",
+    "source_directory": "docs/",
+    "footer_icons": [
+        {
+            "name": "GitHub",
+            "url": repository,
+            # footer icons are inlined into every page, so a path to the image would not resolve
+            "html": (Path(__file__).parent / "_static" / "github.svg").read_text(encoding="utf-8"),
+            "class": "",
+        },
+    ],
 }
 html_css_files = ["custom.css"]
 

@@ -6,6 +6,67 @@
 
 .. towncrier release notes start
 
+.. _release-1-9-0:
+
+*********************
+ v1.9.0 (2026-10-30)
+*********************
+
+.. _release-1-9-0-added:
+
+Added
+-----
+
+- Expose the 11 marker keys through ``MarkerEnvironment`` for callers that type-check ``PythonInfo.marker_environment``
+  (:pr:`179`) by :user:`gaborbernat`.
+
+.. _release-1-8-0:
+
+*********************
+ v1.8.0 (2026-10-30)
+*********************
+
+.. _release-1-8-0-added:
+
+Added
+-----
+
+- Expose the selected interpreter's dependency marker values as ``PythonInfo.marker_environment`` (:pr:`178`) by
+  :user:`gaborbernat`.
+
+.. _release-1-7-0:
+
+*********************
+ v1.7.0 (2026-10-30)
+*********************
+
+.. _release-1-7-0-added:
+
+Added
+-----
+
+- Accept the free-threaded, debug, architecture and machine suffixes after a version specifier, as in ``>=3.13t`` or
+  ``cpython>=3.11,<3.14-64``, and raise ``ValueError`` for a spec that starts with a comparison operator but does not
+  parse, such as ``>=3.13.``, instead of looking it up as an executable name (:pr:`176`) by :user:`gaborbernat`.
+  (:issue:`175`)
+
+.. _release-1-7-0-fixed:
+
+Fixed
+-----
+
+- Stop a ``.python-version`` file that is not valid UTF-8, or that cannot be read, from aborting discovery through a
+  pyenv, mise or asdf shim; a stray byte no longer hides the versions it names, and an unreadable file is skipped like a
+  missing one (:pr:`173`) by :user:`darrenhuai` and :user:`gaborbernat`.
+
+.. _release-1-7-0-documentation:
+
+Documentation
+-------------
+
+- Link every documentation page to its source and edit view on GitHub, and add a GitHub icon to the footer (:pr:`177`)
+  by :user:`gaborbernat`. (:issue:`174`)
+
 .. _release-1-6-7:
 
 *********************

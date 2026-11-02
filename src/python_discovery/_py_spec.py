@@ -10,26 +10,29 @@ from typing import Final
 from ._py_info import normalize_isa
 from ._specifier import SimpleSpecifier, SimpleSpecifierSet, SimpleVersion
 
-PATTERN = re.compile(
-    r"""
-    ^
-    (?P<impl>[a-zA-Z]+)?            # implementation (e.g. cpython, pypy)
-    (?P<version>[0-9.]+)?           # version (e.g. 3.12, 3.12.1)
+_MODIFIERS: Final[str] = r"""
     (?P<threaded>t)?                # free-threaded flag
     (?P<debug>d|(?:-dbg|-debug)(?=-|$))?  # debug build flag (d, -dbg or -debug)
     (?:-(?P<arch>32|64))?           # architecture bitness
     (?:-(?P<machine>[a-zA-Z0-9_.]+))?  # ISA (e.g. arm64, x86_64, i86pc.64bit)
     $
-    """,
+"""
+PATTERN = re.compile(
+    r"""
+    ^
+    (?P<impl>[a-zA-Z]+)?            # implementation (e.g. cpython, pypy)
+    (?P<version>[0-9.]+)?           # version (e.g. 3.12, 3.12.1)
+    """
+    + _MODIFIERS,
     re.VERBOSE,
 )
 SPECIFIER_PATTERN = re.compile(
     r"""
     ^
     (?:(?P<impl>[A-Za-z]+)\s*)?     # optional implementation prefix
-    (?P<spec>(?:===|==|~=|!=|<=|>=|<|>).+)  # PEP 440 version specifier
-    $
-    """,
+    (?P<spec>(?:===|==|~=|!=|<=|>=|<|>).*?)  # PEP 440 version specifier, lazy so the modifiers can follow it
+    """
+    + _MODIFIERS,
     re.VERBOSE,
 )
 
@@ -69,51 +72,60 @@ def _parse_version_parts(version: str) -> tuple[int | None, int | None, int | No
 def _parse_spec_pattern(string_spec: str) -> PythonSpec | None:
     if not (match := re.match(PATTERN, string_spec)):
         return None
-    groups = match.groupdict()
-    version = groups["version"]
-    major, minor, micro, threaded = None, None, None, None
-    debug = True if groups["debug"] else None  # unconstrained unless an explicit d/-dbg/-debug marker is present
-    if version is not None:
+    release, threaded = (None, None, None), None
+    if (version := match["version"]) is not None:
         try:
-            major, minor, micro = _parse_version_parts(version)
+            release = _parse_version_parts(version)
         except ValueError:
             return None
-        threaded = bool(groups["threaded"])
-    impl = groups["impl"]
+        threaded = bool(match["threaded"])
+    return _spec_from_match(string_spec, match, release, threaded=threaded, version_specifier=None)
+
+
+def _spec_from_match(
+    string_spec: str,
+    match: re.Match[str],
+    release: tuple[int | None, int | None, int | None],
+    *,
+    threaded: bool | None,
+    version_specifier: SpecifierSet | None,
+) -> PythonSpec:
+    impl = match["impl"]
     if impl in {"py", "python"}:
         impl = None
     if impl == "graalvm":
         impl = "graalpy"
-    arch = _int_or_none(groups["arch"])
-    machine = groups.get("machine")
-    if machine is not None:
-        machine = normalize_isa(machine)
     return PythonSpec(
-        string_spec, impl, major, minor, micro, arch, None, free_threaded=threaded, machine=machine, debug=debug
+        string_spec,
+        impl,
+        *release,
+        _int_or_none(match["arch"]),
+        None,
+        free_threaded=threaded,
+        machine=None if (machine := match["machine"]) is None else normalize_isa(machine),
+        debug=True if match["debug"] else None,  # unconstrained unless an explicit d/-dbg/-debug marker is present
+        version_specifier=version_specifier,
     )
 
 
 def _parse_specifier(string_spec: str) -> PythonSpec | None:
-    if not (specifier_match := SPECIFIER_PATTERN.match(string_spec.strip())):
+    if not (match := SPECIFIER_PATTERN.match(string_spec.strip())):
         return None
-    if SpecifierSet is None:  # pragma: no cover
-        return None
-    impl = specifier_match.group("impl")
-    spec_text = specifier_match.group("spec").strip()
-    try:
-        version_specifier = SpecifierSet.from_string(spec_text)
-    except InvalidSpecifier:  # pragma: no cover
-        return None
-    # the set never raises: it keeps an unparsable version as None and drops items without an operator, so fall back
-    # to a literal path, like any other unrecognized spec, unless every item parsed into a usable version
+    spec_text = match["spec"].strip()
+    version_specifier = SpecifierSet.from_string(spec_text)
+    # the set never raises: it keeps an unparsable version as None and drops items without an operator
     items = [item for item in spec_text.split(",") if item.strip()]
     if len(items) != len(version_specifier.specifiers) or any(spec.version is None for spec in version_specifier):
-        return None
-    if impl in {"py", "python"}:
-        impl = None
-    if impl == "graalvm":
-        impl = "graalpy"
-    return PythonSpec(string_spec, impl, None, None, None, None, None, version_specifier=version_specifier)
+        msg = f"invalid version specifier {string_spec!r}"
+        raise ValueError(msg)
+    return _spec_from_match(
+        string_spec,
+        match,
+        (None, None, None),
+        # the version bounds say nothing about the build, so without a trailing t any build qualifies
+        threaded=True if match["threaded"] else None,
+        version_specifier=version_specifier,
+    )
 
 
 class PythonSpec:
@@ -169,6 +181,7 @@ class PythonSpec:
 
         :param string_spec: an interpreter spec — an absolute path, a version string, an implementation prefix,
             or a `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_.
+        :raises ValueError: if the spec starts with a version specifier operator but does not parse as one.
         """
         if pathlib.Path(string_spec).is_absolute():
             return cls(string_spec, None, None, None, None, None, string_spec)

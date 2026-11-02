@@ -101,11 +101,6 @@ def test_single_digit_version() -> None:
     assert spec.minor is None
 
 
-def test_specifier_with_invalid_inner() -> None:
-    spec = PythonSpec.from_string_spec(">=not_a_version")
-    assert spec.path is None or spec.version_specifier is not None or spec.path == ">=not_a_version"
-
-
 def test_two_digit_version() -> None:
     spec = PythonSpec.from_string_spec("python312")
     assert spec.major == 3
