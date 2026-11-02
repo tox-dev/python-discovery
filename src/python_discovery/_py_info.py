@@ -145,7 +145,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
 
     @property
     def system_include(self) -> str:
-        """The path to the system include directory for C headers, which is missing if the headers are not installed."""
+        """The path to the system include directory for C headers."""
         path = self.sysconfig_path(
             "include",
             {
@@ -153,7 +153,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
                 for k, v in self.sysconfig_vars.items()
             },
         )
-        # broken packaging fallback; without distutils there is no headers path and the empty join gives the prefix
+        # An empty headers path would make the fallback resolve to the existing prefix.
         if not os.path.exists(path) and (headers := os.path.dirname(self.install_path("headers"))):
             fallback = os.path.join(self.prefix, headers)
             if os.path.exists(fallback):
