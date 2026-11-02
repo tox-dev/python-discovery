@@ -6,7 +6,7 @@ from importlib.metadata import version
 
 from ._cache import ContentStore, DiskCache, PyInfoCache
 from ._discovery import get_interpreter, iter_interpreters
-from ._py_info import KNOWN_ARCHITECTURES, PythonInfo, normalize_isa
+from ._py_info import KNOWN_ARCHITECTURES, MarkerEnvironment, PythonInfo, normalize_isa
 from ._py_spec import KNOWN_IMPLEMENTATIONS, PythonSpec
 from ._specifier import SimpleSpecifier, SimpleSpecifierSet, SimpleVersion
 
@@ -17,6 +17,7 @@ __all__ = [
     "KNOWN_IMPLEMENTATIONS",
     "ContentStore",
     "DiskCache",
+    "MarkerEnvironment",
     "PyInfoCache",
     "PythonInfo",
     "PythonSpec",

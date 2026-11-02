@@ -64,6 +64,30 @@ class PythonInfoCollector:
         self.os = os.name
         self.free_threaded = sysconfig.get_config_var("Py_GIL_DISABLED") == 1
         self.debug_build = bool(sysconfig.get_config_var("Py_DEBUG"))
+        # Vermin checks the whole script against Python 2.7 despite the version gate above.
+        interpreter = getattr(sys, "implementation")  # ruff:ignore[get-attr-with-constant]
+        interpreter_version = interpreter.version
+        marker_version = "{}.{}.{}{}".format(
+            interpreter_version.major,
+            interpreter_version.minor,
+            interpreter_version.micro,
+            "{}{}".format(interpreter_version.releaselevel[0], interpreter_version.serial)
+            if interpreter_version.releaselevel != "final"
+            else "",
+        )
+        self.marker_environment = {
+            "implementation_name": interpreter.name,
+            "implementation_version": marker_version,
+            "os_name": os.name,
+            "platform_machine": platform.machine(),
+            "platform_release": platform.release(),
+            "platform_system": platform.system(),
+            "platform_version": platform.version(),
+            "python_full_version": platform.python_version(),
+            "platform_python_implementation": platform.python_implementation(),
+            "python_version": ".".join(platform.python_version_tuple()[:2]),
+            "sys_platform": sys.platform,
+        }
 
     def _init_prefixes(self):
         def abs_path(value):
