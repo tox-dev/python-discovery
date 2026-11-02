@@ -212,9 +212,12 @@ class PythonInfoCollector:
         tk_lib = PythonInfoCollector._query_tk_library(tcl)
         if tk_lib is not None:
             return tk_lib
-        tk_version = tcl.eval("package require Tk")
+        import _tkinter  # ruff:ignore[import-outside-top-level,import-private-name] # novermin # linked Tk version
+
+        # Loading Tk can block on DISPLAY; the linked version is enough to locate its library.
+        tk_version = _tkinter.TK_VERSION
         tcl_parent = os.path.dirname(tcl_lib)
-        for version in (tk_version, ".".join(tk_version.split(".")[:2]), tk_version.split(".")[0]):
+        for version in (tk_version, tk_version.split(".")[0]):
             tk_lib_path = os.path.join(tcl_parent, "tk{}".format(version))
             if os.path.isdir(tk_lib_path) and os.path.exists(os.path.join(tk_lib_path, "tk.tcl")):
                 return tk_lib_path
