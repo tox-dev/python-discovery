@@ -6,6 +6,26 @@
 
 .. towncrier release notes start
 
+.. _release-1-9-1:
+
+*********************
+ v1.9.1 (2026-11-02)
+*********************
+
+.. _release-1-9-1-fixed:
+
+Fixed
+-----
+
+- List free-threaded and debug builds on ``PATH``, such as ``python3.13t``, ``python3.13d`` and ``python3.13-dbg``, when
+  ``iter_interpreters()`` runs with no spec, as it already did for uv's ``+freethreaded`` and ``+debug`` installs
+  (:pr:`181`) by :user:`darrenhuai` and :user:`gaborbernat`.
+- Reuse preferred interpreter paths supplied as an iterator when trying multiple interpreter specifications (:pr:`180`)
+  by :user:`subotac` and :user:`gaborbernat`.
+- Stop ``PythonInfo.system_include`` reporting the interpreter's prefix as the include directory when the C headers are
+  not installed, which happened on Python 3.11 and later and on Debian's 3.10; the missing sysconfig include path is
+  returned instead (:pr:`182`) by :user:`darrenhuai` and :user:`gaborbernat`.
+
 .. _release-1-9-0:
 
 *********************
