@@ -122,11 +122,17 @@ def test_iter_interpreters_no_key_includes_running_interpreter(session_cache: Di
 
 
 @pytest.mark.usefixtures("uv_dir")
-@pytest.mark.parametrize("name", ["python3.99t", "python3.99d", "python3.99-dbg"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("python3.99t", id="free-threaded"),
+        pytest.param("python3.99d", id="debug-abi"),
+        pytest.param("python3.99-dbg", id="debug-debian"),
+    ],
+)
 def test_iter_interpreters_no_key_probes_variant_builds_on_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, name: str
 ) -> None:
-    """Unlike a uv install directory, a PATH entry tells free-threaded and debug builds apart only by file name."""
     exe = tmp_path / "bin" / f"{name}{'.exe' if IS_WIN else ''}"
     exe.parent.mkdir()
     exe.touch()

@@ -210,8 +210,7 @@ class PythonSpec:
             impl = "|".join(re.escape(i) for i in KNOWN_IMPLEMENTATIONS)
         else:
             impl = "python"
-        # enumeration wants every build the spec leaves open, as it already gets from the uv store; a single lookup
-        # keeps to the plain names, so it cannot land on a variant build ahead of the default one
+        # An unconstrained single lookup must not depend on directory order to choose a variant.
         mod = "t?" if self.free_threaded or (all_implementations and self.free_threaded is None) else ""
         dbg = "(?:d|-dbg|-debug)?" if self.debug or (all_implementations and self.debug is None) else ""
         suffix = r"\.exe" if windows else ""
