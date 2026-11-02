@@ -133,7 +133,10 @@ def test_discovery_invalid_specifier_raises(session_cache: DiskCache) -> None:
         get_interpreter([">=3.12 <4", sys.executable], cache=session_cache)
 
 
-@pytest.mark.parametrize("use_iterator", [False, True])
+@pytest.mark.parametrize(
+    "use_iterator",
+    [pytest.param(False, id="list"), pytest.param(True, id="iterator")],
+)
 def test_discovery_fallback_reuses_preferred_paths(
     tmp_path: Path, session_cache: DiskCache, *, use_iterator: bool
 ) -> None:
@@ -150,6 +153,13 @@ def test_discovery_fallback_reuses_preferred_paths(
     )
     assert result is not None
     assert Path(result.executable) == executable
+
+
+def test_discovery_stops_reading_preferred_paths_after_match(session_cache: DiskCache) -> None:
+    preferred_paths = iter([sys.executable, "unneeded"])
+    result = get_interpreter(str(sys.version_info.major), try_first_with=preferred_paths, cache=session_cache)
+    assert result is not None
+    assert next(preferred_paths) == "unneeded"
 
 
 @pytest.fixture
