@@ -180,9 +180,10 @@ PATH unless the spec names another implementation explicitly (``pypy3.12``, ``gr
 compatibility with tools that have always read "no implementation in the spec" as "give me CPython."
 :func:`~python_discovery.iter_interpreters` with no spec broadens the search to every name in
 :data:`~python_discovery.KNOWN_IMPLEMENTATIONS` -- otherwise an "all interpreters" call would silently miss every
-PyPy and GraalPy on the system. When you pass a spec to :func:`~python_discovery.iter_interpreters`, it falls back
-to the same narrow regex as :func:`~python_discovery.get_interpreter`, so behavior is consistent across the two
-APIs whenever a spec is given.
+PyPy and GraalPy on the system. It also matches the free-threaded and debug names (``python3.13t``, ``python3.13d``,
+``python3.13-dbg``), so PATH lists those builds just as uv's ``+freethreaded`` and ``+debug`` installs are listed.
+When you pass a spec to :func:`~python_discovery.iter_interpreters`, it falls back to the same narrow regex as
+:func:`~python_discovery.get_interpreter`, so behavior is consistent across the two APIs whenever a spec is given.
 
 **Deduplication.** :func:`~python_discovery.get_interpreter` deduplicates per call so it does not interrogate the
 same binary twice while searching, and stops as soon as a match is found. :func:`~python_discovery.iter_interpreters`

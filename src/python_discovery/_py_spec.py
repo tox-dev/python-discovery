@@ -197,7 +197,9 @@ class PythonSpec:
 
         :param windows: if ``True``, require a ``.exe`` suffix.
         :param all_implementations: when ``True`` and the spec does not constrain the implementation, match every
-            filename in :data:`KNOWN_IMPLEMENTATIONS` instead of only ``python``. Used by enumeration APIs.
+            filename in :data:`KNOWN_IMPLEMENTATIONS` instead of only ``python``. A free-threaded or debug build the
+            spec leaves open also matches its marked name, such as ``python3.13t`` or ``python3.13-dbg``. Used by
+            enumeration APIs.
         """
         version = r"{}(\.{}(\.{})?)?".format(
             *(r"\d+" if v is None else v for v in (self.major, self.minor, self.micro)),
@@ -208,8 +210,9 @@ class PythonSpec:
             impl = "|".join(re.escape(i) for i in KNOWN_IMPLEMENTATIONS)
         else:
             impl = "python"
-        mod = "t?" if self.free_threaded else ""
-        dbg = "(?:d|-dbg|-debug)?" if self.debug else ""
+        # An unconstrained single lookup must not depend on directory order to choose a variant.
+        mod = "t?" if self.free_threaded or (all_implementations and self.free_threaded is None) else ""
+        dbg = "(?:d|-dbg|-debug)?" if self.debug or (all_implementations and self.debug is None) else ""
         suffix = r"\.exe" if windows else ""
         version_conditional = "?" if windows or self.major is None else ""
         return re.compile(

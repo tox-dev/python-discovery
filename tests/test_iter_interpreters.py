@@ -122,6 +122,29 @@ def test_iter_interpreters_no_key_includes_running_interpreter(session_cache: Di
 
 
 @pytest.mark.usefixtures("uv_dir")
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("python3.99t", id="free-threaded"),
+        pytest.param("python3.99d", id="debug-abi"),
+        pytest.param("python3.99-dbg", id="debug-debian"),
+    ],
+)
+def test_iter_interpreters_no_key_probes_variant_builds_on_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, name: str
+) -> None:
+    exe = tmp_path / "bin" / f"{name}{'.exe' if IS_WIN else ''}"
+    exe.parent.mkdir()
+    exe.touch()
+    monkeypatch.setenv("PATH", str(exe.parent))
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+
+    list(iter_interpreters())
+
+    assert str(exe) in [call.args[0] for call in from_exe.call_args_list]
+
+
+@pytest.mark.usefixtures("uv_dir")
 def test_iter_interpreters_dedups_symlinks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

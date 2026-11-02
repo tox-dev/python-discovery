@@ -95,6 +95,52 @@ def test_generate_re_with_debug(name: str) -> None:
     assert pat.fullmatch(name) is not None
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("python3.99t", id="free-threaded"),
+        pytest.param("python3.99d", id="debug-abi"),
+        pytest.param("python3.99-dbg", id="debug-short"),
+        pytest.param("python3.99-debug", id="debug-long"),
+        pytest.param("python3.99td", id="free-threaded-debug-abi"),
+        pytest.param("python3.99t-dbg", id="free-threaded-debug-short"),
+    ],
+)
+@pytest.mark.parametrize("windows", [pytest.param(False, id="posix"), pytest.param(True, id="windows")])
+def test_generate_re_all_implementations_matches_variant_names(name: str, windows: bool) -> None:
+    spec = PythonSpec("", None, None, None, None, None, None)
+    pat = spec.generate_re(windows=windows, all_implementations=True)
+    assert pat.fullmatch(f"{name}.exe" if windows else name) is not None
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("python3.99t", id="free-threaded"),
+        pytest.param("python3.99d", id="debug-abi"),
+        pytest.param("python3.99-dbg", id="debug-debian"),
+    ],
+)
+@pytest.mark.parametrize("key", [pytest.param("python", id="name"), pytest.param("3.99", id="version")])
+def test_generate_re_single_lookup_skips_variant_names(key: str, name: str) -> None:
+    pat = PythonSpec.from_string_spec(key).generate_re(windows=False)
+    assert pat.fullmatch(name) is None
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("python3.99t", id="free-threaded"),
+        pytest.param("python3.99d", id="debug-abi"),
+        pytest.param("python3.99-dbg", id="debug-debian"),
+    ],
+)
+def test_generate_re_all_implementations_keeps_ruled_out_variants_out(name: str) -> None:
+    spec = PythonSpec("", None, 3, 99, None, None, None, free_threaded=False, debug=False)
+    pat = spec.generate_re(windows=False, all_implementations=True)
+    assert pat.fullmatch(name) is None
+
+
 def test_single_digit_version() -> None:
     spec = PythonSpec.from_string_spec("python3")
     assert spec.major == 3
