@@ -133,6 +133,35 @@ def test_discovery_invalid_specifier_raises(session_cache: DiskCache) -> None:
         get_interpreter([">=3.12 <4", sys.executable], cache=session_cache)
 
 
+@pytest.mark.parametrize(
+    "use_iterator",
+    [pytest.param(False, id="list"), pytest.param(True, id="iterator")],
+)
+def test_discovery_fallback_reuses_preferred_paths(
+    tmp_path: Path, session_cache: DiskCache, *, use_iterator: bool
+) -> None:
+    preferred = tmp_path / "preferred"
+    subprocess.check_call([sys.executable, "-m", "venv", "--without-pip", "--copies", str(preferred)])
+    executable = preferred / ("Scripts/python.exe" if IS_WIN else "bin/python")
+    paths = [str(executable)]
+    result = get_interpreter(
+        ["missing-interpreter", str(sys.version_info.major)],
+        try_first_with=iter(paths) if use_iterator else paths,
+        cache=session_cache,
+        env={**os.environ, "PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
+        predicate=lambda info: Path(info.executable) == executable,
+    )
+    assert result is not None
+    assert Path(result.executable) == executable
+
+
+def test_discovery_stops_reading_preferred_paths_after_match(session_cache: DiskCache) -> None:
+    preferred_paths = iter([sys.executable, "unneeded"])
+    result = get_interpreter(str(sys.version_info.major), try_first_with=preferred_paths, cache=session_cache)
+    assert result is not None
+    assert next(preferred_paths) == "unneeded"
+
+
 @pytest.fixture
 def mock_find_interpreter(mocker: MockerFixture) -> None:
     mocker.patch(

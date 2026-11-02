@@ -5,6 +5,7 @@ import os
 import sys
 from contextlib import suppress
 from dataclasses import dataclass
+from itertools import tee
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -47,8 +48,8 @@ def get_interpreter(
     :return: the first matching interpreter, or ``None`` if no match is found.
     """
     specs = [key] if isinstance(key, str) else key
-    for spec_str in specs:
-        if result := _find_interpreter(spec_str, try_first_with or (), cache, env, predicate):
+    for spec_str, preferred_paths in zip(specs, tee(try_first_with or (), len(specs))):
+        if result := _find_interpreter(spec_str, preferred_paths, cache, env, predicate):
             return result
     return None
 
