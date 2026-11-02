@@ -555,7 +555,7 @@ def _versions_in_file(path: str | Path) -> list[str]:
             if len(content) > max_chars:
                 _LOGGER.debug("ignored oversized version file %s", path)
                 return []
-            return [v for line in content.splitlines() if (v := line.strip()) and not v.startswith("#")]
+            return [v for line in content.split("\n") if (v := line.strip()) and not v.startswith("#")]
     except OSError:  # skip a file we cannot read, the same as one that names no version
         _LOGGER.debug("failed to read %s", path, exc_info=True)
         return []

@@ -421,6 +421,15 @@ def test_shim_oversized_python_version_file_is_skipped(
     assert pyenv_probed() == ("versions", version)
 
 
+def test_shim_python_version_file_keeps_unicode_separator_in_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyenv_probed: Callable[[], tuple[str, ...]]
+) -> None:
+    (tmp_path / ".python-version").write_text("2.7.18\u2028ignored\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert pyenv_probed() == ("shims", "python2.7.exe" if IS_WIN else "python2.7")
+
+
 def test_shim_python_version_file_not_utf8(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyenv_probed: Callable[[], tuple[str, ...]]
 ) -> None:
