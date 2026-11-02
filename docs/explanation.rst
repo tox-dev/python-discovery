@@ -51,14 +51,20 @@ detects these shims and resolves them to the actual binary.
 
     flowchart TD
         Shim["Shim detected"] --> EnvVar{"PYENV_VERSION<br>set?"}
-        EnvVar -->|Yes| Use["Use that version"]
+        EnvVar -->|Yes| Valid{"Valid directory name?"}
         EnvVar -->|No| File{".python-version<br>names a version?"}
-        File -->|Yes| Use
+        File -->|Yes| Valid
         File -->|No| Global{"pyenv global<br>version exists?"}
-        Global -->|Yes| Use
+        Global -->|Yes| Valid
         Global -->|No| Skip["Skip shim"]
+        Valid -->|Yes| Use["Use that version"]
+        Valid -->|No| More{"Another version?"}
+        More -->|Yes| Valid
+        More -->|No| Skip
 
         style Shim fill:#4a90d9,stroke:#2a5f8f,color:#fff
+        style Valid fill:#4a90d9,stroke:#2a5f8f,color:#fff
+        style More fill:#4a90d9,stroke:#2a5f8f,color:#fff
         style Use fill:#4a9f4a,stroke:#2a6f2a,color:#fff
         style Skip fill:#d94a4a,stroke:#8f2a2a,color:#fff
 
