@@ -64,6 +64,8 @@ detects these shims and resolves them to the actual binary.
 
 `mise <https://mise.jdx.dev/>`_ and `asdf <https://asdf-vm.com/>`_ work similarly, using the
 ``MISE_DATA_DIR`` and ``ASDF_DATA_DIR`` environment variables to locate their installations.
+python-discovery skips version files over 4096 characters. It checks parent directories and, for pyenv, the global
+version when needed.
 
 How uv-managed Pythons are discovered
 ---------------------------------------
