@@ -1,1 +1,0 @@
-Skip PEP 514 registry entries with relative or non-string executable paths and continue interpreter discovery.

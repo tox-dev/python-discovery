@@ -1,1 +1,0 @@
-Match literal interpreter names against the executable found on ``PATH``, including symlink names.

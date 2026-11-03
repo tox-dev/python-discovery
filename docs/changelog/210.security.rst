@@ -1,2 +1,0 @@
-Discovery uses the profile default for empty or relative ``APPDATA`` and skips relative profile paths when finding
-uv-managed Pythons.

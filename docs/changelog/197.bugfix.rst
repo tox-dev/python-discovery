@@ -1,1 +1,0 @@
-Skip interpreter candidates that return JSON without usable interpreter metadata and continue searching.

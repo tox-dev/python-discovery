@@ -1,2 +1,0 @@
-When an explicit ``env`` mapping omits ``HOME`` or ``USERPROFILE``, uv-managed interpreter discovery no longer searches
-the process home directory.

@@ -1,2 +1,0 @@
-Interpreter discovery no longer reuses pyenv shim results across projects. A version choice in one checkout cannot
-leave an unsupported-version verdict that blocks discovery in another project.

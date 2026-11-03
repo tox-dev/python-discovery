@@ -1,2 +1,0 @@
-Skip relative ``PATH`` entries, including the working-directory entry in the Windows default search path, when
-discovering interpreters.

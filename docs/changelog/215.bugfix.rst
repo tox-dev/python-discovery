@@ -1,1 +1,0 @@
-Prevent an earlier virtual-environment lookup from reporting an executable under the wrong Python version.

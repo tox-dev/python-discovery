@@ -1,1 +1,0 @@
-Tcl/Tk library detection no longer executes Tk startup profile files from the home or working directory.

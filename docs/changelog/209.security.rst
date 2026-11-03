@@ -1,2 +1,0 @@
-Discovery skips ``.python-version`` files over 4096 characters during shim resolution, limiting memory use and allowing
-a parent or global version to apply.

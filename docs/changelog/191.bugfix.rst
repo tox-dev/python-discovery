@@ -1,1 +1,0 @@
-Preserve a virtual environment selected through ``try_first_with`` instead of returning its base interpreter.

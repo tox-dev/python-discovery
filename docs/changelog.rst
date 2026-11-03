@@ -6,6 +6,83 @@
 
 .. towncrier release notes start
 
+.. _release-1-9-2:
+
+*********************
+ v1.9.2 (2026-11-03)
+*********************
+
+.. _release-1-9-2-fixed:
+
+Fixed
+-----
+
+- Match literal interpreter names against the executable found on ``PATH``, including symlink names (:pr:`220`) by
+  :user:`gaborbernat`. (:issue:`188`)
+- Preserve a virtual environment selected through ``try_first_with`` instead of returning its base interpreter
+  (:pr:`218`) by :user:`gaborbernat`. (:issue:`191`)
+- Skip interpreter candidates that return JSON without usable interpreter metadata and continue searching (:pr:`231`) by
+  :user:`gaborbernat`. (:issue:`197`)
+- Reject format widths in interpreter sysconfig paths before they allocate oversized strings (:pr:`229`) by
+  :user:`gaborbernat`. (:issue:`199`)
+- Check the interpreter's reported implementation when a spec names a known implementation, regardless of its filename
+  on ``PATH`` (:pr:`233`) by :user:`gaborbernat`. (:issue:`201`)
+- Write interpreter cache entries as compact JSON to keep their size proportional to the interpreter response
+  (:pr:`237`) by :user:`gaborbernat`. (:issue:`204`)
+- Prevent an earlier virtual-environment lookup from reporting an executable under the wrong Python version (:pr:`215`)
+  by :user:`gaborbernat`.
+- Retry interpreter discovery without the cache when cache access fails (:pr:`216`) by :user:`gaborbernat`.
+- Exclude prereleases of the final version named by an exclusive upper bound, such as ``<3.12.0`` rejecting
+  ``3.12.0rc1`` (:pr:`217`) by :user:`gaborbernat`.
+- Stop repeated interpreter queries when a virtual environment reports the same base prefix with different path
+  spellings (:pr:`219`) by :user:`gaborbernat`.
+- Limit candidate stdout and stderr during interpreter queries so a noisy candidate cannot exhaust the caller's memory
+  (:pr:`223`) by :user:`gaborbernat`.
+- Find uv-managed patch releases when a version specifier names only their major and minor version (:pr:`227`) by
+  :user:`gaborbernat`.
+- Handle interpreter paths containing non-UTF-8 filesystem bytes when using DiskCache (:pr:`230`) by
+  :user:`gaborbernat`.
+- Preserve interpreter-provided values when answer keys match computed properties during cache serialization (:pr:`234`)
+  by :user:`gaborbernat`.
+- Return after an interpreter query times out without leaving pipe readers blocked by a child process (:pr:`228`) by
+  :user:`gaborbernat`.
+- Use the supplied environment for base-interpreter probes when resolving a virtual environment (:pr:`225`) by
+  :user:`gaborbernat`.
+
+.. _release-1-9-2-security:
+
+Security
+--------
+
+- When an explicit ``env`` mapping omits ``HOME`` or ``USERPROFILE``, uv-managed interpreter discovery no longer
+  searches the process home directory (:pr:`236`) by :user:`gaborbernat`. (:issue:`200`)
+- Skip relative ``PATH`` entries, including the working-directory entry in the Windows default search path, when
+  discovering interpreters (:pr:`235`) by :user:`gaborbernat`. (:issue:`202`)
+- Validate pyenv, mise and asdf version names before using them as directory names. A version file can no longer direct
+  python-discovery's resolver to a binary outside the version manager's installation directory (:pr:`205`) by
+  :user:`gaborbernat`.
+- When imported from an archive, python-discovery now extracts its interpreter probe into a private temporary directory.
+  This prevents the probe from importing modules supplied in the shared temp directory (:pr:`206`) by
+  :user:`gaborbernat`.
+- Bare interpreter names now search ``PATH`` without probing a matching file in the working directory. Use ``./name``
+  when the working directory contains the intended interpreter (:pr:`207`) by :user:`gaborbernat`.
+- Tcl/Tk library detection no longer executes Tk startup profile files from the home or working directory (:pr:`208`) by
+  :user:`gaborbernat`.
+- Discovery skips ``.python-version`` files over 4096 characters during shim resolution, limiting memory use and
+  allowing a parent or global version to apply (:pr:`209`) by :user:`gaborbernat`.
+- Discovery uses the profile default for empty or relative ``APPDATA`` and skips relative profile paths when finding
+  uv-managed Pythons (:pr:`210`) by :user:`gaborbernat`.
+- Tcl/Tk library detection no longer opens an X display, so an unresponsive display cannot block interpreter discovery.
+  It can also find the Tk library on headless systems (:pr:`211`) by :user:`gaborbernat`.
+- Skip PEP 514 registry entries with relative or non-string executable paths and continue interpreter discovery
+  (:pr:`212`) by :user:`gaborbernat`.
+- Skip untrusted disk cache directories and entries on POSIX, and replace cache files without following links
+  (:pr:`213`) by :user:`gaborbernat`.
+- Place POSIX cache locks in a restricted directory and preserve group sharing under a group-permissive umask
+  (:pr:`214`) by :user:`gaborbernat`.
+- Interpreter discovery no longer reuses pyenv shim results across projects. A version choice in one checkout cannot
+  leave an unsupported-version verdict that blocks discovery in another project (:pr:`232`) by :user:`gaborbernat`.
+
 .. _release-1-9-1:
 
 *********************
