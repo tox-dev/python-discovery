@@ -277,7 +277,7 @@ def test_satisfies_path_not_abs_basename_no_match() -> None:
 def test_satisfies_path_win32(mocker: MockerFixture) -> None:
     info = copy.deepcopy(CURRENT)
     mocker.patch.object(sys, "platform", "win32")
-    info.original_executable = "/some/path/python.exe"
+    info.executable = "/some/path/python.exe"
     spec = PythonSpec.from_string_spec("python")
     spec.path = "python"
     assert info.satisfies(spec, impl_must_match=False) is True

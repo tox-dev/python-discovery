@@ -74,6 +74,17 @@ def test_discovery_via_path_not_found(tmp_path: Path, monkeypatch: pytest.Monkey
     assert interpreter is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlink names")
+def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
+    link = tmp_path / "python_custom"
+    link.symlink_to(sys.executable)
+
+    interpreter = get_interpreter("python_custom", [], env={"PATH": str(tmp_path)})
+
+    assert interpreter is not None
+    assert interpreter.executable == str(link)
+
+
 def test_discovery_via_path_in_nonbrowseable_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     bad_perm = tmp_path / "bad_perm"
     bad_perm.mkdir(mode=0o000)

@@ -283,7 +283,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             return True
         if spec.is_abs:
             return True
-        basename = os.path.basename(self.original_executable)
+        basename = os.path.basename(self.executable)
         spec_path = spec.path
         if sys.platform == "win32":
             basename, suffix = os.path.splitext(basename)
