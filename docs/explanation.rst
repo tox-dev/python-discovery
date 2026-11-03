@@ -258,6 +258,9 @@ with `filelock <https://py-filelock.readthedocs.io/>`_-based locking for safe co
 can also pass ``cache=None`` to disable caching, or implement your own backend (see
 :doc:`/how-to/standalone-usage`).
 
+If cache access raises an OS error, discovery retries the interpreter query without that cache. A failed cache write
+can therefore cause a second query.
+
 Subprocess timeout behavior
 ----------------------------
 
