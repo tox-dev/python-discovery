@@ -43,7 +43,7 @@ def get_interpreter(
         (``>=3.10``). When a sequence is given each entry is tried in order.
     :param try_first_with: executables to probe before the normal discovery search.
     :param cache: interpreter metadata cache; when ``None`` results are not cached.
-    :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
     :param predicate: optional callback applied after an interpreter matches the spec. Return ``True`` to accept the
         interpreter, ``False`` to skip it and continue searching.
     :return: the first matching interpreter, or ``None`` if no match is found.
@@ -75,7 +75,7 @@ def iter_interpreters(
     :param try_first_with: executables to probe before the normal discovery search.
     :param cache: interpreter metadata cache; when ``None`` results are not cached. Strongly recommended for
         enumeration, which interrogates every candidate as a subprocess on a cold cache.
-    :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
     :param predicate: optional filter applied after the spec match; return ``True`` to include the interpreter.
     """
     if key is None:
@@ -187,7 +187,7 @@ def propose_interpreters(
     :param spec: the parsed interpreter specification to match against.
     :param try_first_with: executable paths to probe before the standard search.
     :param cache: interpreter metadata cache; when ``None`` results are not cached.
-    :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
     :param all_implementations: when ``True`` and *spec* does not constrain the implementation, also surface
         non-CPython binaries on ``PATH`` and under UV's install directory. Used by enumeration APIs.
     """
@@ -296,22 +296,22 @@ def _uv_python_roots(env: Mapping[str, str]) -> Generator[Path, None, None]:
 
 def _uv_state_dirs(env: Mapping[str, str]) -> Generator[Path, None, None]:
     """Yield uv's legacy state directory then its current one, the order uv prefers them in."""
-    windows = sys.platform == "win32"
-    home = Path(env.get("USERPROFILE" if windows else "HOME") or "~").expanduser()
+    windows: Final = sys.platform == "win32"
+    home: Final = Path(profile) if (profile := env.get("USERPROFILE" if windows else "HOME")) else None
     if windows:
-        default_app_data = home / "AppData" / "Roaming"
-        app_data = Path(env.get("APPDATA") or default_app_data)
-        if not app_data.is_absolute():
-            app_data = default_app_data
-        yield app_data / "uv" / "data"
-        yield app_data / "uv"
+        app_data = Path(roaming) if (roaming := env.get("APPDATA")) else None
+        if app_data is None or not app_data.is_absolute():
+            app_data = home / "AppData" / "Roaming" if home is not None else None
+        if app_data is not None:
+            yield app_data / "uv" / "data"
+            yield app_data / "uv"
         return
-    if sys.platform == "darwin":
+    if sys.platform == "darwin" and home is not None:
         yield home / "Library" / "Application Support" / "uv"
     # uv ignores a relative XDG_DATA_HOME, as the XDG specification requires
     if (xdg_data_home := env.get("XDG_DATA_HOME")) and (xdg := Path(xdg_data_home)).is_absolute():
         yield xdg / "uv"
-    else:
+    elif home is not None:
         yield home / ".local" / "share" / "uv"
 
 
