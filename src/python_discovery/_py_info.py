@@ -421,7 +421,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
 
         if isinstance(proposed, PythonInfo) and resolve_to_host:
             try:
-                proposed = proposed.resolve_to_system(cache, proposed)
+                proposed = proposed.resolve_to_system(cache, proposed, env=env)
             except Exception as exception:
                 if raise_on_error:
                     raise
@@ -452,12 +452,15 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         return result
 
     @classmethod
-    def resolve_to_system(cls, cache: PyInfoCache | None, target: PythonInfo) -> PythonInfo:
+    def resolve_to_system(
+        cls, cache: PyInfoCache | None, target: PythonInfo, *, env: Mapping[str, str] | None = None
+    ) -> PythonInfo:
         """
         Walk virtualenv/venv prefix chains to find the underlying system interpreter.
 
         :param cache: interpreter metadata cache; when ``None`` results are not cached.
         :param target: the interpreter to resolve.
+        :param env: environment mapping; defaults to :data:`os.environ`.
         """
         start_executable = target.executable
         prefixes = OrderedDict()
@@ -475,9 +478,9 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
                 msg = "prefixes are causing a circle {}".format("|".join(prefixes.keys()))
                 raise RuntimeError(msg)
             prefixes[prefix_key] = target
-            target = target.discover_exe(cache, prefix=prefix, exact=False)
+            target = target.discover_exe(cache, prefix=prefix, exact=False, env=env)
         if target.executable != target.system_executable:
-            resolved = cls.from_exe(target.system_executable, cache)
+            resolved = cls.from_exe(target.system_executable, cache, env=env)
             if resolved is not None:
                 target = resolved
         if target.executable != start_executable:
