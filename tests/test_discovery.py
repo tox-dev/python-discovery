@@ -421,6 +421,61 @@ def test_shim_uses_python_version_file(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 @pytest.mark.parametrize(
+    ("version", "target"),
+    [
+        pytest.param("{outside}", "outside", id="absolute"),
+        pytest.param("../../outside", "outside", id="traversal"),
+        pytest.param("..", "root", id="parent"),
+        pytest.param(".", "versions", id="current"),
+        pytest.param("2.7.18/subdir", "nested", id="nested"),
+    ],
+)
+def test_shim_skips_path_like_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: str, target: str
+) -> None:
+    root = _create_version_manager(tmp_path, "PYENV_ROOT")
+    real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
+    outside = tmp_path / "outside"
+    attack_root = {
+        "outside": outside,
+        "root": root,
+        "versions": root / "versions",
+        "nested": root / "versions" / "2.7.18" / "subdir",
+    }[target]
+    _create_versioned_binary(attack_root, (), "", "python2.7")
+    shim = root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")
+    shim.touch(mode=0o755)
+    (tmp_path / ".python-version").write_text(f"{version.format(outside=outside)}\n2.7.18\n", encoding="utf-8")
+
+    monkeypatch.setenv("PATH", str(root / "shims"))
+    monkeypatch.setenv("PYENV_ROOT", str(root))
+    monkeypatch.delenv("PYENV_VERSION", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+        mock_from_exe.return_value = None
+        get_interpreter("python2.7", [])
+        assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+
+
+def test_shim_skips_empty_environment_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = _create_version_manager(tmp_path, "PYENV_ROOT")
+    real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
+    _create_versioned_binary(root / "versions", (), "", "python2.7")
+    shim = root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")
+    shim.touch(mode=0o755)
+
+    monkeypatch.setenv("PATH", str(root / "shims"))
+    monkeypatch.setenv("PYENV_ROOT", str(root))
+    monkeypatch.setenv("PYENV_VERSION", ":2.7.18")
+
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+        mock_from_exe.return_value = None
+        get_interpreter("python2.7", [])
+        assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+
+
+@pytest.mark.parametrize(
     ("length", "version"),
     [pytest.param(4096, "2.7.18", id="at-limit"), pytest.param(4097, "2.7.15", id="over-limit")],
 )
