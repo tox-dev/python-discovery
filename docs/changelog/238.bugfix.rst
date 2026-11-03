@@ -1,0 +1,1 @@
+Reject generic Python executables when a requested implementation is unavailable.
