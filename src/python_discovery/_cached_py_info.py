@@ -59,6 +59,10 @@ _MAX_QUERY_OUTPUT: Final[int] = 1 << 20
 class _UnsupportedInterpreterError(RuntimeError):
     """The interpreter is older than the interrogation script supports; retrying cannot help."""
 
+    def __init__(self, message: str, executable: str | None = None) -> None:
+        super().__init__(message)
+        self.executable = executable
+
 
 def from_exe(  # ruff:ignore[too-many-arguments]
     cls: type[PythonInfo],
@@ -100,11 +104,30 @@ def _get_from_cache(  # ruff:ignore[too-many-arguments]
     if not ignore_cache and key in _CACHE:
         result = _CACHE[key]
     else:
-        result = _CACHE[key] = _get_via_file_cache(cls, cache, key[0], exe, env, executable_args=executable_args)
+        result = _get_via_file_cache(cls, cache, key[0], exe, env, executable_args=executable_args)
+        if _cacheable_result(key[0], result):
+            _CACHE[key] = result
+        else:
+            _CACHE.pop(key, None)
     # with launcher arguments the queried binary is not the interpreter, so keep the one the query reported
     if isinstance(result, PythonInfo) and executable_args is None:
         result.executable = exe
     return result
+
+
+def _cacheable_result(path: Path, result: PythonInfo | Exception) -> bool:
+    if isinstance(result, PythonInfo):
+        executable = result.original_executable
+    elif isinstance(result, _UnsupportedInterpreterError):
+        executable = result.executable
+    else:
+        return False
+    if executable is None:
+        return False
+    try:
+        return path.samefile(executable)
+    except (OSError, TypeError, ValueError):
+        return False
 
 
 def _get_via_file_cache(  # ruff:ignore[too-many-arguments]
@@ -136,26 +159,25 @@ def _get_via_file_cache(  # ruff:ignore[too-many-arguments]
     }
     with py_info_store.locked():
         cached = _read_cache_entry(cls, py_info_store, entry_meta)
-        if isinstance(cached, _UnsupportedInterpreterError):
+        if cached is not None:
             return cached
-        py_info = cached
-        if py_info is None:
+        failure, py_info = _run_subprocess(cls, exe, env, executable_args)
+        if failure is not None and not isinstance(failure, _UnsupportedInterpreterError):
+            _LOGGER.debug("first subprocess attempt failed for %s (%s), retrying", exe, failure)
             failure, py_info = _run_subprocess(cls, exe, env, executable_args)
-            if failure is not None and not isinstance(failure, _UnsupportedInterpreterError):
-                _LOGGER.debug("first subprocess attempt failed for %s (%s), retrying", exe, failure)
-                failure, py_info = _run_subprocess(cls, exe, env, executable_args)
-            if isinstance(failure, _UnsupportedInterpreterError):
-                _LOGGER.warning("%s", failure)  # the verdict is permanent, warn once and remember it
+        if isinstance(failure, _UnsupportedInterpreterError):
+            _LOGGER.warning("%s", failure)
+            if _cacheable_result(path, failure):
                 py_info_store.write({**entry_meta, "unsupported": str(failure)})
-                return failure
-            if failure is not None:
-                return failure
-            if py_info is not None:
-                py_info_store.write({**entry_meta, "content": py_info.to_dict()})
-    if py_info is None:
-        msg = f"{exe} failed to produce interpreter info"
-        return RuntimeError(msg)
-    return py_info
+            return failure
+        if failure is not None:
+            return failure
+        if py_info is None:
+            msg = f"{exe} failed to produce interpreter info"
+            return RuntimeError(msg)
+        if _cacheable_result(path, py_info):
+            py_info_store.write({**entry_meta, "content": py_info.to_dict()})
+        return py_info
 
 
 def _read_cache_entry(
@@ -167,7 +189,7 @@ def _read_cache_entry(
         return None
     if isinstance(data, dict) and all(data.get(key) == value for key, value in entry_meta.items()):
         if isinstance(unsupported := data.get("unsupported"), str):
-            return _UnsupportedInterpreterError(unsupported)
+            return _UnsupportedInterpreterError(unsupported, entry_meta["path"])
         if isinstance(content := data.get("content"), dict):
             return _load_cached_py_info(cls, py_info_store, content)
     py_info_store.remove()
@@ -400,10 +422,12 @@ def _query_failure(exe: str, out: str, err: str | None, code: int | None) -> Run
     # the gate's exit code and stderr marker must both be present: either alone can collide, an errno of 79 from a
     # failed exec or a shim that echoes the marker phrase, but only the gate produces the combination
     if code == UNSUPPORTED_EXIT_CODE and err is not None and (at := err.find(UNSUPPORTED_MARKER)) != -1:
-        version = err[at + len(UNSUPPORTED_MARKER) :].split() or ["unknown"]
+        details = err[at + len(UNSUPPORTED_MARKER) :].splitlines()
+        version = details[0].split() if details else []
         floor = ".".join(str(i) for i in MIN_INTERROGATE_VERSION)
-        msg = f"{exe} is Python {version[0]}, older than the minimum {floor} python-discovery can query"
-        return _UnsupportedInterpreterError(msg)
+        found = version[0] if version else "unknown"
+        msg = f"{exe} is Python {found}, older than the minimum {floor} python-discovery can query"
+        return _UnsupportedInterpreterError(msg, details[1].strip() if len(details) > 1 else None)
     msg = f"{exe} with code {code}{f' out: {out!r}' if out else ''}{f' err: {err!r}' if err else ''}"
     return RuntimeError(f"failed to query {msg}")
 

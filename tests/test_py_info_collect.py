@@ -3,11 +3,11 @@ from __future__ import annotations
 import ast
 import json
 import os
-import subprocess
 import sys
 import sysconfig
 from itertools import takewhile
 from pathlib import Path
+from subprocess import run
 from typing import TYPE_CHECKING
 
 import pytest
@@ -44,7 +44,26 @@ def test_script_version_gate_precedes_imports() -> None:
 
 
 def _run_script(*args: str) -> str:
-    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, check=True).stdout
+    return run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, check=True).stdout
+
+
+def test_script_version_gate_reports_executable() -> None:
+    result = run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from runpy import run_path; import sys; sys.version_info = (3, 5, 10, 'final', 0); "
+                "run_path(sys.argv[1], run_name='__main__')"
+            ),
+            str(SCRIPT),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 79
+    assert result.stderr == f"unsupported Python version 3.5.10\n{sys.executable}"
 
 
 @pytest.mark.parametrize(

@@ -380,11 +380,52 @@ def test_from_exe_too_old_python_raises_by_default(tmp_path: Path) -> None:
 def test_from_exe_too_old_python_verdict_cached(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO)
     cache = DiskCache(tmp_path / "cache")
-    exe = _write_fake_python(tmp_path, stderr="unsupported Python version 3.5.10")
+    exe = _write_fake_python(tmp_path, stderr="unsupported Python version 3.5.10\n$0")
     assert PythonInfo.from_exe(str(exe), cache, raise_on_error=False, ignore_cache=True) is None
     assert PythonInfo.from_exe(str(exe), cache, raise_on_error=False, ignore_cache=True) is None
     assert len(_interrogations(exe)) == 1
     assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 1
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
+def test_from_exe_too_old_python_shim_verdict_not_cached(tmp_path: Path) -> None:
+    cache = DiskCache(tmp_path / "cache")
+    exe = _write_fake_python(tmp_path, stderr=f"unsupported Python version 3.5.10\n{sys.executable}")
+
+    assert PythonInfo.from_exe(str(exe), cache, raise_on_error=False, ignore_cache=True) is None
+    assert PythonInfo.from_exe(str(exe), cache, raise_on_error=False, ignore_cache=True) is None
+    assert len(_interrogations(exe)) == 2
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX executable script")
+@pytest.mark.parametrize("ignore_cache", [pytest.param(False, id="memory"), pytest.param(True, id="disk")])
+def test_from_exe_shim_result_changes_with_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ignore_cache: bool
+) -> None:
+    shim = tmp_path / "shim"
+    shim.write_text(
+        f"#!{sys.executable}\n"
+        "from runpy import run_path\nimport sys\nfrom pathlib import Path\n"
+        "sys.prefix = (Path.cwd() / '.python-version').read_text(encoding='utf-8').strip()\n"
+        "run_path(sys.argv.pop(1), run_name='__main__')\n",
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    (first / ".python-version").write_text(str(first), encoding="utf-8")
+    (second / ".python-version").write_text(str(second), encoding="utf-8")
+    cache = DiskCache(tmp_path / "cache")
+
+    monkeypatch.chdir(first)
+    earlier = PythonInfo.from_exe(str(shim), cache, ignore_cache=ignore_cache, resolve_to_host=False)
+    monkeypatch.chdir(second)
+    later = PythonInfo.from_exe(str(shim), cache, ignore_cache=ignore_cache, resolve_to_host=False)
+
+    assert earlier is not None
+    assert later is not None
+    assert (earlier.prefix, later.prefix) == (str(first), str(second))
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
@@ -511,7 +552,7 @@ def test_executable_args_memory_cache_keyed_by_args(tmp_path: Path, mocker: Mock
     cache, env = DiskCache(tmp_path), dict(os.environ)
 
     results = [
-        _get_from_cache(PythonInfo, cache, _LAUNCHER, env, ignore_cache=False, executable_args=args)
+        _get_from_cache(PythonInfo, cache, sys.executable, env, ignore_cache=False, executable_args=args)
         for args in ("-3.11", "-3.12", "-3.11")
     ]
 
