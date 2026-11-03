@@ -53,8 +53,8 @@ def test_script_version_gate_reports_executable() -> None:
             sys.executable,
             "-c",
             (
-                "import runpy, sys; sys.version_info = (3, 5, 10, 'final', 0); "
-                "runpy.run_path(sys.argv[1], run_name='__main__')"
+                "from runpy import run_path; import sys; sys.version_info = (3, 5, 10, 'final', 0); "
+                "run_path(sys.argv[1], run_name='__main__')"
             ),
             str(SCRIPT),
         ],

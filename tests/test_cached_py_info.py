@@ -369,9 +369,9 @@ def test_from_exe_shim_result_changes_with_directory(
     shim = tmp_path / "shim"
     shim.write_text(
         f"#!{sys.executable}\n"
-        "import runpy\nimport sys\nfrom pathlib import Path\n"
+        "from runpy import run_path\nimport sys\nfrom pathlib import Path\n"
         "sys.prefix = (Path.cwd() / '.python-version').read_text(encoding='utf-8').strip()\n"
-        "runpy.run_path(sys.argv.pop(1), run_name='__main__')\n",
+        "run_path(sys.argv.pop(1), run_name='__main__')\n",
         encoding="utf-8",
     )
     shim.chmod(0o755)
