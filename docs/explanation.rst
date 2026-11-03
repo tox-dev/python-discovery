@@ -258,6 +258,13 @@ with `filelock <https://py-filelock.readthedocs.io/>`_-based locking for safe co
 can also pass ``cache=None`` to disable caching, or implement your own backend (see
 :doc:`/how-to/standalone-usage`).
 
+On POSIX, ``DiskCache`` uses a cache root only when it and both ``py_info`` directories are real directories owned by
+the current user or root and cannot be written by other users. Its ancestor directories must also prevent other users
+from replacing the cache root; a sticky shared ancestor such as ``/tmp`` is allowed. Discovery continues without disk
+caching and logs a warning if the directory check fails. Cache entries must be regular files owned by the current user
+or root and not writable by others. Discovery tries to remove a rejected entry and queries the interpreter again. Use a
+private directory for the cache root, including when callers share a machine.
+
 Subprocess timeout behavior
 ----------------------------
 
