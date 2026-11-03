@@ -14,7 +14,7 @@ UNSUPPORTED_EXIT_CODE = 79  # first value past the sysexits.h range, so no stdli
 UNSUPPORTED_MARKER = "unsupported Python version "
 
 if __name__ == "__main__" and sys.version_info[:2] < MIN_INTERROGATE_VERSION:  # pragma: no cover # needs <3.6
-    sys.stderr.write(UNSUPPORTED_MARKER + ".".join(str(i) for i in sys.version_info[:3]))
+    sys.stderr.write(UNSUPPORTED_MARKER + ".".join(str(i) for i in sys.version_info[:3]) + "\n" + sys.executable)
     raise SystemExit(UNSUPPORTED_EXIT_CODE)
 
 import json

@@ -141,7 +141,7 @@ def test_py_info_cached_error(mocker: MockerFixture, tmp_path: Path, session_cac
         PythonInfo.from_exe(str(tmp_path), session_cache)
     with pytest.raises(RuntimeError):
         PythonInfo.from_exe(str(tmp_path), session_cache)
-    assert spy.call_count == 2
+    assert spy.call_count == 4
 
 
 def test_py_info_cache_clear(mocker: MockerFixture, session_cache: DiskCache) -> None:

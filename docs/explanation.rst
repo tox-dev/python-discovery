@@ -318,9 +318,10 @@ Supported Python versions
 Two floors apply: python-discovery itself runs on Python 3.9+ (``requires-python``), while discovery
 reaches down to Python 3.6 - old enough to cover RHEL 8's system Python.
 
-python-discovery skips candidates below 3.6 with one warning naming the executable, the version
-found, and the floor; the verdict is cached, so the interpreter is not queried again. Candidates too
-old to run the version check at all (before Python 2.7) fail as a generic query error. An
+python-discovery skips candidates below 3.6 with a warning naming the executable, the version
+found, and the floor. The verdict is cached when the candidate itself is the interpreter; launchers
+such as pyenv shims are queried again because their target can depend on the current directory.
+Candidates too old to run the version check at all (before Python 2.7) fail as a generic query error. An
 absolute-path spec for a below-floor interpreter raises :class:`RuntimeError` with the same message.
 The floor moves only in a major release.
 
