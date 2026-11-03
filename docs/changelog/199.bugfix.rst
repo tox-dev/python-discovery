@@ -1,0 +1,1 @@
+Reject format widths in interpreter sysconfig paths before they allocate oversized strings.
