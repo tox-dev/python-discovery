@@ -892,6 +892,52 @@ def test_discovery_uv_store_reads_the_env_argument(
     assert uv_probed(env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(uv_home / "store")}) == [executable]
 
 
+@pytest.mark.parametrize(
+    ("platform", "store"),
+    [
+        pytest.param("win32", "AppData/Roaming/uv/data", id="windows"),
+        pytest.param("darwin", "Library/Application Support/uv", id="macos"),
+        pytest.param("linux", ".local/share/uv", id="linux"),
+    ],
+)
+def test_discovery_uv_store_ignores_process_home_without_mapped_home(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    platform: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", platform)
+    uv_plant(uv_home / store / "python")
+
+    assert uv_probed(env={"PATH": ""}) == []
+
+
+@pytest.mark.parametrize(
+    ("platform", "variable", "store"),
+    [
+        pytest.param("win32", "APPDATA", "uv/data", id="windows-appdata"),
+        pytest.param("darwin", "XDG_DATA_HOME", "uv", id="macos-xdg"),
+        pytest.param("linux", "XDG_DATA_HOME", "uv", id="linux-xdg"),
+    ],
+)
+def test_discovery_uv_store_uses_mapped_directory_without_home(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    platform: str,
+    variable: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", platform)
+    mapped = uv_home / "mapped"
+    executable = uv_plant(mapped / store / "python")
+
+    assert uv_probed(env={"PATH": "", variable: str(mapped)}) == [executable]
+
+
 @pytest.mark.usefixtures("uv_home")
 def test_discovery_uv_store_missing_root_is_not_an_error(uv_probed: Callable[..., list[str]]) -> None:
     assert uv_probed() == []
@@ -903,7 +949,7 @@ def test_discovery_uv_store_is_searched_after_path(
     uv_plant: Callable[[Path], str],
     uv_probed: Callable[..., list[str]],
 ) -> None:
-    store_executable = uv_plant(uv_home / ".local" / "share" / "uv" / "python")
+    store_executable = uv_plant(uv_home / ("AppData/Roaming/uv/data" if IS_WIN else ".local/share/uv") / "python")
     (path_dir := uv_home / "path-bin").mkdir()
     (path_executable := path_dir / f"python{_NO_UV_MATCH}{'.exe' if IS_WIN else ''}").touch()
     monkeypatch.setenv("PATH", str(path_dir))
