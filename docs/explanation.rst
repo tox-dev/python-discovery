@@ -272,6 +272,9 @@ with `filelock <https://py-filelock.readthedocs.io/>`_-based locking for safe co
 can also pass ``cache=None`` to disable caching, or implement your own backend (see
 :doc:`/how-to/standalone-usage`).
 
+If cache access raises an OS error, discovery retries the interpreter query without that cache. A failed cache write
+can therefore cause a second query.
+
 On POSIX, ``DiskCache`` uses a cache root only when it and both ``py_info`` directories are real directories owned by
 the current user or root and cannot be written by other users. Its ancestor directories must also prevent other users
 from replacing the cache root; a sticky shared ancestor such as ``/tmp`` is allowed. Discovery continues without disk

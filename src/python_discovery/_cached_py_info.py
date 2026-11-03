@@ -62,7 +62,14 @@ def from_exe(  # ruff:ignore[too-many-arguments]
     executable_args: str | None = None,
 ) -> PythonInfo | None:
     env = os.environ if env is None else env
-    result = _get_from_cache(cls, cache, exe, env, ignore_cache=ignore_cache, executable_args=executable_args)
+    if cache is None:
+        result = _get_from_cache(cls, cache, exe, env, ignore_cache=ignore_cache, executable_args=executable_args)
+    else:
+        try:
+            result = _get_from_cache(cls, cache, exe, env, ignore_cache=ignore_cache, executable_args=executable_args)
+        except OSError:
+            _LOGGER.debug("failed to use cache for %s", exe, exc_info=True)
+            result = _get_from_cache(cls, None, exe, env, ignore_cache=True, executable_args=executable_args)
     if isinstance(result, Exception):
         if raise_on_error:
             raise result

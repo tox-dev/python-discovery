@@ -329,6 +329,27 @@ def test_from_exe_cache_entry_with_bad_content(tmp_path: Path) -> None:
     assert isinstance(store.read(), dict)
 
 
+@pytest.mark.parametrize(
+    ("folder", "suffix"),
+    [
+        pytest.param(".", ".json", id="entry"),
+        pytest.param("locks-v2" if os.name == "posix" else ".", ".lock", id="lock"),
+    ],
+)
+def test_from_exe_recovers_unusable_cache_path(tmp_path: Path, folder: str, suffix: str) -> None:
+    cache = DiskCache(tmp_path)
+    expected = PythonInfo.from_exe(sys.executable, cache, ignore_cache=True, resolve_to_host=False)
+    assert expected is not None
+    entry = next(tmp_path.rglob("*.json"))
+    blocked = entry.parent / folder / f"{entry.stem}{suffix}"
+    blocked.unlink(missing_ok=True)
+    blocked.mkdir()
+
+    result = PythonInfo.from_exe(sys.executable, cache, ignore_cache=True, resolve_to_host=False)
+    assert result is not None
+    assert result.version_info == expected.version_info
+
+
 _LAUNCHER: Final[str] = r"C:\Program Files\Python Launcher\py.exe"
 _ARGS: Final[str] = '-3.11 --config "settings folder\\python.json"'
 _SELECTED: Final[str] = r"C:\Python311\python.exe"
