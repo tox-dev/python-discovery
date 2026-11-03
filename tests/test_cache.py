@@ -4,6 +4,7 @@ import json
 import os
 import stat
 import sys
+from os import fsdecode
 from pathlib import Path
 from threading import Event, Thread
 from typing import TYPE_CHECKING
@@ -11,6 +12,7 @@ from typing import TYPE_CHECKING
 import pytest
 from filelock import FileLock, Timeout
 
+from python_discovery import get_interpreter
 from python_discovery._cache import DiskCache, DiskContentStore, NoOpCache, NoOpContentStore
 
 if TYPE_CHECKING:
@@ -151,6 +153,19 @@ def test_disk_cache_py_info(tmp_path: Path) -> None:
     cache = DiskCache(tmp_path)
     store = cache.py_info(Path("/some/path"))
     assert isinstance(store, DiskContentStore)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows paths do not use surrogateescape")
+def test_disk_cache_non_utf8_interpreter_path(tmp_path: Path) -> None:
+    directory = tmp_path / fsdecode(b"interpreter-\xff")
+    directory.mkdir()
+    executable = directory / "python3"
+    executable.symlink_to(sys.executable)
+
+    info = get_interpreter(str(executable), cache=DiskCache(tmp_path / "cache"))
+
+    assert info is not None
+    assert info.executable == str(executable)
 
 
 def test_disk_cache_py_info_clear(tmp_path: Path) -> None:
