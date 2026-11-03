@@ -490,6 +490,55 @@ def test_resolve_to_system_resolved_from_exe(mocker: MockerFixture, caplog: pyte
     assert result.executable == "/some/venv/python"
 
 
+def test_from_exe_uses_supplied_environment_for_base_probe(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYTHONPATH", "process-only")
+    target = copy.deepcopy(CURRENT)
+    target.executable = "venv"
+    target.system_executable = "system"
+    mapped = copy.deepcopy(CURRENT)
+    mapped.executable = mapped.system_executable = "system"
+    mapped.path = ["mapped"]
+    process_only = copy.deepcopy(mapped)
+    process_only.path = ["process-only"]
+    mocker.patch(
+        "python_discovery._cached_py_info.from_exe",
+        side_effect=lambda _cls, _cache, exe, **kwargs: {
+            "venv": target,
+            "system": mapped if kwargs["env"] == {"PYTHONPATH": "mapped"} else process_only,
+        }[exe],
+    )
+
+    info = PythonInfo.from_exe("venv", env={"PYTHONPATH": "mapped"})
+
+    assert info is not None
+    assert info.path == ["mapped"]
+
+
+def test_resolve_to_system_uses_supplied_environment_for_prefix_probe(mocker: MockerFixture) -> None:
+    target = copy.deepcopy(CURRENT)
+    target.system_executable = None
+    target.real_prefix = None
+    target.base_prefix = "/prefix"
+
+    mapped = copy.deepcopy(CURRENT)
+    mapped.path = ["mapped"]
+    mapped.system_executable = mapped.executable
+    fallback = copy.deepcopy(CURRENT)
+    fallback.path = ["process"]
+    fallback.system_executable = fallback.executable
+    mocker.patch.object(
+        PythonInfo,
+        "discover_exe",
+        side_effect=lambda _cache, **kwargs: mapped if kwargs.get("env") == {"PYTHONPATH": "mapped"} else fallback,
+    )
+
+    resolved = PythonInfo.resolve_to_system(None, target, env={"PYTHONPATH": "mapped"})
+
+    assert resolved.path == ["mapped"]
+
+
 def test_resolve_to_system_from_exe_returns_none(mocker: MockerFixture) -> None:
     target = copy.deepcopy(CURRENT)
     target.system_executable = "/some/system/python"
