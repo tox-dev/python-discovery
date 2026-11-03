@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import os
 import pkgutil
@@ -204,7 +203,7 @@ def _load_cached_py_info(
     try:
         py_info = cls.from_dict(content.copy())
         stale = (sys_exe := py_info.system_executable) is not None and not Path(sys_exe).is_file()
-    except (AttributeError, KeyError, OSError, TypeError):
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
         stale = True
     if stale:
         py_info_store.remove()
@@ -291,13 +290,18 @@ def _run_subprocess(
     if code != 0:
         return _query_failure(exe, out, err, code), None
     out, raw_out, out_starts, out_ends = _extract_between_cookies(out, start_cookie, end_cookie)
+    if out_starts < 0 or out_ends < 0:
+        _LOGGER.warning("subprocess %s omitted query markers; stdout %d chars", exe, len(raw_out))
+        msg = f"{exe} returned output without query markers"
+        return RuntimeError(msg), None
     try:
         result = cls.from_json(out)
         if executable_args is None:
             result.executable = exe
-    except json.JSONDecodeError as exc:
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
         _LOGGER.warning(
-            "subprocess %s returned invalid JSON; raw stdout %d chars, start cookie %s, end cookie %s, "
+            "subprocess %s returned invalid interpreter information; "
+            "raw stdout %d chars, start cookie %s, end cookie %s, "
             "parsed output %d chars: %r",
             exe,
             len(raw_out),
@@ -306,7 +310,7 @@ def _run_subprocess(
             len(out),
             out[:200] if out else "<empty>",
         )
-        msg = f"{exe} returned invalid JSON (exit code {code}){f', stderr: {err!r}' if err else ''}"
+        msg = f"{exe} returned invalid interpreter information (exit code {code}){f', stderr: {err!r}' if err else ''}"
         failure = RuntimeError(msg)
         failure.__cause__ = exc
         return failure, None

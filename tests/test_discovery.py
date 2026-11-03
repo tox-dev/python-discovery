@@ -118,6 +118,39 @@ def test_generic_python_spec_accepts_mixed_case_alias(tmp_path: Path, session_ca
     assert (selected.executable, selected.implementation) == (str(alias), "CPython")
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell script")
+@pytest.mark.parametrize(
+    "output",
+    [
+        pytest.param("{}", id="empty-object"),
+        pytest.param(
+            '{"version_info": {"major": 3, "minor": 11, "micro": 0, "releaselevel": "final", "serial": 0}}',
+            id="version-only",
+        ),
+        pytest.param("[]", id="array"),
+    ],
+)
+def test_discovery_skips_candidate_with_wrong_shape_json(tmp_path: Path, output: str) -> None:
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    name = "python_custom"
+    fake = first / name
+    fake.write_text(f"#!/bin/sh\nprintf '%s\\n' '{output}'\n", encoding="utf-8")
+    fake.chmod(0o755)
+    real = second / name
+    real.symlink_to(sys.executable)
+
+    interpreter = get_interpreter(
+        name,
+        cache=DiskCache(tmp_path / "cache"),
+        env={"PATH": os.pathsep.join([str(first), str(second)]), "HOME": "/nonexistent"},
+    )
+
+    assert interpreter is not None
+    assert interpreter.executable == str(real)
+
+
 def test_discovery_via_path_in_nonbrowseable_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     bad_perm = tmp_path / "bad_perm"
     bad_perm.mkdir(mode=0o000)
