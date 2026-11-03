@@ -8,7 +8,7 @@ from threading import Event, Thread
 from typing import TYPE_CHECKING
 
 import pytest
-from filelock import FileLock
+from filelock import FileLock, Timeout
 
 from python_discovery._cache import DiskCache, DiskContentStore, NoOpCache, NoOpContentStore
 
@@ -97,12 +97,11 @@ def test_disk_content_store_ignores_legacy_lock(tmp_path: Path) -> None:
     assert acquired
 
 
-def test_disk_content_store_keeps_lock_path_without_posix(tmp_path: Path, mocker: MockerFixture) -> None:
+def test_disk_content_store_locks_legacy_path_without_posix(tmp_path: Path, mocker: MockerFixture) -> None:
     platform_os = mocker.patch("python_discovery._cache.os", autospec=True)
     platform_os.name = "nt"
-    with DiskContentStore(tmp_path, "test").locked():
-        pass
-    assert (tmp_path / "test.lock").exists()
+    with DiskContentStore(tmp_path, "test").locked(), pytest.raises(Timeout):
+        FileLock(str(tmp_path / "test.lock")).acquire(timeout=0)
     assert not (tmp_path / "locks-v2").exists()
 
 
