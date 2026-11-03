@@ -1,0 +1,1 @@
+Place POSIX cache locks in an owner-only directory, or a group-only directory for group-writable caches.
