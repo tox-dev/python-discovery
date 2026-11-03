@@ -5,8 +5,9 @@ import logging
 import os
 import sys
 import tempfile
+from io import StringIO
 from pathlib import Path
-from subprocess import TimeoutExpired, list2cmdline
+from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline
 from typing import TYPE_CHECKING, Final
 from unittest.mock import MagicMock, patch
 
@@ -14,7 +15,9 @@ import pytest
 
 from python_discovery import DiskCache, PythonInfo
 from python_discovery._cached_py_info import (
+    _MAX_QUERY_OUTPUT,
     LogCmd,
+    _collect_query_output,
     _get_from_cache,
     _get_via_file_cache,
     _load_cached_py_info,
@@ -87,13 +90,14 @@ def test_run_subprocess_bad_exe() -> None:
 
 
 def test_run_subprocess_invalid_json(mocker: MockerFixture) -> None:
-    mock_process = MagicMock()
-    mock_process.communicate.return_value = ("not json", "")
-    mock_process.returncode = 0
-    mocker.patch("python_discovery._cached_py_info.Popen", return_value=mock_process)
+    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process("not json", "", 0))
     failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
     assert failure is not None
     assert result is None
+
+
+def _mock_process(out: str, err: str, code: int) -> MagicMock:
+    return MagicMock(stdout=StringIO(out), stderr=StringIO(err), returncode=code, **{"wait.return_value": code})
 
 
 def test_run_subprocess_with_cookies(mocker: MockerFixture) -> None:
@@ -102,10 +106,7 @@ def test_run_subprocess_with_cookies(mocker: MockerFixture) -> None:
     payload = json.dumps(PythonInfo().to_dict())
     out = f"pre{start_cookie[::-1]}{payload}{end_cookie[::-1]}post"
 
-    mock_process = MagicMock()
-    mock_process.communicate.return_value = (out, "")
-    mock_process.returncode = 0
-    mocker.patch("python_discovery._cached_py_info.Popen", return_value=mock_process)
+    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process(out, "", 0))
     mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start_cookie, end_cookie])
 
     with patch("sys.stdout") as mock_stdout:
@@ -117,26 +118,93 @@ def test_run_subprocess_with_cookies(mocker: MockerFixture) -> None:
 
 
 def test_run_subprocess_timeout(mocker: MockerFixture) -> None:
-    mock_process = MagicMock()
-    mock_process.communicate.side_effect = [TimeoutExpired(cmd="python", timeout=30), ("", "")]
-    mocker.patch("python_discovery._cached_py_info.Popen", return_value=mock_process)
+    mocker.patch("python_discovery._cached_py_info._collect_query_output", return_value=("", "timed out", -1))
     failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
     assert failure is not None
     assert "timed out" in str(failure)
     assert result is None
-    mock_process.kill.assert_called_once()
-    assert mock_process.communicate.call_count == 2
 
 
 def test_run_subprocess_nonzero_exit(mocker: MockerFixture) -> None:
-    mock_process = MagicMock()
-    mock_process.communicate.return_value = ("some output", "some error")
-    mock_process.returncode = 1
-    mocker.patch("python_discovery._cached_py_info.Popen", return_value=mock_process)
+    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process("some output", "some error", 1))
     failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
     assert failure is not None
     assert "failed to query" in str(failure)
     assert result is None
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX executable script")
+@pytest.mark.parametrize("stream", [pytest.param("stdout", id="stdout"), pytest.param("stderr", id="stderr")])
+def test_run_subprocess_rejects_large_output(tmp_path: Path, stream: str) -> None:
+    exe = tmp_path / "python"
+    exe.write_text(
+        f"#!{sys.executable}\nimport sys\nsys.{stream}.write('x' * {_MAX_QUERY_OUTPUT + 1})\n",
+        encoding="utf-8",
+    )
+    exe.chmod(0o755)
+
+    failure, result = _run_subprocess(PythonInfo, str(exe), dict(os.environ))
+    assert result is None
+    assert failure is not None
+    assert "produced more than" in str(failure)
+
+
+@pytest.mark.parametrize("stream", [pytest.param("stdout", id="stdout"), pytest.param("stderr", id="stderr")])
+def test_collect_query_output_limit(stream: str) -> None:
+    code = f"import sys; sys.{stream}.write('x' * {_MAX_QUERY_OUTPUT + 1})"
+    process = Popen([sys.executable, "-c", code], stdin=DEVNULL, stdout=PIPE, stderr=PIPE, text=True)
+    assert _collect_query_output(process, 15) == (
+        "",
+        f"produced more than {_MAX_QUERY_OUTPUT} characters of output",
+        -1,
+    )
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param("import time; time.sleep(2)", id="pipes-open"),
+        pytest.param("import sys,time; sys.stdout.close(); sys.stderr.close(); time.sleep(2)", id="pipes-closed"),
+    ],
+)
+def test_collect_query_output_timeout(code: str) -> None:
+    process = Popen([sys.executable, "-c", code], stdin=DEVNULL, stdout=PIPE, stderr=PIPE, text=True)
+    assert _collect_query_output(process, 0.1) == ("", "timed out", -1)
+
+
+def test_collect_query_output_timeout_after_eof(mocker: MockerFixture) -> None:
+    process = mocker.MagicMock(
+        stdout=StringIO(""),
+        stderr=StringIO(""),
+        **{"wait.side_effect": [TimeoutExpired("python", 0), 0]},
+    )
+
+    assert _collect_query_output(process, 1) == ("", "timed out", -1)
+    process.kill.assert_called_once()
+
+
+def test_collect_query_output_read_error(mocker: MockerFixture) -> None:
+    stream = mocker.MagicMock()
+    stream.read.side_effect = OSError("broken pipe")
+    process = mocker.MagicMock(stdout=stream, stderr=StringIO(""), **{"wait.return_value": -9})
+
+    with pytest.raises(OSError, match="broken pipe"):
+        _collect_query_output(process, 1)
+    process.kill.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("stdout", "stderr"),
+    [
+        pytest.param(None, StringIO(""), id="stdout"),
+        pytest.param(StringIO(""), None, id="stderr"),
+    ],
+)
+def test_collect_query_output_requires_pipes(stdout: StringIO | None, stderr: StringIO | None) -> None:
+    process = MagicMock(stdout=stdout, stderr=stderr)
+
+    with pytest.raises(ValueError, match="query output pipes are required"):
+        _collect_query_output(process, 1)
 
 
 def test_load_cached_py_info_valid() -> None:
@@ -341,7 +409,7 @@ def popen(mocker: MockerFixture) -> MagicMock:
     info = PythonInfo()
     info.executable = _SELECTED
     out = f"{start[::-1]}{info.to_json()}{end[::-1]}"
-    process = MagicMock(**{"communicate.return_value": (out, ""), "returncode": 0})
+    process = _mock_process(out, "", 0)
     return mocker.patch("python_discovery._cached_py_info.Popen", return_value=process)
 
 

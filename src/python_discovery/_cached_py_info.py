@@ -8,15 +8,17 @@ import logging
 import os
 import pkgutil
 import secrets
-import subprocess  # ruff:ignore[suspicious-subprocess-import]
 import sys
 import tempfile
 from collections import OrderedDict
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from functools import lru_cache
+from io import DEFAULT_BUFFER_SIZE
 from pathlib import Path
 from shlex import quote
-from subprocess import Popen, TimeoutExpired  # ruff:ignore[suspicious-subprocess-import]
+from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline  # ruff:ignore[suspicious-subprocess-import]
+from threading import Event, Thread
+from time import monotonic
 from typing import TYPE_CHECKING, Final
 
 from ._cache import NoOpCache
@@ -25,7 +27,7 @@ from ._py_info_collect import MIN_INTERROGATE_VERSION, UNSUPPORTED_EXIT_CODE, UN
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
-    from typing import TypedDict
+    from typing import IO, TypedDict
 
     from ._cache import ContentStore, PyInfoCache
 
@@ -45,6 +47,7 @@ _PY_INFO_SCRIPT: Final[Path] = Path(__file__).resolve().parent / "_py_info_colle
 _DEFAULT_QUERY_TIMEOUT: Final[float] = 15.0
 # poll(2) limits milliseconds to a signed C int.
 _MAX_QUERY_TIMEOUT: Final[float] = (2**31 - 1) / 1000
+_MAX_QUERY_OUTPUT: Final[int] = 1 << 20
 
 
 class _UnsupportedInterpreterError(RuntimeError):
@@ -231,7 +234,7 @@ def _run_subprocess(
         cmd: list[str] | str = [exe, str(py_info_script), start_cookie, end_cookie]
         if executable_args is not None:
             # PEP 514 ExecutableArguments is raw command line text, placed before the script per the PEP
-            cmd = f"{subprocess.list2cmdline(cmd[:1])} {executable_args} {subprocess.list2cmdline(cmd[1:])}"
+            cmd = f"{list2cmdline(cmd[:1])} {executable_args} {list2cmdline(cmd[1:])}"
         env = dict(env)
         env.pop("__PYVENV_LAUNCHER__", None)
         env["PYTHONUTF8"] = "1"
@@ -240,19 +243,14 @@ def _run_subprocess(
             process = Popen(  # ruff:ignore[subprocess-without-shell-equals-true]
                 cmd,
                 universal_newlines=True,
-                stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
+                stdin=DEVNULL,
+                stderr=PIPE,
+                stdout=PIPE,
                 env=env,
                 encoding="utf-8",
                 errors="backslashreplace",
             )
-            out, err = process.communicate(timeout=timeout)
-            code = process.returncode
-        except TimeoutExpired:
-            process.kill()
-            process.communicate()
-            out, err, code = "", "timed out", -1
+            out, err, code = _collect_query_output(process, timeout)
         except OSError as os_error:
             out, err, code = "", os_error.strerror, os_error.errno
     if code != 0:
@@ -278,6 +276,75 @@ def _run_subprocess(
         failure.__cause__ = exc
         return failure, None
     return None, result
+
+
+def _collect_query_output(process: Popen[str], timeout: float | None) -> tuple[str, str, int]:
+    stdout, stderr = process.stdout, process.stderr
+    if stdout is None or stderr is None:
+        msg = "query output pipes are required"
+        raise ValueError(msg)
+    out_chunks: list[str] = []
+    err_chunks: list[str] = []
+    overflow = Event()
+    read_errors: list[OSError] = []
+
+    readers = (
+        Thread(target=_drain_query_stream, args=(process, stdout, out_chunks, overflow, read_errors), daemon=True),
+        Thread(target=_drain_query_stream, args=(process, stderr, err_chunks, overflow, read_errors), daemon=True),
+    )
+    for reader in readers:
+        reader.start()
+    if not _query_completed(process, readers, timeout):
+        with suppress(OSError):
+            process.kill()
+        for reader in readers:
+            reader.join()
+        process.wait()
+        return "", "timed out", -1
+    if read_errors:
+        raise read_errors[0]
+    if overflow.is_set():
+        return "", f"produced more than {_MAX_QUERY_OUTPUT} characters of output", -1
+    return "".join(out_chunks), "".join(err_chunks), process.wait()
+
+
+def _query_completed(process: Popen[str], readers: tuple[Thread, Thread], timeout: float | None) -> bool:
+    deadline = None if timeout is None else monotonic() + timeout
+    for reader in readers:
+        reader.join(None if deadline is None else max(deadline - monotonic(), 0))
+    if any(reader.is_alive() for reader in readers):
+        return False
+    try:
+        process.wait(timeout=None if deadline is None else max(deadline - monotonic(), 0))
+    except TimeoutExpired:
+        return False
+    return True
+
+
+def _drain_query_stream(
+    process: Popen[str], stream: IO[str], chunks: list[str], overflow: Event, read_errors: list[OSError]
+) -> None:
+    size = 0
+    failed = False
+    with stream:
+        while True:
+            try:
+                chunk = stream.read(DEFAULT_BUFFER_SIZE)
+            except OSError as error:
+                read_errors.append(error)
+                failed = True
+                break
+            if not chunk:
+                break
+            chunks.append(chunk[: _MAX_QUERY_OUTPUT + 1 - size])
+            size += len(chunk)
+            if size > _MAX_QUERY_OUTPUT:
+                overflow.set()
+                failed = True
+                break
+    if failed:
+        with suppress(OSError):
+            process.kill()
 
 
 @lru_cache(maxsize=128)
