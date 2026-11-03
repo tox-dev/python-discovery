@@ -309,6 +309,9 @@ legitimate interpreters may be skipped; if too high, the discovery process may t
 when encountering problematic interpreters. For invalid values, python-discovery logs a warning and uses
 the default of 15 seconds. Set ``inf`` to disable the timeout.
 
+Discovery skips a candidate that produces more than 1,048,576 characters on either stdout or stderr, even when the
+timeout is disabled.
+
 Supported Python versions
 -------------------------
 
