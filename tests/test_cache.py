@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import stat
 import sys
@@ -34,6 +35,25 @@ def test_disk_content_store_read_invalid_json(tmp_path: Path) -> None:
 def test_disk_content_store_read_missing_file(tmp_path: Path) -> None:
     store = DiskContentStore(tmp_path, "test")
     assert store.read() is None
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param(json.dumps("x" * 398), id="flat"),
+        pytest.param("[" * 200 + "]" * 200, id="nested"),
+    ],
+)
+def test_disk_content_store_write_size_tracks_input(tmp_path: Path, source: str) -> None:
+    content = {"padding": json.loads(source)}
+    DiskContentStore(tmp_path, "test").write(content)
+    assert (tmp_path / "test.json").stat().st_size < 2 * len(json.dumps(content))
+
+
+def test_disk_content_store_write_deep_json(tmp_path: Path) -> None:
+    depth = 2_000 if sys.version_info >= (3, 15) else 900
+    DiskContentStore(tmp_path, "test").write({"padding": json.loads("[" * depth + "]" * depth)})
+    assert (tmp_path / "test.json").stat().st_size < 10_000
 
 
 def test_disk_content_store_remove(tmp_path: Path) -> None:

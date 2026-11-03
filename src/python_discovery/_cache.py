@@ -119,7 +119,8 @@ class DiskContentStore:
                 mode="w", encoding="utf-8", dir=self._folder, prefix=f".{self._key}.", delete=False
             ) as file:
                 temporary = Path(file.name)
-                json.dump(content, file, sort_keys=True, indent=2)
+                # Compact encoding avoids indentation growth and the streaming encoder's recursion limit.
+                file.write(json.dumps(content, sort_keys=True))
             temporary.replace(self._file)
         except OSError:
             _LOGGER.debug("failed to write %s", self._file, exc_info=True)
