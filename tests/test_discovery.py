@@ -95,6 +95,25 @@ def test_relative_path(session_cache: DiskCache, monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("3.14.0rc1", id="prerelease"),
+        pytest.param("python3.13-arm64-64", id="swapped-platform"),
+        pytest.param("python_d", id="executable-name"),
+    ],
+)
+def test_bare_name_spec_does_not_probe_cwd(
+    name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (tmp_path / name).touch(mode=0o755)
+    monkeypatch.chdir(tmp_path)
+    from_exe = mocker.patch("python_discovery._discovery.PythonInfo.from_exe", return_value=None)
+
+    assert get_interpreter(name, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "uv")}) is None
+    from_exe.assert_not_called()
+
+
+@pytest.mark.parametrize(
     "sep",
     [
         pytest.param("/", id="slash"),
@@ -456,6 +475,35 @@ def test_shim_skips_empty_environment_version(tmp_path: Path, monkeypatch: pytes
         assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
 
 
+@pytest.mark.parametrize(
+    ("length", "version"),
+    [pytest.param(4096, "2.7.18", id="at-limit"), pytest.param(4097, "2.7.15", id="over-limit")],
+)
+def test_shim_oversized_python_version_file_is_skipped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    pyenv_probed: Callable[[], tuple[str, ...]],
+    length: int,
+    version: str,
+) -> None:
+    root = Path(os.environ["PYENV_ROOT"])
+    _create_versioned_binary(root, ("versions",), "2.7.15", "python2.7")
+    (root / "version").write_text("2.7.15\n", encoding="utf-8")
+    (tmp_path / ".python-version").write_text("2.7.18\n#" + "x" * (length - 8), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert pyenv_probed() == ("versions", version)
+
+
+def test_shim_python_version_file_keeps_unicode_separator_in_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyenv_probed: Callable[[], tuple[str, ...]]
+) -> None:
+    (tmp_path / ".python-version").write_text("2.7.18\u2028ignored\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert pyenv_probed() == ("shims", "python2.7.exe" if IS_WIN else "python2.7")
+
+
 def test_shim_python_version_file_not_utf8(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyenv_probed: Callable[[], tuple[str, ...]]
 ) -> None:
@@ -691,6 +739,57 @@ def test_discovery_uv_store_roots_per_platform(
     executables = [uv_plant(Path(state_dir).expanduser() / "python") for state_dir in expected]
 
     assert uv_probed() == executables
+
+
+@pytest.mark.parametrize(
+    ("appdata", "store"),
+    [
+        pytest.param("", "uv/data", id="empty"),
+        pytest.param("relative", "relative/uv/data", id="relative"),
+    ],
+)
+def test_discovery_uv_store_invalid_appdata_uses_profile_default(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    appdata: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setenv("APPDATA", appdata)
+    (checkout := uv_home / "checkout").mkdir()
+    monkeypatch.chdir(checkout)
+    uv_plant(checkout / store / "python")
+    profile_executable = uv_plant(uv_home / "AppData" / "Roaming" / "uv" / "data" / "python")
+
+    assert uv_probed() == [profile_executable]
+
+
+@pytest.mark.parametrize(
+    ("platform", "profile_var", "store"),
+    [
+        pytest.param("win32", "USERPROFILE", "relative/AppData/Roaming/uv/data", id="windows"),
+        pytest.param("linux", "HOME", "relative/.local/share/uv", id="linux"),
+        pytest.param("darwin", "HOME", "relative/Library/Application Support/uv", id="macos"),
+    ],
+)
+def test_discovery_uv_store_skips_relative_profile(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    platform: str,
+    profile_var: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.setenv(profile_var, "relative")
+    (checkout := uv_home / "checkout").mkdir()
+    monkeypatch.chdir(checkout)
+    uv_plant(checkout / store / "python")
+
+    assert uv_probed() == []
 
 
 def test_discovery_uv_store_windows_ignores_xdg_data_home(

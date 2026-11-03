@@ -135,7 +135,7 @@ def test_pep514_run(capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptur
 
     pep514._run()
     out, err = capsys.readouterr()
-    py = r"C:\Users\user\AppData\Local\Programs\Python"
+    py = r"C:\\Users\\user\\AppData\\Local\\Programs\\Python"
     expected = textwrap.dedent(
         rf"""
     ('CompanyA', 3, 6, 64, False, 'Z:\\CompanyA\\Python\\3.6\\python.exe', None)
@@ -166,6 +166,40 @@ def test_pep514_run(capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptur
         f"{prefix}HKEY_CURRENT_USER/PythonCore/3.X error: invalid format 3.X",
     ]
     assert caplog.messages == expected_logs
+
+
+@pytest.mark.usefixtures("_mock_registry")
+@pytest.mark.parametrize(
+    ("executable_path", "install_path"),
+    [
+        pytest.param(r"%LOCALAPPDATA%\Programs\Python\Python311\python.exe", None, id="unexpanded-variable"),
+        pytest.param("python.exe", None, id="bare-name"),
+        pytest.param(r"bin\python.exe", None, id="relative"),
+        pytest.param("C:python.exe", None, id="drive-relative"),
+        pytest.param(r"\Python311\python.exe", None, id="current-drive"),
+        pytest.param(42, None, id="integer-executable"),
+        pytest.param(b"C:\\python.exe", None, id="bytes-executable"),
+        pytest.param(["C:\\python.exe"], None, id="list-executable"),
+        pytest.param(None, "", id="empty-install-path"),
+        pytest.param(None, "Python311", id="relative-install-path"),
+        pytest.param(None, 42, id="integer-install-path"),
+    ],
+)
+def test_pep514_rejects_non_absolute_executable(
+    mocker: MockerFixture,
+    caplog: pytest.LogCaptureFixture,
+    executable_path: str | int | bytes | list[str] | None,
+    install_path: str | int | None,
+) -> None:
+    from python_discovery._windows import _pep514 as pep514
+
+    registered = {"ExecutablePath": executable_path, None: install_path}
+    mocker.patch.object(pep514.winreg, "OpenKeyEx", return_value=MagicMock())
+    mocker.patch.object(pep514, "get_value", side_effect=lambda _key, name: registered.get(name))
+    mocker.patch.object(pep514.os.path, "exists", return_value=True)
+
+    assert pep514.load_exe("HKCU", "PythonCore", MagicMock(), "3.11") is None
+    assert "expected an absolute executable path" in caplog.text
 
 
 @pytest.fixture

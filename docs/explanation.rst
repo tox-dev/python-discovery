@@ -13,9 +13,11 @@ order. It stops as soon as it finds an interpreter that matches your spec.
         Start["get_interpreter()"] --> AbsPath{"Is spec an<br>absolute path?"}
         AbsPath -->|Yes| TryAbs["Use path directly"]
         AbsPath -->|No| TryFirst["try_first_with paths"]
-        TryFirst --> RelPath{"Is spec a<br>relative path?"}
+        TryFirst --> RelPath{"Does spec name a<br>relative directory?"}
         RelPath -->|Yes| TryRel["Resolve relative to cwd"]
-        RelPath -->|No| Current["Current interpreter"]
+        RelPath -->|No| Bare{"Bare executable name?"}
+        Bare -->|Yes| PATH
+        Bare -->|No| Current["Current interpreter"]
         Current --> Win{"Windows?"}
         Win -->|Yes| PEP514["PEP 514 registry"]
         Win -->|No| PATH
@@ -70,6 +72,8 @@ detects these shims and resolves them to the actual binary.
 
 `mise <https://mise.jdx.dev/>`_ and `asdf <https://asdf-vm.com/>`_ work similarly, using the
 ``MISE_DATA_DIR`` and ``ASDF_DATA_DIR`` environment variables to locate their installations.
+python-discovery skips version files over 4096 characters. It checks parent directories and, for pyenv, the global
+version when needed.
 
 A version must name one directory below the version manager's installation root. Discovery skips ``.`` and ``..`` and
 version names containing a path separator, then tries the next configured version.
@@ -100,7 +104,8 @@ overrides it; otherwise the store is the ``python`` bucket of uv's state directo
 uv follows the XDG convention on macOS too, and falls back to the legacy directory only when that directory already
 exists. python-discovery searches both, in the same order, so a leftover legacy directory cannot hide the store uv
 installs into. A relative ``XDG_DATA_HOME`` does not count, as the XDG specification requires, and Windows ignores it
-outright. Every one of these variables comes from the ``env`` mapping passed to
+outright. An empty or relative ``APPDATA`` uses the profile default, and discovery skips any relative store root.
+Every one of these variables comes from the ``env`` mapping passed to
 :func:`~python_discovery.get_interpreter`, rather than from the process environment.
 
 Each install lives in its own subdirectory, but the actual binary location varies by OS and implementation:
@@ -267,6 +272,11 @@ with `filelock <https://py-filelock.readthedocs.io/>`_-based locking for safe co
 can also pass ``cache=None`` to disable caching, or implement your own backend (see
 :doc:`/how-to/standalone-usage`).
 
+On POSIX, lock files live in a restricted directory accessible to the cache owner. When the cache entry directory is
+writable by its group and the process uses a group-permissive umask, the lock directory and files allow group writes
+too. Older releases still use the previous lock files, so processes running different releases do not coordinate cache
+writes. Use separate cache roots while both run.
+
 Subprocess timeout behavior
 ----------------------------
 
@@ -338,7 +348,8 @@ A spec string follows the pattern ``[impl][version][t][d][-arch][-machine]``. Ev
 Order matters: the parts appear in the sequence shown above. Combine the ABI flags as ``python3.13td``
 (free-threaded then debug, the order CPython uses in ``sys.abiflags``), and keep ``-arch`` before
 ``-machine`` as in ``python3.13d-64-arm64``. Mixing ``d`` with ``-dbg`` in one spec, or swapping the arch
-and machine segments, leaves the string unrecognized, so it falls back to a literal executable-name match.
+and machine segments, leaves the string unrecognized, so it falls back to a literal executable-name match on ``PATH``.
+Only a spec with a directory component, such as ``./python3`` or ``venv/bin/python``, searches the working directory.
 
 **Full examples:**
 
