@@ -74,6 +74,13 @@ def test_discovery_via_path_not_found(tmp_path: Path, monkeypatch: pytest.Monkey
     assert interpreter is None
 
 
+def test_unknown_implementation_rejects_python_on_path(tmp_path: Path, session_cache: DiskCache) -> None:
+    env = {"PATH": str(Path(sys.executable).parent), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")}
+
+    assert get_interpreter("missing", [], cache=session_cache, env=env) is None
+    assert list(iter_interpreters("missing", cache=session_cache, env=env)) == []
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlink names")
 def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
     link = tmp_path / "python_custom"

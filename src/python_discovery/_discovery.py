@@ -501,8 +501,8 @@ def path_exe_finder(
             yield direct_path, impl_must_match
 
         for exe in path.iterdir():
-            if pat.fullmatch(exe.name):
-                yield exe.absolute(), impl_must_match
+            if match := pat.fullmatch(exe.name):
+                yield exe.absolute(), impl_must_match or match["impl"].lower() == "python"
 
     return path_exes
 
