@@ -11,7 +11,7 @@ import sys
 from collections import OrderedDict
 from itertools import product
 from os.path import normcase, realpath
-from string import digits
+from string import Formatter, digits
 from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple, TypedDict
 
 from ._py_info_collect import PythonInfoCollector
@@ -136,6 +136,9 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         pattern = self.sysconfig_paths.get(key)
         if pattern is None:
             return ""
+        if any(format_spec for _, _, format_spec, _ in Formatter().parse(pattern)):
+            msg = f"sysconfig path {key!r} contains format specifiers"
+            raise ValueError(msg)
         if config_var is None:
             config_var = self.sysconfig_vars
         else:

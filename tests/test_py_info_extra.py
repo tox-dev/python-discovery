@@ -303,6 +303,14 @@ def test_install_path() -> None:
     assert isinstance(CURRENT.install_path("purelib"), str)
 
 
+def test_install_path_rejects_format_width() -> None:
+    info = copy.deepcopy(CURRENT)
+    info.distutils_install = {}
+    info.sysconfig_paths["purelib"] = "{base:>1000000}/lib"
+    with pytest.raises(ValueError, match="format specifiers"):
+        info.install_path("purelib")
+
+
 def test_system_include() -> None:
     result = CURRENT.system_include
     assert isinstance(result, str)
