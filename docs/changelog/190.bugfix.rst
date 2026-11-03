@@ -1,0 +1,1 @@
+Stop repeated interpreter queries when a virtual environment reports the same base prefix with different path spellings.
