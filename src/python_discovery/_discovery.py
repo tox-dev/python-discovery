@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Final
 
 from ._compat import fs_path_id
 from ._py_info import PythonInfo
-from ._py_spec import PythonSpec
+from ._py_spec import KNOWN_IMPLEMENTATIONS, PythonSpec
 from ._specifier import DC_KW, SimpleVersion
 
 if TYPE_CHECKING:
@@ -478,18 +478,19 @@ def path_exe_finder(
     """Given a spec, return a function that can be called on a path to find all matching files in it."""
     pat = spec.generate_re(windows=sys.platform == "win32", all_implementations=all_implementations)
     direct = spec.str_spec
+    implementation = spec.implementation.lower() if spec.implementation is not None else None
+    impl_must_match = implementation in KNOWN_IMPLEMENTATIONS and implementation != "python"
     if sys.platform == "win32":  # pragma: win32 cover
         direct = f"{direct}.exe"
 
     def path_exes(path: Path) -> Generator[tuple[Path, bool], None, None]:
         direct_path = path / direct
         if direct_path.exists():
-            yield direct_path, False
+            yield direct_path, impl_must_match
 
         for exe in path.iterdir():
-            match = pat.fullmatch(exe.name)
-            if match:
-                yield exe.absolute(), match["impl"] == "python"
+            if pat.fullmatch(exe.name):
+                yield exe.absolute(), impl_must_match
 
     return path_exes
 

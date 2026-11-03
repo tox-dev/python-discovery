@@ -1,0 +1,2 @@
+Check the interpreter's reported implementation when a spec names a known implementation, regardless of its filename on
+``PATH``.
