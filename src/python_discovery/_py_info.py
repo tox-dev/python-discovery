@@ -449,6 +449,9 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
 
         :param data: dictionary produced by :meth:`to_dict`.
         """
+        if missing := PythonInfo.__annotations__.keys() - data.keys() - {"_cache_exe_discovery", "pypy_version_info"}:
+            msg = f"missing interpreter information: {', '.join(sorted(missing))}"
+            raise ValueError(msg)
         data["version_info"] = VersionInfo(**data["version_info"])  # restore this to a named tuple structure
         result = cls.__new__(cls)  # skip __init__, data replaces the full state
         result.__dict__ = data.copy()

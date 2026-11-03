@@ -101,6 +101,37 @@ def test_run_subprocess_invalid_json(mocker: MockerFixture) -> None:
     assert result is None
 
 
+@pytest.mark.parametrize(
+    "output",
+    [
+        pytest.param("{}", id="empty-object"),
+        pytest.param(
+            '{"version_info": {"major": 3, "minor": 11, "micro": 0, "releaselevel": "final", "serial": 0}}',
+            id="version-only",
+        ),
+        pytest.param("[]", id="array"),
+    ],
+)
+def test_from_exe_rejects_wrong_shape_json(tmp_path: Path, mocker: MockerFixture, output: str) -> None:
+    start_cookie, end_cookie = "a" * 32, "b" * 32
+    wrapped = f"{start_cookie}{output}{end_cookie}"
+    mocker.patch(
+        "python_discovery._cached_py_info.Popen",
+        side_effect=[_mock_process(wrapped, "", 0), _mock_process(wrapped, "", 0)],
+    )
+    mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start_cookie, end_cookie] * 2)
+    assert PythonInfo.from_exe(str(tmp_path / "python"), raise_on_error=False, ignore_cache=True) is None
+
+
+def test_from_exe_rejects_json_without_cookies(tmp_path: Path, mocker: MockerFixture) -> None:
+    output = PythonInfo().to_json()
+    mocker.patch(
+        "python_discovery._cached_py_info.Popen",
+        side_effect=[_mock_process(output, "", 0), _mock_process(output, "", 0)],
+    )
+    assert PythonInfo.from_exe(str(tmp_path / "python"), raise_on_error=False, ignore_cache=True) is None
+
+
 def _mock_process(out: str, err: str, code: int) -> MagicMock:
     streams: list[IO[str]] = []
     for value in (out, err):
