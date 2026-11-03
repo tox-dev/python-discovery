@@ -105,6 +105,10 @@ class DiskContentStore:
             ):
                 _LOGGER.warning("ignoring untrusted cache entry at %s", self._file)
                 return None, True
+            # A 1 MiB query can expand to 12 MiB when supplementary Unicode is escaped.
+            if status.st_size > 16 << 20:
+                _LOGGER.warning("ignoring oversized cache entry at %s", self._file)
+                return None, True
             return json.load(file), False
 
     @staticmethod

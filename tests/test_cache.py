@@ -37,6 +37,21 @@ def test_disk_content_store_read_missing_file(tmp_path: Path) -> None:
     assert store.read() is None
 
 
+def test_disk_content_store_reads_near_limit_escaped_json(tmp_path: Path) -> None:
+    content = {"padding": "😀" * ((1 << 20) - 4_096)}
+    store = DiskContentStore(tmp_path, "test")
+    store.write(content)
+    assert store.read() == content
+
+
+def test_disk_content_store_discards_oversized_entry(tmp_path: Path) -> None:
+    entry = tmp_path / "test.json"
+    entry.write_text(json.dumps({"padding": "x" * (16 << 20)}), encoding="utf-8")
+    store = DiskContentStore(tmp_path, "test")
+    assert store.read() is None
+    assert not entry.exists()
+
+
 @pytest.mark.parametrize(
     "source",
     [
