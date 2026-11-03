@@ -19,6 +19,7 @@ from python_discovery._py_info import VersionInfo
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from unittest.mock import Mock
 
     from pytest_mock import MockerFixture
 
@@ -304,9 +305,16 @@ class _TclError(Exception):
     """Stands in for tkinter.TclError; an except clause needs a real exception type."""
 
 
-def _fake_tkinter(mocker: MockerFixture, eval_side_effect: object) -> None:
-    module = mocker.MagicMock(TclError=_TclError, **{"Tcl.return_value.eval.side_effect": eval_side_effect})
+def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] | Exception) -> Mock:
+    evaluate = mocker.Mock(side_effect=eval_side_effect)
+    profile = mocker.Mock(return_value=None)
+    interpreter = type(
+        "Tk", (), {"__init__": lambda self, **_: self.readprofile("Tk", "Tk"), "readprofile": profile, "eval": evaluate}
+    )
+    module = mocker.MagicMock(TclError=_TclError, Tk=interpreter)
+    module.Tcl.side_effect = lambda: interpreter(useTk=False)
     mocker.patch.dict(sys.modules, {"tkinter": module})
+    return profile
 
 
 def test_tcl_tk_libs_queried_with_env(tmp_path: Path, mocker: MockerFixture) -> None:
@@ -346,6 +354,18 @@ def test_tcl_tk_libs_none_on_tcl_error(tmp_path: Path, mocker: MockerFixture) ->
     mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tmp_path)})
     info = PythonInfo()
     assert (info.tcl_lib, info.tk_lib) == (None, None)
+
+
+def test_tcl_tk_libs_skip_tk_profile(tmp_path: Path, mocker: MockerFixture) -> None:
+    profile = _fake_tkinter(mocker, {"info library": "/tcl-lib"}.__getitem__)
+    profile.side_effect = AssertionError("Tk profile loaded")
+    mocker.patch("python_discovery._py_info_collect.PythonInfoCollector._resolve_tk_lib", return_value=None)
+    mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tmp_path)})
+
+    info = PythonInfo()
+
+    assert info.tcl_lib == "/tcl-lib"
+    profile.assert_not_called()
 
 
 def test_system_stdlib_empty_when_scheme_lacks_path(mocker: MockerFixture) -> None:

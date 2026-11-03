@@ -184,8 +184,13 @@ class PythonInfoCollector:
         except ImportError:
             pass
         else:
+            # Tk.__init__ reads profile scripts from HOME or the working directory; probing needs only library metadata.
+            class _TclWithoutProfile(tk.Tk):
+                def readprofile(self, *_args, **_kwargs):  # ruff:ignore[no-self-use] # Tk override must be an instance method.
+                    return None
+
             try:
-                tcl = tk.Tcl()
+                tcl = _TclWithoutProfile(useTk=False)
                 tcl_lib = tcl.eval("info library")
                 tk_lib = PythonInfoCollector._resolve_tk_lib(tcl, tcl_lib)
             except tk.TclError:
