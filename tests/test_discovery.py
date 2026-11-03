@@ -638,6 +638,57 @@ def test_discovery_uv_store_roots_per_platform(
     assert uv_probed() == executables
 
 
+@pytest.mark.parametrize(
+    ("appdata", "store"),
+    [
+        pytest.param("", "uv/data", id="empty"),
+        pytest.param("relative", "relative/uv/data", id="relative"),
+    ],
+)
+def test_discovery_uv_store_invalid_appdata_uses_profile_default(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    appdata: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setenv("APPDATA", appdata)
+    (checkout := uv_home / "checkout").mkdir()
+    monkeypatch.chdir(checkout)
+    uv_plant(checkout / store / "python")
+    profile_executable = uv_plant(uv_home / "AppData" / "Roaming" / "uv" / "data" / "python")
+
+    assert uv_probed() == [profile_executable]
+
+
+@pytest.mark.parametrize(
+    ("platform", "profile_var", "store"),
+    [
+        pytest.param("win32", "USERPROFILE", "relative/AppData/Roaming/uv/data", id="windows"),
+        pytest.param("linux", "HOME", "relative/.local/share/uv", id="linux"),
+        pytest.param("darwin", "HOME", "relative/Library/Application Support/uv", id="macos"),
+    ],
+)
+def test_discovery_uv_store_skips_relative_profile(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    platform: str,
+    profile_var: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.setenv(profile_var, "relative")
+    (checkout := uv_home / "checkout").mkdir()
+    monkeypatch.chdir(checkout)
+    uv_plant(checkout / store / "python")
+
+    assert uv_probed() == []
+
+
 def test_discovery_uv_store_windows_ignores_xdg_data_home(
     uv_home: Path,
     monkeypatch: pytest.MonkeyPatch,
