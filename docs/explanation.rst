@@ -258,9 +258,10 @@ with `filelock <https://py-filelock.readthedocs.io/>`_-based locking for safe co
 can also pass ``cache=None`` to disable caching, or implement your own backend (see
 :doc:`/how-to/standalone-usage`).
 
-On POSIX, lock files live in a directory accessible only to the cache owner. When the cache entry directory is writable
-by its group, the lock directory and files allow group access too. Older releases still use the previous lock files, so
-processes running different releases do not coordinate cache writes. Use separate cache roots while both run.
+On POSIX, lock files live in a restricted directory accessible to the cache owner. When the cache entry directory is
+writable by its group and the process uses a group-permissive umask, the lock directory and files allow group writes
+too. Older releases still use the previous lock files, so processes running different releases do not coordinate cache
+writes. Use separate cache roots while both run.
 
 Subprocess timeout behavior
 ----------------------------

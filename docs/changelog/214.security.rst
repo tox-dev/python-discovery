@@ -1,1 +1,1 @@
-Place POSIX cache locks in an owner-only directory, or a group-only directory for group-writable caches.
+Place POSIX cache locks in a restricted directory and preserve group sharing under a group-permissive umask.
