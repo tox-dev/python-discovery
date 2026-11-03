@@ -139,9 +139,15 @@ class DiskContentStore:
     def locked(self) -> Generator[None]:
         from filelock import FileLock  # ruff:ignore[import-outside-top-level]
 
-        lock_path = self._folder / f"{self._key}.lock"
-        lock_path.parent.mkdir(parents=True, exist_ok=True)
-        with FileLock(str(lock_path)):
+        self._folder.mkdir(parents=True, exist_ok=True)
+        if os.name == "posix":
+            group_shared = bool(self._folder.stat().st_mode & stat.S_IWGRP)
+            lock_folder = self._folder / "locks-v2"
+            lock_folder.mkdir(mode=0o770 if group_shared else 0o700, exist_ok=True)
+            lock = FileLock(str(lock_folder / f"{self._key}.lock"), mode=0o660 if group_shared else 0o600)
+        else:
+            lock = FileLock(str(self._folder / f"{self._key}.lock"))
+        with lock:
             yield
 
 

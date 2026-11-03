@@ -4,9 +4,11 @@ import os
 import stat
 import sys
 from pathlib import Path
+from threading import Event, Thread
 from typing import TYPE_CHECKING
 
 import pytest
+from filelock import FileLock
 
 from python_discovery._cache import DiskCache, DiskContentStore, NoOpCache, NoOpContentStore
 
@@ -52,6 +54,56 @@ def test_disk_content_store_locked(tmp_path: Path) -> None:
     with store.locked():
         store.write({"key": "value"})
     assert store.read() == {"key": "value"}
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX lock permissions")
+@pytest.mark.parametrize(
+    ("folder_mode", "umask", "lock_folder_mode", "lock_mode"),
+    [
+        pytest.param(0o755, 0o022, 0o700, 0o600, id="private"),
+        pytest.param(0o770, 0o002, 0o770, 0o660, id="group-shared"),
+    ],
+)
+def test_disk_content_store_lock_permissions(
+    tmp_path: Path, folder_mode: int, umask: int, lock_folder_mode: int, lock_mode: int
+) -> None:
+    tmp_path.chmod(folder_mode)
+    previous = os.umask(umask)
+    try:
+        with DiskContentStore(tmp_path, "test").locked():
+            pass
+    finally:
+        os.umask(previous)
+    assert (
+        stat.S_IMODE((tmp_path / "locks-v2").stat().st_mode),
+        stat.S_IMODE((tmp_path / "locks-v2" / "test.lock").stat().st_mode),
+    ) == (lock_folder_mode, lock_mode)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX lock migration")
+def test_disk_content_store_ignores_legacy_lock(tmp_path: Path) -> None:
+    entered = Event()
+    store = DiskContentStore(tmp_path, "test")
+
+    def acquire() -> None:
+        with store.locked():
+            entered.set()
+
+    thread = Thread(target=acquire)
+    with FileLock(str(tmp_path / "test.lock")):
+        thread.start()
+        acquired = entered.wait(3)
+    thread.join(timeout=3)
+    assert acquired
+
+
+def test_disk_content_store_keeps_lock_path_without_posix(tmp_path: Path, mocker: MockerFixture) -> None:
+    platform_os = mocker.patch("python_discovery._cache.os", autospec=True)
+    platform_os.name = "nt"
+    with DiskContentStore(tmp_path, "test").locked():
+        pass
+    assert (tmp_path / "test.lock").exists()
+    assert not (tmp_path / "locks-v2").exists()
 
 
 def test_disk_content_store_exists(tmp_path: Path) -> None:

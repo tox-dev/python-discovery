@@ -1,0 +1,2 @@
+When imported from an archive, python-discovery now extracts its interpreter probe into a private temporary directory.
+This prevents the probe from importing modules supplied in the shared temp directory.

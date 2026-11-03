@@ -171,12 +171,28 @@ def test_resolve_to_system_single_prefix_self_link(mocker: MockerFixture, caplog
 def test_discover_exe_cache_hit() -> None:
     info = copy.deepcopy(CURRENT)
     cached = copy.deepcopy(CURRENT)
-    PythonInfo._cache_exe_discovery["/some/prefix", True] = cached
+    PythonInfo._cache_exe_discovery["/some/prefix", True, info.version_info] = cached
     try:
         result = info.discover_exe(MagicMock(), prefix="/some/prefix", exact=True)
         assert result is cached
     finally:
-        del PythonInfo._cache_exe_discovery["/some/prefix", True]
+        del PythonInfo._cache_exe_discovery["/some/prefix", True, info.version_info]
+
+
+def test_discover_exe_cache_keeps_requested_version(tmp_path: Path) -> None:
+    prefix = CURRENT.prefix
+    assert prefix is not None
+    cache = DiskCache(tmp_path)
+    PythonInfo.clear_cache(cache)
+    try:
+        found = CURRENT.discover_exe(cache, prefix)
+        assert found.version_info == CURRENT.version_info
+        other = copy.deepcopy(CURRENT)
+        other.version_info = other.version_info._replace(major=0)
+        with pytest.raises(RuntimeError):
+            other.discover_exe(cache, prefix)
+    finally:
+        PythonInfo.clear_cache(cache)
 
 
 def test_check_exe_none_path(tmp_path: Path) -> None:
