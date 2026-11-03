@@ -8,6 +8,7 @@ import os
 import stat
 from contextlib import contextmanager, suppress
 from hashlib import sha256
+from os import fsencode
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
@@ -173,7 +174,7 @@ class DiskCache:
         """
         if not self._trusted_folder():
             return NoOpContentStore()
-        key = sha256(str(path).encode("utf-8")).hexdigest()
+        key = sha256(fsencode(path)).hexdigest()
         return DiskContentStore(self._py_info_dir, key)
 
     def _trusted_folder(self) -> bool:
