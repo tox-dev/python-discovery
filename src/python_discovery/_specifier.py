@@ -210,6 +210,14 @@ class SimpleSpecifier:
             return str(candidate) == str(self.version)
         if self.operator == "~=":
             return self._check_compatible_release(candidate)
+        # PEP 440 excludes prereleases of a final release named by an exclusive upper bound.
+        if (
+            self.operator == "<"
+            and candidate.pre_type is not None
+            and self.version.pre_type is None
+            and candidate.release == self.version.release
+        ):
+            return False
         cmp_ops = {
             "==": operator.eq,
             "!=": operator.ne,
