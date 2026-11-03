@@ -212,7 +212,7 @@ def _propose_explicit(
     tested_exes: set[str],
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
     for py_exe in try_first_with:
-        if exe_raw := _check_exe(str(Path(py_exe).resolve()), tested_exes):
+        if Path(py_exe).exists() and (exe_raw := _check_exe(py_exe, tested_exes)):
             yield PythonInfo.from_exe(exe_raw, cache, env=env), True
 
     if spec.path is not None:

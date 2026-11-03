@@ -4,9 +4,9 @@ import copy
 import logging
 import os
 import stat
-import subprocess
 import sys
 from pathlib import Path
+from subprocess import check_call, check_output
 from typing import TYPE_CHECKING, Final
 from unittest.mock import patch
 from uuid import uuid4
@@ -206,8 +206,8 @@ def test_discovery_absolute_path_with_try_first(
     good_env = tmp_path / "good"
     bad_env = tmp_path / "bad"
 
-    subprocess.check_call([sys.executable, "-m", "venv", str(good_env)])
-    subprocess.check_call([sys.executable, "-m", "venv", str(bad_env)])
+    check_call([sys.executable, "-m", "venv", str(good_env)])
+    check_call([sys.executable, "-m", "venv", str(bad_env)])
 
     scripts_dir = "Scripts" if IS_WIN else "bin"
     exe_name = "python.exe" if IS_WIN else "python"
@@ -229,11 +229,45 @@ def test_discovery_venvs_on_one_base_keep_their_executable(tmp_path: Path, sessi
     exe_name = "python.exe" if IS_WIN else "python"
     exes = [tmp_path / name / scripts_dir / exe_name for name in ("a", "b")]
     for exe in exes:
-        subprocess.check_call([sys.executable, "-m", "venv", "--without-pip", str(exe.parents[1])])
+        check_call([sys.executable, "-m", "venv", "--without-pip", str(exe.parents[1])])
 
     found = [get_interpreter(str(exe), cache=session_cache) for exe in exes]
 
     assert [Path(info.executable) for info in found if info is not None] == exes
+
+
+def test_discovery_try_first_with_keeps_venv(tmp_path: Path, session_cache: DiskCache) -> None:
+    venv = tmp_path / "preferred"
+    check_call([sys.executable, "-m", "venv", "--without-pip", str(venv)])
+    exe = venv / ("Scripts/python.exe" if IS_WIN else "bin/python")
+
+    info = get_interpreter(
+        f"{sys.version_info.major}.{sys.version_info.minor}",
+        try_first_with=[str(exe)],
+        cache=session_cache,
+        env={**os.environ, "PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
+    )
+
+    assert info is not None
+    assert (
+        info.executable,
+        check_output([info.executable, "-c", "import sys; print(sys.prefix)"], text=True).strip(),
+    ) == (str(exe), str(venv))
+
+
+def test_discovery_try_first_with_skips_broken_symlink(tmp_path: Path, session_cache: DiskCache) -> None:
+    broken = tmp_path / "missing-python"
+    broken.symlink_to(tmp_path / "missing")
+
+    info = get_interpreter(
+        f"{sys.version_info.major}.{sys.version_info.minor}",
+        try_first_with=[str(broken)],
+        cache=session_cache,
+        env={**os.environ, "PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
+    )
+
+    assert info is not None
+    assert info.executable == PythonInfo.current_system(session_cache).executable
 
 
 def test_discovery_via_path_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
