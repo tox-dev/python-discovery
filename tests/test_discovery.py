@@ -95,6 +95,25 @@ def test_relative_path(session_cache: DiskCache, monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("3.14.0rc1", id="prerelease"),
+        pytest.param("python3.13-arm64-64", id="swapped-platform"),
+        pytest.param("python_d", id="executable-name"),
+    ],
+)
+def test_bare_name_spec_does_not_probe_cwd(
+    name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (tmp_path / name).touch(mode=0o755)
+    monkeypatch.chdir(tmp_path)
+    from_exe = mocker.patch("python_discovery._discovery.PythonInfo.from_exe", return_value=None)
+
+    assert get_interpreter(name, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "uv")}) is None
+    from_exe.assert_not_called()
+
+
+@pytest.mark.parametrize(
     "sep",
     [
         pytest.param("/", id="slash"),
