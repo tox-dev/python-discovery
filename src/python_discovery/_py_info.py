@@ -484,7 +484,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             target.executable = start_executable
         return target
 
-    _cache_exe_discovery: ClassVar[dict[tuple[str, bool], PythonInfo]] = {}
+    _cache_exe_discovery: ClassVar[dict[tuple[str, bool, VersionInfo], PythonInfo]] = {}
 
     def discover_exe(
         self,
@@ -502,7 +502,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         :param exact: when ``True``, require an exact version match.
         :param env: environment mapping; defaults to :data:`os.environ`.
         """
-        key = prefix, exact
+        key = prefix, exact, self.version_info
         if key in self._cache_exe_discovery and prefix:
             _LOGGER.debug("discover exe from cache %s - exact %s: %r", prefix, exact, self._cache_exe_discovery[key])
             return self._cache_exe_discovery[key]
