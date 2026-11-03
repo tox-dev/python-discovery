@@ -5,6 +5,8 @@
 [![Downloads](https://static.pepy.tech/badge/python-discovery/month)](https://pepy.tech/project/python-discovery)
 [![check](https://github.com/tox-dev/python-discovery/actions/workflows/check.yaml/badge.svg)](https://github.com/tox-dev/python-discovery/actions/workflows/check.yaml)
 [![Documentation Status](https://readthedocs.org/projects/python-discovery/badge/?version=latest)](https://python-discovery.readthedocs.io/en/latest/?badge=latest)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/tox-dev/python-discovery/badge)](https://scorecard.dev/viewer/?uri=github.com/tox-dev/python-discovery)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16262/badge)](https://www.bestpractices.dev/projects/16262)
 
 ## What is python-discovery?
 
