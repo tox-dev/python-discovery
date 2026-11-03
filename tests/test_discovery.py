@@ -242,7 +242,7 @@ def test_discovery_try_first_with_keeps_venv(tmp_path: Path, session_cache: Disk
     exe = venv / ("Scripts/python.exe" if IS_WIN else "bin/python")
 
     info = get_interpreter(
-        f"{sys.version_info.major}.{sys.version_info.minor}",
+        ">=3",
         try_first_with=[str(exe)],
         cache=session_cache,
         env={**os.environ, "PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
@@ -260,7 +260,7 @@ def test_discovery_try_first_with_skips_broken_symlink(tmp_path: Path, session_c
     broken.symlink_to(tmp_path / "missing")
 
     info = get_interpreter(
-        f"{sys.version_info.major}.{sys.version_info.minor}",
+        ">=3",
         try_first_with=[str(broken)],
         cache=session_cache,
         env={**os.environ, "PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
