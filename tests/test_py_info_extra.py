@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
-from venv import create
 
 import pytest
 
@@ -491,17 +490,30 @@ def test_resolve_to_system_resolved_from_exe(mocker: MockerFixture, caplog: pyte
     assert result.executable == "/some/venv/python"
 
 
-def test_from_exe_uses_supplied_environment_for_base_probe(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    create(tmp_path / "venv", with_pip=False)
-    executable = tmp_path / "venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
-    process_only = tmp_path / "process-only"
-    mapped = tmp_path / "mapped"
-    monkeypatch.setenv("PYTHONPATH", str(process_only))
+def test_from_exe_uses_supplied_environment_for_base_probe(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYTHONPATH", "process-only")
+    target = copy.deepcopy(CURRENT)
+    target.executable = "venv"
+    target.system_executable = "system"
+    mapped = copy.deepcopy(CURRENT)
+    mapped.executable = mapped.system_executable = "system"
+    mapped.path = ["mapped"]
+    process_only = copy.deepcopy(mapped)
+    process_only.path = ["process-only"]
+    mocker.patch(
+        "python_discovery._cached_py_info.from_exe",
+        side_effect=lambda _cls, _cache, exe, **kwargs: {
+            "venv": target,
+            "system": mapped if kwargs["env"] == {"PYTHONPATH": "mapped"} else process_only,
+        }[exe],
+    )
 
-    info = PythonInfo.from_exe(str(executable), env={**os.environ, "PYTHONPATH": str(mapped)})
+    info = PythonInfo.from_exe("venv", env={"PYTHONPATH": "mapped"})
 
     assert info is not None
-    assert (str(mapped) in info.path, str(process_only) in info.path) == (True, False)
+    assert info.path == ["mapped"]
 
 
 def test_resolve_to_system_uses_supplied_environment_for_prefix_probe(mocker: MockerFixture) -> None:
