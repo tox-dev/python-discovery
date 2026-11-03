@@ -168,6 +168,21 @@ def test_resolve_to_system_single_prefix_self_link(mocker: MockerFixture, caplog
     assert any("links back to itself" in r.message for r in caplog.records)
 
 
+def test_resolve_to_system_repeated_prefix_with_parent_segments(tmp_path: Path, mocker: MockerFixture) -> None:
+    (tmp_path / "child").mkdir()
+    target = PythonInfo()
+    target.system_executable = target.real_prefix = None
+    target.base_prefix = str(tmp_path)
+    repeated = PythonInfo()
+    repeated.system_executable = repeated.real_prefix = None
+    repeated.base_prefix = str(tmp_path / "child" / "..")
+    mocker.patch.object(PythonInfo, "discover_exe", return_value=repeated)
+
+    result = PythonInfo.resolve_to_system(None, target)
+
+    assert result.system_executable == repeated.executable
+
+
 def test_discover_exe_cache_hit() -> None:
     info = copy.deepcopy(CURRENT)
     cached = copy.deepcopy(CURRENT)

@@ -10,6 +10,7 @@ import platform
 import sys
 from collections import OrderedDict
 from itertools import product
+from os.path import normcase, realpath
 from string import digits
 from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple, TypedDict
 
@@ -462,7 +463,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         prefixes = OrderedDict()
         while target.system_executable is None:
             prefix = target.real_prefix or target.base_prefix or target.prefix
-            if prefix in prefixes:
+            prefix_key = normcase(realpath(prefix))
+            if prefix_key in prefixes:
                 if len(prefixes) == 1:
                     _LOGGER.info("%r links back to itself via prefixes", target)
                     target.system_executable = target.executable
@@ -472,7 +474,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
                 _LOGGER.error("%d: prefix=%s, info=%r", len(prefixes) + 1, prefix, target)
                 msg = "prefixes are causing a circle {}".format("|".join(prefixes.keys()))
                 raise RuntimeError(msg)
-            prefixes[prefix] = target
+            prefixes[prefix_key] = target
             target = target.discover_exe(cache, prefix=prefix, exact=False)
         if target.executable != target.system_executable:
             resolved = cls.from_exe(target.system_executable, cache)
