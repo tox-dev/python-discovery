@@ -13,7 +13,7 @@ from uuid import uuid4
 
 import pytest
 
-from python_discovery import DiskCache, PythonInfo, PythonSpec, SimpleSpecifierSet, get_interpreter
+from python_discovery import DiskCache, PythonInfo, PythonSpec, SimpleSpecifierSet, get_interpreter, iter_interpreters
 from python_discovery._discovery import IS_WIN, LazyPathDump, get_paths, propose_interpreters
 
 if TYPE_CHECKING:
@@ -83,6 +83,39 @@ def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
 
     assert interpreter is not None
     assert interpreter.executable == str(link)
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
+@pytest.mark.parametrize("name", [pytest.param("pypy", id="pypy"), pytest.param("Python", id="mixed-case-python")])
+def test_pypy_spec_rejects_cpython_alias(name: str, tmp_path: Path, session_cache: DiskCache) -> None:
+    threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
+    version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
+    (tmp_path / f"{name}{version}{'.exe' if IS_WIN else ''}").symlink_to(sys.executable)
+    env = {"PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")}
+
+    selected = get_interpreter(f"pypy{version}", [], cache=session_cache, env=env)
+    assert selected is None or selected.implementation == "PyPy"
+    assert all(
+        info.implementation == "PyPy" for info in iter_interpreters(f"pypy{version}", cache=session_cache, env=env)
+    )
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
+def test_generic_python_spec_accepts_mixed_case_alias(tmp_path: Path, session_cache: DiskCache) -> None:
+    threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
+    version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
+    alias = tmp_path / f"Python{version}{'.exe' if IS_WIN else ''}"
+    alias.symlink_to(sys.executable)
+
+    selected = get_interpreter(
+        f"Python{version}",
+        [],
+        cache=session_cache,
+        env={"PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
+    )
+
+    assert selected is not None
+    assert (selected.executable, selected.implementation) == (str(alias), "CPython")
 
 
 def test_discovery_via_path_in_nonbrowseable_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
