@@ -254,6 +254,7 @@ def test_satisfies_version_specifier_unparsable_version() -> None:
         pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15.0", False, id="prerelease_not_match_full_precision"),
         pytest.param(VersionInfo(3, 15, 0, "alpha", 5), "<3.15.0a6", True, id="earlier_prerelease_less_than"),
         pytest.param(VersionInfo(3, 15, 0, "alpha", 6), "<3.15.0a6", False, id="prerelease_not_less_than_itself"),
+        pytest.param(VersionInfo(3, 12, 0, "candidate", 1), "<3.12.0", False, id="prerelease_not_below_final_bound"),
         pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15.0a6", True, id="prerelease_match_itself"),
         pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15.0a7", False, id="prerelease_not_match_later"),
         pytest.param(VersionInfo(3, 15, 0, "final", 0), ">=3.15.0a6", True, id="final_greater_than_prerelease"),

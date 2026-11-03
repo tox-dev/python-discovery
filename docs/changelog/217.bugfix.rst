@@ -1,0 +1,1 @@
+Exclude prereleases of the final version named by an exclusive upper bound, such as ``<3.12.0`` rejecting ``3.12.0rc1``.
