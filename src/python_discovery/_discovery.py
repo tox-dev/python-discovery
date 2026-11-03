@@ -492,7 +492,7 @@ def path_exe_finder(
     direct = spec.str_spec
     implementation = spec.implementation.lower() if spec.implementation is not None else None
     impl_must_match = implementation in KNOWN_IMPLEMENTATIONS and implementation != "python"
-    if sys.platform == "win32":  # pragma: win32 cover
+    if sys.platform == "win32" and not direct.lower().endswith(".exe"):  # pragma: win32 cover
         direct = f"{direct}.exe"
 
     def path_exes(path: Path) -> Generator[tuple[Path, bool], None, None]:

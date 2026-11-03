@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
+from subprocess import check_call
 
 import pytest
 
@@ -17,6 +19,20 @@ def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
 
     assert interpreter is not None
     assert interpreter.executable == str(link)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows executable names")
+@pytest.mark.parametrize("name", ["python3.exe", "PYTHON3.EXE", "pythonw.exe"])
+def test_discovery_via_path_exe_suffixed_name(tmp_path: Path, name: str) -> None:
+    venv = tmp_path / "venv"
+    check_call([sys.executable, "-m", "venv", "--without-pip", str(venv)])
+    scripts = venv / "Scripts"
+    shutil.copyfile(scripts / "python.exe", scripts / "python3.exe")
+
+    interpreter = get_interpreter(name, [], env={"PATH": str(scripts)})
+
+    assert interpreter is not None
+    assert interpreter.executable == str(scripts / name)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="propose_interpreters calls from_exe with Windows paths")

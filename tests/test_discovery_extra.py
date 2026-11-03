@@ -14,6 +14,7 @@ from python_discovery._discovery import (
     _active_versions,
     _read_python_version_file,
     _resolve_shim,
+    path_exe_finder,
     propose_interpreters,
 )
 from python_discovery._py_spec import PythonSpec
@@ -178,6 +179,25 @@ def test_path_exe_finder_returns_callable(tmp_path: Path) -> None:
     assert callable(finder)
     results = list(finder(tmp_path))
     assert results == []
+
+
+@pytest.mark.parametrize(
+    ("spec", "name"),
+    [
+        pytest.param("python_custom", "python_custom.exe", id="bare-name"),
+        pytest.param("pythonw.exe", "pythonw.exe", id="exe-suffix"),
+        pytest.param("python3.13t.EXE", "python3.13t.EXE", id="upper-exe-suffix"),
+    ],
+)
+def test_path_exe_finder_win32_direct_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spec: str, name: str
+) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+    (tmp_path / name).touch()
+
+    finder = path_exe_finder(PythonSpec.from_string_spec(spec))
+
+    assert list(finder(tmp_path)) == [(tmp_path / name, False)]
 
 
 def test_get_paths_no_path_env() -> None:
