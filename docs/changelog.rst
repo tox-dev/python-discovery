@@ -6,6 +6,20 @@
 
 .. towncrier release notes start
 
+.. _release-1-9-3:
+
+*********************
+ v1.9.3 (2026-11-03)
+*********************
+
+.. _release-1-9-3-fixed:
+
+Fixed
+-----
+
+- Reject generic Python executables when a requested implementation is unavailable (:pr:`239`) by :user:`gaborbernat`.
+  (:issue:`238`)
+
 .. _release-1-9-2:
 
 *********************
