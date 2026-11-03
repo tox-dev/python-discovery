@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 from pathlib import Path
 from subprocess import TimeoutExpired, list2cmdline
 from typing import TYPE_CHECKING, Final
@@ -59,7 +60,9 @@ def test_resolve_py_info_script_fallback_to_pkgutil(mocker: MockerFixture) -> No
         assert script.exists()
         content = script.read_text(encoding="utf-8")
         assert content == "# mock script"
-    assert not script.exists()
+        assert script.parent != Path(tempfile.gettempdir())
+        assert list(script.parent.iterdir()) == [script]
+    assert not script.parent.exists()
 
 
 def test_resolve_py_info_script_pkgutil_returns_none(mocker: MockerFixture) -> None:

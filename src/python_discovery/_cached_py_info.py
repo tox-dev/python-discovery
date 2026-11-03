@@ -195,13 +195,11 @@ def _resolve_py_info_script() -> Generator[Path]:
         if data is None:
             msg = f"cannot locate {_PY_INFO_SCRIPT.name} for subprocess interrogation"
             raise FileNotFoundError(msg)
-        fd, tmp = tempfile.mkstemp(suffix=".py")
-        try:
-            os.write(fd, data)
-            os.close(fd)
-            yield Path(tmp)
-        finally:
-            Path(tmp).unlink()
+        # Python prepends the probe script's directory to sys.path, so keep that directory private.
+        with tempfile.TemporaryDirectory() as private_dir:
+            script: Final[Path] = Path(private_dir) / _PY_INFO_SCRIPT.name
+            script.write_bytes(data)
+            yield script
 
 
 def _extract_between_cookies(out: str, start_cookie: str, end_cookie: str) -> tuple[str, str, int, int]:
