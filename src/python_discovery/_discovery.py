@@ -6,6 +6,7 @@ import sys
 from contextlib import suppress
 from dataclasses import dataclass
 from itertools import tee
+from os.path import basename
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -514,7 +515,7 @@ _VERSION_MANAGER_LAYOUTS: list[tuple[str, tuple[str, ...]]] = [
 
 def _resolve_shim_to_binary(exe_name: str, versions_dir: str, env: Mapping[str, str]) -> str | None:
     for version in _active_versions(env):
-        if version in {"", ".", ".."} or os.path.basename(version) != version:
+        if version in {"", ".", ".."} or basename(version) != version:
             _LOGGER.debug("ignoring invalid version name %r", version)
             continue
         resolved = os.path.join(versions_dir, version, "bin", exe_name)
