@@ -272,10 +272,18 @@ with `filelock <https://py-filelock.readthedocs.io/>`_-based locking for safe co
 can also pass ``cache=None`` to disable caching, or implement your own backend (see
 :doc:`/how-to/standalone-usage`).
 
-On POSIX, lock files live in a restricted directory accessible to the cache owner. When the cache entry directory is
-writable by its group and the process uses a group-permissive umask, the lock directory and files allow group writes
-too. Older releases still use the previous lock files, so processes running different releases do not coordinate cache
-writes. Use separate cache roots while both run.
+On POSIX, ``DiskCache`` uses a cache root only when it and both ``py_info`` directories are real directories owned by
+the current user or root and cannot be written by other users. Its ancestor directories must also prevent other users
+from replacing the cache root; a sticky shared ancestor such as ``/tmp`` is allowed. Discovery continues without disk
+caching and logs a warning if the directory check fails. Cache entries must be regular files owned by the current user
+or root and not writable by others. Discovery tries to remove a rejected entry and queries the interpreter again. Use a
+private directory for the cache root, including when callers share a machine.
+
+A relative cache root refers to the current directory when ``DiskCache`` is created.
+
+On POSIX, lock files live in a restricted directory under the checked cache directory. Older releases use the previous
+lock files, so processes running different releases do not coordinate cache writes. Use separate cache roots while both
+run.
 
 Subprocess timeout behavior
 ----------------------------

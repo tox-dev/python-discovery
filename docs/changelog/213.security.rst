@@ -1,0 +1,1 @@
+Skip untrusted disk cache directories and entries on POSIX, and replace cache files without following links.
