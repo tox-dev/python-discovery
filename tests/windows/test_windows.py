@@ -1,22 +1,19 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
 from python_discovery import PythonSpec, get_interpreter
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows executable alias")
 def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
     link = tmp_path / "python_custom.exe"
-    link.symlink_to(sys.executable)
+    link.symlink_to(Path(sys.base_prefix) / "python.exe")
 
-    interpreter = get_interpreter("python_custom", [], env={"PATH": str(tmp_path)})
+    interpreter = get_interpreter("python_custom", [], env={"PATH": f"{tmp_path};{sys.base_prefix}"})
 
     assert interpreter is not None
     assert interpreter.executable == str(link)
