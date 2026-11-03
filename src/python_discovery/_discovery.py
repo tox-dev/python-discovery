@@ -432,14 +432,10 @@ def get_paths(env: Mapping[str, str]) -> Generator[Path, None, None]:
         except (AttributeError, ValueError):  # pragma: no cover # Windows only (no confstr)
             path = os.defpath
     if path:
-        # An empty component (a leading/trailing/doubled separator) means "the current directory", the
-        # same footgun a shell has when PATH is misconfigured - Path("") resolves to it. Since every
-        # yielded path here is later searched for interpreters to execute and interrogate, silently
-        # including the caller's CWD would let whatever directory virtualenv happens to run from smuggle
-        # in a candidate binary.
+        # Relative entries can execute an interpreter supplied by the working directory.
         for entry in map(Path, filter(None, path.split(os.pathsep))):
             with suppress(OSError):
-                if entry.is_dir() and next(entry.iterdir(), None):
+                if entry.is_absolute() and entry.is_dir() and next(entry.iterdir(), None):
                     yield entry
 
 
