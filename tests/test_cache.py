@@ -291,7 +291,7 @@ def test_disk_content_store_write_is_private_with_lax_umask(tmp_path: Path) -> N
 @pytest.mark.parametrize(
     "target",
     [
-        pytest.param("python_discovery._cache.tempfile.NamedTemporaryFile", id="create"),
+        pytest.param("python_discovery._cache.NamedTemporaryFile", id="create"),
         pytest.param("pathlib.Path.replace", id="replace"),
     ],
 )

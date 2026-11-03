@@ -6,10 +6,10 @@ import json
 import logging
 import os
 import stat
-import tempfile
 from contextlib import contextmanager, suppress
 from hashlib import sha256
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -115,7 +115,7 @@ class DiskContentStore:
         self._folder.mkdir(parents=True, exist_ok=True)
         temporary: Path | None = None
         try:
-            with tempfile.NamedTemporaryFile(
+            with NamedTemporaryFile(
                 mode="w", encoding="utf-8", dir=self._folder, prefix=f".{self._key}.", delete=False
             ) as file:
                 temporary = Path(file.name)
