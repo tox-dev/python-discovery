@@ -250,8 +250,10 @@ links back to its own interpreter. Reading the raw field still tells the two sta
 How caching works
 -------------------
 
-Querying an interpreter requires a subprocess call, which is slow. The cache avoids repeating this
-work by storing the result as a JSON file keyed by the interpreter's path.
+Querying an interpreter requires a subprocess call, which is slow. The cache stores the result as a
+JSON file keyed by the queried path when that path identifies the interpreter that answered. Launchers
+such as pyenv shims can select different interpreters in different directories, so their results are
+not cached under the launcher path.
 
 .. mermaid::
 
@@ -259,13 +261,16 @@ work by storing the result as a JSON file keyed by the interpreter's path.
         Lookup["py_info(path)"] --> Exists{"Cache hit?"}
         Exists -->|Yes| Read["Read JSON"]
         Exists -->|No| Run["Run subprocess"]
-        Run --> Write["Write JSON<br>(with filelock)"]
-        Write --> Return["Return PythonInfo"]
+        Run --> Same{"Queried path is<br>the interpreter?"}
+        Same -->|Yes| Write["Write JSON<br>(with filelock)"]
+        Same -->|No| Return["Return query result"]
+        Write --> Return
         Read --> Return
 
         style Lookup fill:#4a90d9,stroke:#2a5f8f,color:#fff
         style Return fill:#4a9f4a,stroke:#2a6f2a,color:#fff
         style Run fill:#d9904a,stroke:#8f5f2a,color:#fff
+        style Same fill:#d9904a,stroke:#8f5f2a,color:#fff
 
 The built-in :class:`~python_discovery.DiskCache` stores files under ``<root>/py_info/4/<sha256>.json``
 with `filelock <https://py-filelock.readthedocs.io/>`_-based locking for safe concurrent access. You
