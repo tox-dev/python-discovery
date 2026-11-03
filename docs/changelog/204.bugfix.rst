@@ -1,0 +1,1 @@
+Write interpreter cache entries as compact JSON to keep their size proportional to the interpreter response.
