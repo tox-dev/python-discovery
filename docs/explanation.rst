@@ -13,9 +13,11 @@ order. It stops as soon as it finds an interpreter that matches your spec.
         Start["get_interpreter()"] --> AbsPath{"Is spec an<br>absolute path?"}
         AbsPath -->|Yes| TryAbs["Use path directly"]
         AbsPath -->|No| TryFirst["try_first_with paths"]
-        TryFirst --> RelPath{"Is spec a<br>relative path?"}
+        TryFirst --> RelPath{"Does spec name a<br>relative directory?"}
         RelPath -->|Yes| TryRel["Resolve relative to cwd"]
-        RelPath -->|No| Current["Current interpreter"]
+        RelPath -->|No| Bare{"Bare executable name?"}
+        Bare -->|Yes| PATH
+        Bare -->|No| Current["Current interpreter"]
         Current --> Win{"Windows?"}
         Win -->|Yes| PEP514["PEP 514 registry"]
         Win -->|No| PATH
@@ -51,19 +53,30 @@ detects these shims and resolves them to the actual binary.
 
     flowchart TD
         Shim["Shim detected"] --> EnvVar{"PYENV_VERSION<br>set?"}
-        EnvVar -->|Yes| Use["Use that version"]
+        EnvVar -->|Yes| Valid{"Valid directory name?"}
         EnvVar -->|No| File{".python-version<br>names a version?"}
-        File -->|Yes| Use
+        File -->|Yes| Valid
         File -->|No| Global{"pyenv global<br>version exists?"}
-        Global -->|Yes| Use
+        Global -->|Yes| Valid
         Global -->|No| Skip["Skip shim"]
+        Valid -->|Yes| Use["Use that version"]
+        Valid -->|No| More{"Another version?"}
+        More -->|Yes| Valid
+        More -->|No| Skip
 
         style Shim fill:#4a90d9,stroke:#2a5f8f,color:#fff
+        style Valid fill:#4a90d9,stroke:#2a5f8f,color:#fff
+        style More fill:#4a90d9,stroke:#2a5f8f,color:#fff
         style Use fill:#4a9f4a,stroke:#2a6f2a,color:#fff
         style Skip fill:#d94a4a,stroke:#8f2a2a,color:#fff
 
 `mise <https://mise.jdx.dev/>`_ and `asdf <https://asdf-vm.com/>`_ work similarly, using the
 ``MISE_DATA_DIR`` and ``ASDF_DATA_DIR`` environment variables to locate their installations.
+python-discovery skips version files over 4096 characters. It checks parent directories and, for pyenv, the global
+version when needed.
+
+A version must name one directory below the version manager's installation root. Discovery skips ``.`` and ``..`` and
+version names containing a path separator, then tries the next configured version.
 
 How uv-managed Pythons are discovered
 ---------------------------------------
@@ -91,7 +104,8 @@ overrides it; otherwise the store is the ``python`` bucket of uv's state directo
 uv follows the XDG convention on macOS too, and falls back to the legacy directory only when that directory already
 exists. python-discovery searches both, in the same order, so a leftover legacy directory cannot hide the store uv
 installs into. A relative ``XDG_DATA_HOME`` does not count, as the XDG specification requires, and Windows ignores it
-outright. Every one of these variables comes from the ``env`` mapping passed to
+outright. An empty or relative ``APPDATA`` uses the profile default, and discovery skips any relative store root.
+Every one of these variables comes from the ``env`` mapping passed to
 :func:`~python_discovery.get_interpreter`, rather than from the process environment.
 
 Each install lives in its own subdirectory, but the actual binary location varies by OS and implementation:
@@ -261,6 +275,19 @@ can also pass ``cache=None`` to disable caching, or implement your own backend (
 If cache access raises an OS error, discovery retries the interpreter query without that cache. A failed cache write
 can therefore cause a second query.
 
+On POSIX, ``DiskCache`` uses a cache root only when it and both ``py_info`` directories are real directories owned by
+the current user or root and cannot be written by other users. Its ancestor directories must also prevent other users
+from replacing the cache root; a sticky shared ancestor such as ``/tmp`` is allowed. Discovery continues without disk
+caching and logs a warning if the directory check fails. Cache entries must be regular files owned by the current user
+or root and not writable by others. Discovery tries to remove a rejected entry and queries the interpreter again. Use a
+private directory for the cache root, including when callers share a machine.
+
+A relative cache root refers to the current directory when ``DiskCache`` is created.
+
+On POSIX, lock files live in a restricted directory under the checked cache directory. Older releases use the previous
+lock files, so processes running different releases do not coordinate cache writes. Use separate cache roots while both
+run.
+
 Subprocess timeout behavior
 ----------------------------
 
@@ -332,7 +359,8 @@ A spec string follows the pattern ``[impl][version][t][d][-arch][-machine]``. Ev
 Order matters: the parts appear in the sequence shown above. Combine the ABI flags as ``python3.13td``
 (free-threaded then debug, the order CPython uses in ``sys.abiflags``), and keep ``-arch`` before
 ``-machine`` as in ``python3.13d-64-arm64``. Mixing ``d`` with ``-dbg`` in one spec, or swapping the arch
-and machine segments, leaves the string unrecognized, so it falls back to a literal executable-name match.
+and machine segments, leaves the string unrecognized, so it falls back to a literal executable-name match on ``PATH``.
+Only a spec with a directory component, such as ``./python3`` or ``venv/bin/python``, searches the working directory.
 
 **Full examples:**
 

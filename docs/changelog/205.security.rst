@@ -1,0 +1,2 @@
+Validate pyenv, mise and asdf version names before using them as directory names. A version file can no longer direct
+python-discovery's resolver to a binary outside the version manager's installation directory.

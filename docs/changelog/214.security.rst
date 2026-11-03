@@ -1,0 +1,1 @@
+Place POSIX cache locks in a restricted directory and preserve group sharing under a group-permissive umask.

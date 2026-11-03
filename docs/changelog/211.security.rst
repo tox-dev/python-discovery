@@ -1,0 +1,2 @@
+Tcl/Tk library detection no longer opens an X display, so an unresponsive display cannot block interpreter discovery.
+It can also find the Tk library on headless systems.

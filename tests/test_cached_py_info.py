@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 from pathlib import Path
 from subprocess import TimeoutExpired, list2cmdline
 from typing import TYPE_CHECKING, Final
@@ -59,7 +60,9 @@ def test_resolve_py_info_script_fallback_to_pkgutil(mocker: MockerFixture) -> No
         assert script.exists()
         content = script.read_text(encoding="utf-8")
         assert content == "# mock script"
-    assert not script.exists()
+        assert script.parent != Path(tempfile.gettempdir())
+        assert list(script.parent.iterdir()) == [script]
+    assert not script.parent.exists()
 
 
 def test_resolve_py_info_script_pkgutil_returns_none(mocker: MockerFixture) -> None:
@@ -326,28 +329,25 @@ def test_from_exe_cache_entry_with_bad_content(tmp_path: Path) -> None:
     assert isinstance(store.read(), dict)
 
 
-@pytest.mark.parametrize("suffix", [pytest.param(".json", id="entry"), pytest.param(".lock", id="lock")])
-def test_from_exe_recovers_unusable_cache_path(tmp_path: Path, suffix: str) -> None:
+@pytest.mark.parametrize(
+    ("folder", "suffix"),
+    [
+        pytest.param(".", ".json", id="entry"),
+        pytest.param("locks-v2" if os.name == "posix" else ".", ".lock", id="lock"),
+    ],
+)
+def test_from_exe_recovers_unusable_cache_path(tmp_path: Path, folder: str, suffix: str) -> None:
     cache = DiskCache(tmp_path)
     expected = PythonInfo.from_exe(sys.executable, cache, ignore_cache=True, resolve_to_host=False)
     assert expected is not None
-    blocked = next(tmp_path.rglob("*.json")).with_suffix(suffix)
-    blocked.unlink()
+    entry = next(tmp_path.rglob("*.json"))
+    blocked = entry.parent / folder / f"{entry.stem}{suffix}"
+    blocked.unlink(missing_ok=True)
     blocked.mkdir()
 
     result = PythonInfo.from_exe(sys.executable, cache, ignore_cache=True, resolve_to_host=False)
     assert result is not None
     assert result.version_info == expected.version_info
-
-
-def test_from_exe_recovers_unusable_cache_folder(tmp_path: Path) -> None:
-    folder = tmp_path / "py_info" / "4"
-    folder.parent.mkdir()
-    folder.write_text("occupied", encoding="utf-8")
-
-    result = PythonInfo.from_exe(sys.executable, DiskCache(tmp_path), ignore_cache=True, resolve_to_host=False)
-    assert result is not None
-    assert result.version_info == PythonInfo().version_info
 
 
 _LAUNCHER: Final[str] = r"C:\Program Files\Python Launcher\py.exe"

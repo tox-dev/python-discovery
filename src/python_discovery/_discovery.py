@@ -216,7 +216,8 @@ def _propose_explicit(
             yield PythonInfo.from_exe(exe_raw, cache, env=env), True
 
     if spec.path is not None:
-        if exe_raw := _check_exe(spec.path, tested_exes):  # pragma: no branch
+        # Unparsed bare names reach spec.path; only an explicit directory should search the working directory.
+        if os.path.dirname(spec.path) and (exe_raw := _check_exe(spec.path, tested_exes)):
             yield PythonInfo.from_exe(exe_raw, cache, env=env), True
     else:
         yield from _propose_current_and_windows(spec, cache, env, tested_exes)
@@ -288,7 +289,8 @@ def _uv_python_roots(env: Mapping[str, str]) -> Generator[Path, None, None]:
         yield Path(install_dir).expanduser()
         return
     for state_dir in _uv_state_dirs(env):
-        yield state_dir / "python"
+        if state_dir.is_absolute():  # a relative profile path would search the caller's working directory
+            yield state_dir / "python"
 
 
 def _uv_state_dirs(env: Mapping[str, str]) -> Generator[Path, None, None]:
@@ -296,7 +298,10 @@ def _uv_state_dirs(env: Mapping[str, str]) -> Generator[Path, None, None]:
     windows = sys.platform == "win32"
     home = Path(env.get("USERPROFILE" if windows else "HOME") or "~").expanduser()
     if windows:
-        app_data = Path(env["APPDATA"]) if "APPDATA" in env else home / "AppData" / "Roaming"
+        default_app_data = home / "AppData" / "Roaming"
+        app_data = Path(env.get("APPDATA") or default_app_data)
+        if not app_data.is_absolute():
+            app_data = default_app_data
         yield app_data / "uv" / "data"
         yield app_data / "uv"
         return
@@ -509,6 +514,9 @@ _VERSION_MANAGER_LAYOUTS: list[tuple[str, tuple[str, ...]]] = [
 
 def _resolve_shim_to_binary(exe_name: str, versions_dir: str, env: Mapping[str, str]) -> str | None:
     for version in _active_versions(env):
+        if version in {"", ".", ".."} or os.path.basename(version) != version:
+            _LOGGER.debug("ignoring invalid version name %r", version)
+            continue
         resolved = os.path.join(versions_dir, version, "bin", exe_name)
         if Path(resolved).is_file() and os.access(resolved, os.X_OK):
             return resolved
@@ -549,7 +557,13 @@ def _versions_in_file(path: str | Path) -> list[str]:
     try:
         # pyenv reads raw bytes, so a byte that is not UTF-8 (a Latin-1 comment, say) must not hide the versions
         with Path(path).open(encoding="utf-8", errors="replace") as fh:
-            return [v for line in fh if (v := line.strip()) and not v.startswith("#")]
+            # Version files can sit in shared parent directories; bound the in-process read.
+            max_chars = 4096
+            content = fh.read(max_chars + 1)
+            if len(content) > max_chars:
+                _LOGGER.debug("ignored oversized version file %s", path)
+                return []
+            return [v for line in content.split("\n") if (v := line.strip()) and not v.startswith("#")]
     except OSError:  # skip a file we cannot read, the same as one that names no version
         _LOGGER.debug("failed to read %s", path, exc_info=True)
         return []

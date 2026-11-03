@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import stat
+import tempfile
 from contextlib import contextmanager, suppress
 from hashlib import sha256
+from pathlib import Path
 from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-    from pathlib import Path
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -79,23 +82,53 @@ class DiskContentStore:
     def read(self) -> dict | None:
         data, bad_format = None, False
         try:
-            data = json.loads(self._file.read_text(encoding="utf-8"))
-        except ValueError:
+            data, bad_format = self._read_entry()
+        except (ValueError, RecursionError):
             bad_format = True
         except OSError:
             _LOGGER.debug("failed to read %s", self._file, exc_info=True)
+            bad_format = self._file.is_symlink()
         else:
-            _LOGGER.debug("got python info from %s", self._file)
-            return data
+            if not bad_format:
+                _LOGGER.debug("got python info from %s", self._file)
+                return data
         if bad_format:
             with suppress(OSError):
                 self.remove()
         return None
 
+    def _read_entry(self) -> tuple[dict | None, bool]:
+        with open(self._file, encoding="utf-8", opener=self._open_entry) as file:
+            status = os.fstat(file.fileno())
+            if not stat.S_ISREG(status.st_mode) or (
+                hasattr(os, "geteuid") and (status.st_uid not in {os.geteuid(), 0} or status.st_mode & 0o022)
+            ):
+                _LOGGER.warning("ignoring untrusted cache entry at %s", self._file)
+                return None, True
+            return json.load(file), False
+
+    @staticmethod
+    def _open_entry(path: str, flags: int) -> int:
+        return os.open(path, flags | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+
     def write(self, content: dict) -> None:
         self._folder.mkdir(parents=True, exist_ok=True)
-        self._file.write_text(json.dumps(content, sort_keys=True, indent=2), encoding="utf-8")
-        _LOGGER.debug("wrote python info at %s", self._file)
+        temporary: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self._folder, prefix=f".{self._key}.", delete=False
+            ) as file:
+                temporary = Path(file.name)
+                json.dump(content, file, sort_keys=True, indent=2)
+            temporary.replace(self._file)
+        except OSError:
+            _LOGGER.debug("failed to write %s", self._file, exc_info=True)
+        else:
+            _LOGGER.debug("wrote python info at %s", self._file)
+        finally:
+            if temporary is not None:
+                with suppress(OSError):
+                    temporary.unlink(missing_ok=True)
 
     def remove(self) -> None:
         with suppress(OSError):
@@ -106,9 +139,15 @@ class DiskContentStore:
     def locked(self) -> Generator[None]:
         from filelock import FileLock  # ruff:ignore[import-outside-top-level]
 
-        lock_path = self._folder / f"{self._key}.lock"
-        lock_path.parent.mkdir(parents=True, exist_ok=True)
-        with FileLock(str(lock_path)):
+        self._folder.mkdir(parents=True, exist_ok=True)
+        if os.name == "posix":
+            group_shared = bool(self._folder.stat().st_mode & stat.S_IWGRP)
+            lock_folder = self._folder / "locks-v2"
+            lock_folder.mkdir(mode=0o770 if group_shared else 0o700, exist_ok=True)
+            lock = FileLock(str(lock_folder / f"{self._key}.lock"), mode=0o660 if group_shared else 0o600)
+        else:
+            lock = FileLock(str(self._folder / f"{self._key}.lock"))
+        with lock:
             yield
 
 
@@ -120,25 +159,52 @@ class DiskCache:
     """
 
     def __init__(self, root: Path) -> None:
-        self._root = root
+        self._root = Path(os.path.abspath(root))  # ruff:ignore[os-path-abspath]  # resolve() follows untrusted links
 
     @property
     def _py_info_dir(self) -> Path:
         return self._root / "py_info" / "4"
 
-    def py_info(self, path: Path) -> DiskContentStore:
+    def py_info(self, path: Path) -> ContentStore:
         """
         Return the content store for the interpreter at *path*.
 
         :param path: absolute path to a Python executable.
         """
+        if not self._trusted_folder():
+            return NoOpContentStore()
         key = sha256(str(path).encode("utf-8")).hexdigest()
         return DiskContentStore(self._py_info_dir, key)
+
+    def _trusted_folder(self) -> bool:
+        if not hasattr(os, "geteuid"):
+            return True
+        user_id = os.geteuid()
+        folder = self._py_info_dir
+        private = {self._root, folder.parent, folder}
+        for candidate in (*reversed(folder.parents), folder):
+            try:
+                try:
+                    status = candidate.lstat()
+                except FileNotFoundError:
+                    candidate.mkdir(exist_ok=True)
+                    status = candidate.lstat()
+            except OSError:
+                _LOGGER.warning("not caching in %s", candidate, exc_info=True)
+                return False
+            if (
+                not stat.S_ISDIR(status.st_mode)
+                or status.st_uid not in {user_id, 0}
+                or (status.st_mode & 0o022 and (candidate in private or not status.st_mode & stat.S_ISVTX))
+            ):
+                _LOGGER.warning("not caching in untrusted directory %s", candidate)
+                return False
+        return True
 
     def py_info_clear(self) -> None:
         """Remove all cached interpreter information."""
         folder = self._py_info_dir
-        if folder.exists():
+        if folder.exists() and self._trusted_folder():
             for entry in folder.iterdir():
                 if entry.suffix == ".json":
                     with suppress(OSError):
