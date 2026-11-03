@@ -357,7 +357,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
 
     def to_dict(self) -> dict[str, InfoValue]:
         """Convert this interpreter information to a plain dictionary."""
-        data = {var: (getattr(self, var) if var != "_creators" else None) for var in vars(self)}
+        data = {name: None if name == "_creators" else value for name, value in vars(self).items()}
         version_info = data["version_info"]
         data["version_info"] = version_info._asdict() if hasattr(version_info, "_asdict") else version_info
         return data
