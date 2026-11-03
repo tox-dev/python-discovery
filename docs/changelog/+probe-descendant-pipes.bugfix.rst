@@ -1,1 +1,1 @@
-Return when an interpreter query times out even if its child keeps the output pipes open.
+Return after an interpreter query times out without leaving pipe readers blocked by a child process.

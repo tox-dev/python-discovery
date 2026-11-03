@@ -10,11 +10,14 @@ import pkgutil
 import secrets
 import sys
 import tempfile
+from codecs import getincrementaldecoder
 from collections import OrderedDict
 from contextlib import contextmanager, suppress
+from dataclasses import dataclass
 from functools import lru_cache
-from io import DEFAULT_BUFFER_SIZE
+from io import DEFAULT_BUFFER_SIZE, IncrementalNewlineDecoder
 from pathlib import Path
+from select import select
 from shlex import quote
 from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline  # ruff:ignore[suspicious-subprocess-import]
 from threading import Event, Thread
@@ -24,6 +27,9 @@ from typing import TYPE_CHECKING, Final
 from ._cache import NoOpCache
 from ._py_info import PythonInfo
 from ._py_info_collect import MIN_INTERROGATE_VERSION, UNSUPPORTED_EXIT_CODE, UNSUPPORTED_MARKER
+
+if sys.platform == "win32":  # pragma: win32 cover
+    from ._windows._cancel_io import stop_query_reader
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -292,26 +298,43 @@ def _collect_query_output(process: Popen[str], timeout: float | None) -> tuple[s
         raise ValueError(msg)
     out_chunks: list[str] = []
     err_chunks: list[str] = []
-    overflow = Event()
-    read_errors: list[OSError] = []
+    state = _QueryReadState(process=process, overflow=Event(), stop=Event(), read_errors=[])
 
     readers = (
-        Thread(target=_drain_query_stream, args=(process, stdout, out_chunks, overflow, read_errors), daemon=True),
-        Thread(target=_drain_query_stream, args=(process, stderr, err_chunks, overflow, read_errors), daemon=True),
+        Thread(target=_drain_query_stream, args=(state, stdout, out_chunks), daemon=True),
+        Thread(target=_drain_query_stream, args=(state, stderr, err_chunks), daemon=True),
     )
     for reader in readers:
         reader.start()
     if not _query_completed(process, readers, timeout):
+        state.stop.set()
         with suppress(OSError):
             process.kill()
         # A descendant may keep the pipes open after the candidate exits.
         process.wait()
+        _stop_query_readers(readers)
         return "", "timed out", -1
-    if read_errors:
-        raise read_errors[0]
-    if overflow.is_set():
+    if state.read_errors:
+        raise state.read_errors[0]
+    if state.overflow.is_set():
         return "", f"produced more than {_MAX_QUERY_OUTPUT} characters of output", -1
     return "".join(out_chunks), "".join(err_chunks), process.wait()
+
+
+@dataclass(frozen=True)
+class _QueryReadState:
+    process: Popen[str]
+    overflow: Event
+    stop: Event
+    read_errors: list[OSError]
+
+
+def _stop_query_readers(readers: tuple[Thread, Thread]) -> None:
+    for reader in readers:
+        if sys.platform == "win32":  # pragma: win32 cover
+            stop_query_reader(reader)
+        else:
+            reader.join()
 
 
 def _query_completed(process: Popen[str], readers: tuple[Thread, Thread], timeout: float | None) -> bool:
@@ -327,30 +350,37 @@ def _query_completed(process: Popen[str], readers: tuple[Thread, Thread], timeou
     return True
 
 
-def _drain_query_stream(
-    process: Popen[str], stream: IO[str], chunks: list[str], overflow: Event, read_errors: list[OSError]
-) -> None:
+def _drain_query_stream(state: _QueryReadState, stream: IO[str], chunks: list[str]) -> None:
     size = 0
     failed = False
+    decoder = IncrementalNewlineDecoder(getincrementaldecoder("utf-8")("backslashreplace"), translate=True)
     with stream:
-        while True:
+        while not state.stop.is_set():
             try:
-                chunk = stream.read(DEFAULT_BUFFER_SIZE)
+                if sys.platform != "win32" and not select([stream], [], [], 0.05)[0]:  # pragma: win32 cover
+                    continue
+                data = os.read(stream.fileno(), DEFAULT_BUFFER_SIZE)
             except OSError as error:
-                read_errors.append(error)
-                failed = True
+                if not state.stop.is_set():  # pragma: win32 cover  # canceled ReadFile raises on Windows
+                    state.read_errors.append(error)
+                    failed = True
                 break
+            chunk = decoder.decode(data, final=not data)
             if not chunk:
-                break
+                if not data:
+                    break
+                continue
             chunks.append(chunk[: _MAX_QUERY_OUTPUT + 1 - size])
             size += len(chunk)
             if size > _MAX_QUERY_OUTPUT:
-                overflow.set()
+                state.overflow.set()
                 failed = True
+                break
+            if not data:
                 break
     if failed:
         with suppress(OSError):
-            process.kill()
+            state.process.kill()
 
 
 @lru_cache(maxsize=128)

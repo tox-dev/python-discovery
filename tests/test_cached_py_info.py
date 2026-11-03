@@ -8,6 +8,8 @@ import tempfile
 from io import StringIO
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline
+from threading import enumerate as active_threads
+from time import monotonic
 from typing import TYPE_CHECKING, Final
 from unittest.mock import MagicMock, patch
 
@@ -28,6 +30,8 @@ from python_discovery._cached_py_info import (
 )
 
 if TYPE_CHECKING:
+    from typing import IO
+
     from pytest_mock import MockerFixture
 
 
@@ -97,7 +101,13 @@ def test_run_subprocess_invalid_json(mocker: MockerFixture) -> None:
 
 
 def _mock_process(out: str, err: str, code: int) -> MagicMock:
-    return MagicMock(stdout=StringIO(out), stderr=StringIO(err), returncode=code, **{"wait.return_value": code})
+    streams: list[IO[str]] = []
+    for value in (out, err):
+        read_fd, write_fd = os.pipe()
+        with os.fdopen(write_fd, "wb") as writer:
+            writer.write(value.encode())
+        streams.append(os.fdopen(read_fd, "r", encoding="utf-8"))
+    return MagicMock(stdout=streams[0], stderr=streams[1], returncode=code, **{"wait.return_value": code})
 
 
 def test_run_subprocess_with_cookies(mocker: MockerFixture) -> None:
@@ -161,6 +171,10 @@ def test_collect_query_output_limit(stream: str, timeout: float | None) -> None:
     )
 
 
+def test_collect_query_output_normalizes_trailing_newline() -> None:
+    assert _collect_query_output(_mock_process("\r", "", 0), 1) == ("\n", "", 0)
+
+
 @pytest.mark.parametrize(
     "code",
     [
@@ -173,25 +187,41 @@ def test_collect_query_output_timeout(code: str) -> None:
     assert _collect_query_output(process, 0.1) == ("", "timed out", -1)
 
 
-def test_collect_query_output_timeout_after_eof(mocker: MockerFixture) -> None:
-    process = mocker.MagicMock(
-        stdout=StringIO(""),
-        stderr=StringIO(""),
-        **{"wait.side_effect": [TimeoutExpired("python", 0), 0]},
+def test_collect_query_output_timeout_reaps_readers() -> None:
+    code = (
+        "import subprocess, sys\n"
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(10)'], "
+        "stdin=subprocess.DEVNULL, stdout=sys.stdout, stderr=sys.stderr)\n"
     )
+    process = Popen([sys.executable, "-c", code], stdin=DEVNULL, stdout=PIPE, stderr=PIPE, text=True)
+    process.wait(timeout=5)
+    before = set(active_threads())
+    started = monotonic()
+
+    assert _collect_query_output(process, 0.1) == ("", "timed out", -1)
+    assert monotonic() - started < 2.5
+    assert not set(active_threads()) - before
+
+
+def test_collect_query_output_timeout_after_eof(mocker: MockerFixture) -> None:
+    process = Popen([sys.executable, "-c", ""], stdin=DEVNULL, stdout=PIPE, stderr=PIPE, text=True)
+    process.wait(timeout=5)
+    mocker.patch.object(process, "wait", side_effect=[TimeoutExpired("python", 0), 0])
+    mocker.patch.object(process, "kill")
 
     assert _collect_query_output(process, 1) == ("", "timed out", -1)
     process.kill.assert_called_once()
 
 
 def test_collect_query_output_read_error(mocker: MockerFixture) -> None:
-    stream = mocker.MagicMock()
-    stream.read.side_effect = OSError("broken pipe")
-    process = mocker.MagicMock(stdout=stream, stderr=StringIO(""), **{"wait.return_value": -9})
+    process = Popen([sys.executable, "-c", ""], stdin=DEVNULL, stdout=PIPE, stderr=PIPE, text=True)
+    process.wait(timeout=5)
+    mocker.patch("python_discovery._cached_py_info.os.read", side_effect=OSError("broken pipe"))
+    mocker.patch.object(process, "kill")
 
     with pytest.raises(OSError, match="broken pipe"):
         _collect_query_output(process, 1)
-    process.kill.assert_called_once()
+    process.kill.assert_called()
 
 
 @pytest.mark.parametrize(
