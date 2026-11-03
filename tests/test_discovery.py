@@ -324,8 +324,34 @@ def test_discovery_via_path_with_file(tmp_path: Path, monkeypatch: pytest.Monkey
 
 def test_get_paths_no_path_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PATH", raising=False)
-    paths = list(get_paths({}))
-    assert paths
+    assert all(path.is_absolute() for path in get_paths({}))
+
+
+@pytest.mark.parametrize("relative", [".", "bin", "~/.local/bin"])
+def test_get_paths_skips_relative_entries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, relative: str) -> None:
+    monkeypatch.chdir(tmp_path)
+    relative_dir = tmp_path / relative
+    relative_dir.mkdir(parents=True, exist_ok=True)
+    (relative_dir / "python3").touch()
+    absolute_dir = tmp_path / "absolute"
+    absolute_dir.mkdir()
+    (absolute_dir / "python3").touch()
+
+    assert list(get_paths({"PATH": f"{relative}{os.pathsep}{absolute_dir}"})) == [absolute_dir]
+
+
+def test_get_paths_skips_relative_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "python3").touch()
+    absolute_dir = tmp_path / "absolute"
+    absolute_dir.mkdir()
+    (absolute_dir / "python3").touch()
+
+    with (
+        patch("python_discovery._discovery.os.confstr", side_effect=AttributeError, create=True),
+        patch("python_discovery._discovery.os.defpath", f".{os.pathsep}{absolute_dir}"),
+    ):
+        assert list(get_paths({})) == [absolute_dir]
 
 
 @pytest.mark.parametrize(

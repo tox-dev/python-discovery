@@ -61,6 +61,9 @@ shell. You can override these to control exactly where the library looks.
    env = {**os.environ, "PATH": "/usr/local/bin:/usr/bin"}
    result = get_interpreter("python3.12", env=env)
 
+Only absolute directories in ``PATH`` are searched. To select an interpreter in the working directory, use
+``./python`` as the spec on POSIX or ``./python.exe`` on Windows.
+
 Customize interpreter query timeout
 -------------------------------------
 
