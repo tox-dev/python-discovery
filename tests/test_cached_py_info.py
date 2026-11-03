@@ -150,10 +150,11 @@ def test_run_subprocess_rejects_large_output(tmp_path: Path, stream: str) -> Non
 
 
 @pytest.mark.parametrize("stream", [pytest.param("stdout", id="stdout"), pytest.param("stderr", id="stderr")])
-def test_collect_query_output_limit(stream: str) -> None:
+@pytest.mark.parametrize("timeout", [pytest.param(15, id="finite-timeout"), pytest.param(None, id="no-timeout")])
+def test_collect_query_output_limit(stream: str, timeout: float | None) -> None:
     code = f"import sys; sys.{stream}.write('x' * {_MAX_QUERY_OUTPUT + 1})"
     process = Popen([sys.executable, "-c", code], stdin=DEVNULL, stdout=PIPE, stderr=PIPE, text=True)
-    assert _collect_query_output(process, 15) == (
+    assert _collect_query_output(process, timeout) == (
         "",
         f"produced more than {_MAX_QUERY_OUTPUT} characters of output",
         -1,
