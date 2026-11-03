@@ -485,6 +485,12 @@ def test_py_info_to_dict_includes_sysconfig_platform() -> None:
     assert data["sysconfig_platform"] == sysconfig.get_platform()
 
 
+def test_py_info_to_dict_preserves_property_named_answer_key() -> None:
+    data = CURRENT.to_dict()
+    data["system_include"] = "supplied path"
+    assert PythonInfo.from_dict(data).to_dict()["system_include"] == "supplied path"
+
+
 def test_py_info_json_round_trip() -> None:
     json_str = CURRENT.to_json()
     parsed = json.loads(json_str)
