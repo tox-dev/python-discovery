@@ -8,6 +8,7 @@ import re
 import sys
 import winreg
 from logging import basicConfig, getLogger
+from pathlib import PureWindowsPath
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
@@ -136,12 +137,16 @@ def load_exe(hive_name: str, company: str, company_key: Any, tag: str) -> tuple[
 
 
 def _resolve_exe(ip_key: Any, key_path: str) -> str | None:  # ruff:ignore[any-type]
-    if (exe := get_value(ip_key, "ExecutablePath")) is not None:
-        return exe
-    if (ip := get_value(ip_key, None)) is None:
-        msg(key_path, "no ExecutablePath or default for it")
+    if (exe := get_value(ip_key, "ExecutablePath")) is None:
+        if (exe := get_value(ip_key, None)) is None:
+            msg(key_path, "no ExecutablePath or default for it")
+            return None
+        if isinstance(exe, str):
+            exe = os.path.join(exe, "python.exe")
+    if not isinstance(exe, str) or not PureWindowsPath(exe).is_absolute():
+        msg(key_path, f"expected an absolute executable path, got {exe!r}")
         return None
-    return os.path.join(ip, "python.exe")
+    return exe
 
 
 def load_arch_data(hive_name: str, company: str, tag: str, tag_key: Any, default_arch: int) -> int | None:  # ruff:ignore[any-type]
