@@ -366,16 +366,13 @@ def _drain_query_stream(state: _QueryReadState, stream: IO[str], chunks: list[st
                     failed = True
                 break
             chunk = decoder.decode(data, final=not data)
-            if not chunk:
-                if not data:
+            if chunk:
+                chunks.append(chunk[: _MAX_QUERY_OUTPUT + 1 - size])
+                size += len(chunk)
+                if size > _MAX_QUERY_OUTPUT:
+                    state.overflow.set()
+                    failed = True
                     break
-                continue
-            chunks.append(chunk[: _MAX_QUERY_OUTPUT + 1 - size])
-            size += len(chunk)
-            if size > _MAX_QUERY_OUTPUT:
-                state.overflow.set()
-                failed = True
-                break
             if not data:
                 break
     if failed:

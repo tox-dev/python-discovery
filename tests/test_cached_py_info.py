@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 from io import StringIO
+from os import read
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline
 from threading import enumerate as active_threads
@@ -173,6 +174,11 @@ def test_collect_query_output_limit(stream: str, timeout: float | None) -> None:
 
 def test_collect_query_output_normalizes_trailing_newline() -> None:
     assert _collect_query_output(_mock_process("\r", "", 0), 1) == ("\n", "", 0)
+
+
+def test_collect_query_output_decodes_split_utf8() -> None:
+    with patch("python_discovery._cached_py_info.os.read", side_effect=lambda fd, _: read(fd, 1)):
+        assert _collect_query_output(_mock_process("é", "", 0), 1) == ("é", "", 0)
 
 
 @pytest.mark.parametrize(
