@@ -1,0 +1,1 @@
+Limit candidate stdout and stderr during interpreter queries so a noisy candidate cannot exhaust the caller's memory.
