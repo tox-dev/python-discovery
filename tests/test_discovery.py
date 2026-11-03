@@ -420,6 +420,35 @@ def test_shim_uses_python_version_file(tmp_path: Path, monkeypatch: pytest.Monke
         assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
 
 
+@pytest.mark.parametrize(
+    ("length", "version"),
+    [pytest.param(4096, "2.7.18", id="at-limit"), pytest.param(4097, "2.7.15", id="over-limit")],
+)
+def test_shim_oversized_python_version_file_is_skipped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    pyenv_probed: Callable[[], tuple[str, ...]],
+    length: int,
+    version: str,
+) -> None:
+    root = Path(os.environ["PYENV_ROOT"])
+    _create_versioned_binary(root, ("versions",), "2.7.15", "python2.7")
+    (root / "version").write_text("2.7.15\n", encoding="utf-8")
+    (tmp_path / ".python-version").write_text("2.7.18\n#" + "x" * (length - 8), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert pyenv_probed() == ("versions", version)
+
+
+def test_shim_python_version_file_keeps_unicode_separator_in_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyenv_probed: Callable[[], tuple[str, ...]]
+) -> None:
+    (tmp_path / ".python-version").write_text("2.7.18\u2028ignored\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert pyenv_probed() == ("shims", "python2.7.exe" if IS_WIN else "python2.7")
+
+
 def test_shim_python_version_file_not_utf8(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyenv_probed: Callable[[], tuple[str, ...]]
 ) -> None:

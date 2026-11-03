@@ -554,7 +554,13 @@ def _versions_in_file(path: str | Path) -> list[str]:
     try:
         # pyenv reads raw bytes, so a byte that is not UTF-8 (a Latin-1 comment, say) must not hide the versions
         with Path(path).open(encoding="utf-8", errors="replace") as fh:
-            return [v for line in fh if (v := line.strip()) and not v.startswith("#")]
+            # Version files can sit in shared parent directories; bound the in-process read.
+            max_chars = 4096
+            content = fh.read(max_chars + 1)
+            if len(content) > max_chars:
+                _LOGGER.debug("ignored oversized version file %s", path)
+                return []
+            return [v for line in content.split("\n") if (v := line.strip()) and not v.startswith("#")]
     except OSError:  # skip a file we cannot read, the same as one that names no version
         _LOGGER.debug("failed to read %s", path, exc_info=True)
         return []
