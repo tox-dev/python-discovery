@@ -153,7 +153,7 @@ class DiskCache:
     """
 
     def __init__(self, root: Path) -> None:
-        self._root = root
+        self._root = Path(os.path.abspath(root))  # ruff:ignore[os-path-abspath]  # resolve() follows untrusted links
 
     @property
     def _py_info_dir(self) -> Path:
@@ -174,9 +174,8 @@ class DiskCache:
         if not hasattr(os, "geteuid"):
             return True
         user_id = os.geteuid()
-        root = Path(os.path.abspath(self._root))  # ruff:ignore[os-path-abspath]  # resolve() follows untrusted links
-        folder = root / "py_info" / "4"
-        private = {root, folder.parent, folder}
+        folder = self._py_info_dir
+        private = {self._root, folder.parent, folder}
         for candidate in (*reversed(folder.parents), folder):
             try:
                 try:

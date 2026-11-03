@@ -146,6 +146,20 @@ def test_disk_cache_works_without_posix_ownership(tmp_path: Path, monkeypatch: p
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX ownership and modes")
+def test_disk_cache_keeps_validated_relative_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    safe = tmp_path / "safe"
+    unsafe = tmp_path / "unsafe"
+    safe.mkdir()
+    unsafe.mkdir()
+    unsafe.chmod(0o777)
+    monkeypatch.chdir(safe)
+    store = DiskCache(Path("cache")).py_info(Path("/some/path"))
+    monkeypatch.chdir(unsafe)
+    store.write({"key": "value"})
+    assert (len(list(safe.rglob("*.json"))), list(unsafe.rglob("*.json"))) == (1, [])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX ownership and modes")
 def test_disk_cache_clear_skips_writable_directory(tmp_path: Path) -> None:
     folder = tmp_path / "py_info" / "4"
     folder.mkdir(parents=True)

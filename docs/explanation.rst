@@ -265,6 +265,8 @@ caching and logs a warning if the directory check fails. Cache entries must be r
 or root and not writable by others. Discovery tries to remove a rejected entry and queries the interpreter again. Use a
 private directory for the cache root, including when callers share a machine.
 
+A relative cache root refers to the current directory when ``DiskCache`` is created.
+
 Subprocess timeout behavior
 ----------------------------
 
