@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import copy
 import logging
 import os
 import stat
 import sys
+from copy import deepcopy
 from pathlib import Path
 from subprocess import check_call, check_output
 from typing import TYPE_CHECKING, Final
@@ -13,8 +13,8 @@ from uuid import uuid4
 
 import pytest
 
-from python_discovery import DiskCache, PythonInfo, get_interpreter, iter_interpreters
-from python_discovery._discovery import IS_WIN, LazyPathDump, get_paths
+from python_discovery import DiskCache, PythonInfo, PythonSpec, SimpleSpecifierSet, get_interpreter, iter_interpreters
+from python_discovery._discovery import IS_WIN, LazyPathDump, get_paths, propose_interpreters
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -88,7 +88,8 @@ def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
 @pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
 @pytest.mark.parametrize("name", [pytest.param("pypy", id="pypy"), pytest.param("Python", id="mixed-case-python")])
 def test_pypy_spec_rejects_cpython_alias(name: str, tmp_path: Path, session_cache: DiskCache) -> None:
-    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
+    version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
     (tmp_path / f"{name}{version}{'.exe' if IS_WIN else ''}").symlink_to(sys.executable)
     env = {"PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")}
 
@@ -101,7 +102,8 @@ def test_pypy_spec_rejects_cpython_alias(name: str, tmp_path: Path, session_cach
 
 @pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
 def test_generic_python_spec_accepts_mixed_case_alias(tmp_path: Path, session_cache: DiskCache) -> None:
-    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
+    version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
     alias = tmp_path / f"Python{version}{'.exe' if IS_WIN else ''}"
     alias.symlink_to(sys.executable)
 
@@ -205,7 +207,7 @@ def test_discovery_fallback_reuses_preferred_paths(
     executable = tmp_path / "preferred" / ("Scripts/python.exe" if IS_WIN else "bin/python")
     executable.parent.mkdir(parents=True)
     executable.touch()
-    preferred_info = copy.deepcopy(PythonInfo.current_system(session_cache))
+    preferred_info = deepcopy(PythonInfo.current_system(session_cache))
     preferred_info.executable = str(executable)
     mocker.patch.object(PythonInfo, "from_exe", return_value=preferred_info)
     paths = [str(executable)]
@@ -907,3 +909,51 @@ def test_discovery_uv_store_is_searched_after_path(
     monkeypatch.setenv("PATH", str(path_dir))
 
     assert uv_probed() == [str(path_executable), store_executable]
+
+
+@pytest.mark.parametrize(
+    ("spec", "install_version", "releaselevel", "expected"),
+    [
+        pytest.param("==3.99", "3.99.2", "final", True, id="minor-equality"),
+        pytest.param(">=3.99,<3.100", "3.99.2", "final", True, id="minor-range"),
+        pytest.param("==3.98", "3.99.2", "final", False, id="different-minor"),
+        pytest.param(">=3.99a1", "3.99a2", "alpha", True, id="alpha"),
+        pytest.param(">=3.99", "3.99a2", "alpha", True, id="alpha-minor-bound"),
+        pytest.param(">=3.99b1", "3.99b2", "beta", True, id="beta"),
+        pytest.param(">=3.99rc1", "3.99rc2", "candidate", True, id="candidate"),
+    ],
+)
+def test_discovery_uv_patch_release_matches_minor_spec(
+    tmp_path: Path, mocker: MockerFixture, spec: str, install_version: str, releaselevel: str, expected: bool
+) -> None:
+    store = tmp_path / "uv"
+    executable = store / f"cpython-{install_version}-linux-x86_64-gnu" / "bin" / "python"
+    executable.parent.mkdir(parents=True)
+    executable.touch()
+    info = deepcopy(PythonInfo.current_system())
+    info.executable = str(executable)
+    info.system_executable = str(executable)
+    info.version_info = info.version_info._replace(
+        major=3, minor=99, micro=2 if releaselevel == "final" else 0, releaselevel=releaselevel, serial=2
+    )
+    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=info)
+
+    found = get_interpreter(spec, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(store)})
+
+    assert (found is info) is expected
+
+
+def test_discovery_uv_invalid_hand_built_spec_skips_install(tmp_path: Path, mocker: MockerFixture) -> None:
+    store = tmp_path / "uv"
+    executable = store / "cpython-3.99.2-linux-x86_64-gnu" / "bin" / "python"
+    executable.parent.mkdir(parents=True)
+    executable.touch()
+    spec = PythonSpec.from_string_spec("==3.99")
+    spec.version_specifier = SimpleSpecifierSet.from_string("==invalid")
+    info = deepcopy(PythonInfo.current_system())
+    info.executable = str(executable)
+    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=info)
+
+    candidates = list(propose_interpreters(spec, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(store)}))
+
+    assert all(candidate is not info for candidate, _ in candidates)

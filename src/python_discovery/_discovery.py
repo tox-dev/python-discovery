@@ -383,8 +383,24 @@ def _uv_version_matches(key: _UvKey, spec: PythonSpec) -> bool:
     # GraalPy keys carry the GraalVM version in older uv releases, so only CPython and PyPy state a Python version
     if key.implementation not in {"cpython", "pypy"}:
         return True
-    if spec.version_specifier is not None and not spec.version_specifier.contains(str(key.version)):
-        return False
+    if spec.version_specifier is not None:
+        for specifier in spec.version_specifier:
+            if specifier.version is None:
+                return False
+            # Match at the requested precision, as PythonInfo.satisfies does after probing.
+            numeric_version = specifier.version_str
+            for prefix in ("rc", "b", "a"):
+                if prefix in numeric_version:
+                    numeric_version = numeric_version.split(prefix)[0]
+                    break
+            precision = numeric_version.count(".") + 1
+            release = ".".join(str(part) for part in key.version.release[:precision])
+            if key.version.pre_type is not None and (
+                precision == 3 or specifier.version.pre_type is not None  # ruff:ignore[magic-value-comparison]
+            ):
+                release = f"{release}{key.version.pre_type}{key.version.pre_num}"
+            if not specifier.contains(release):
+                return False
     return all(req is None or our == req for our, req in zip(key.version.release, (spec.major, spec.minor, spec.micro)))
 
 
