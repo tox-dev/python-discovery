@@ -304,8 +304,7 @@ def _collect_query_output(process: Popen[str], timeout: float | None) -> tuple[s
     if not _query_completed(process, readers, timeout):
         with suppress(OSError):
             process.kill()
-        for reader in readers:
-            reader.join()
+        # A descendant may keep the pipes open after the candidate exits.
         process.wait()
         return "", "timed out", -1
     if read_errors:

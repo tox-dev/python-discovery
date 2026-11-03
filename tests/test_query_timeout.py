@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from time import monotonic
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,6 +12,8 @@ from python_discovery import PythonInfo
 from python_discovery._cached_py_info import _collect_query_output
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from pytest_mock import MockerFixture
 
 
@@ -86,3 +89,22 @@ def test_from_exe_timeout_warning_cache_is_bounded(caplog: pytest.LogCaptureFixt
     assert [record.getMessage() for record in caplog.records] == [
         "ignoring PY_DISCOVERY_TIMEOUT='invalid-timeout-0', not a positive number of seconds; using 15.0"
     ]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell launcher")
+def test_from_exe_timeout_with_inherited_pipes(tmp_path: Path) -> None:
+    executable = tmp_path / "python3.11"
+    executable.write_text("#!/bin/sh\n/bin/sleep 3 &\nexit 0\n")
+    executable.chmod(0o755)
+
+    started = monotonic()
+    result = PythonInfo.from_exe(
+        str(executable),
+        env={**os.environ, "PY_DISCOVERY_TIMEOUT": "0.1"},
+        ignore_cache=True,
+        raise_on_error=False,
+        resolve_to_host=False,
+    )
+
+    assert result is None
+    assert monotonic() - started < 2.5
