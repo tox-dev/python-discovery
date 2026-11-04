@@ -169,7 +169,7 @@ def test_path_exe_finder_returns_callable(tmp_path: Path) -> None:
     [
         pytest.param("python_custom", "python_custom.exe", id="bare-name"),
         pytest.param("pythonw.exe", "pythonw.exe", id="exe-suffix"),
-        pytest.param("python3.13t.EXE", "python3.13t.EXE", id="upper-exe-suffix"),
+        pytest.param("python3.13t.Exe", "python3.13t.Exe", id="mixed-case-exe-suffix"),
     ],
 )
 def test_path_exe_finder_win32_direct_name(

@@ -1,2 +1,1 @@
-Find interpreter names that already end in ``.exe``, such as ``python3.exe`` or ``pythonw.exe``, on ``PATH`` on Windows
-instead of looking for ``python3.exe.exe``.
+On Windows, find interpreter names that already end in ``.exe``, such as ``pythonw.exe``, on ``PATH``.
