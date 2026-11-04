@@ -21,20 +21,6 @@ def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
     assert interpreter.executable == str(link)
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Windows executable names")
-@pytest.mark.parametrize("name", ["python3.exe", "PYTHON3.EXE", "pythonw.exe"])
-def test_discovery_via_path_exe_suffixed_name(tmp_path: Path, name: str) -> None:
-    venv = tmp_path / "venv"
-    check_call([sys.executable, "-m", "venv", "--without-pip", str(venv)])
-    scripts = venv / "Scripts"
-    shutil.copyfile(scripts / "python.exe", scripts / "python3.exe")
-
-    interpreter = get_interpreter(name, [], env={"PATH": str(scripts)})
-
-    assert interpreter is not None
-    assert interpreter.executable == str(scripts / name)
-
-
 @pytest.mark.skipif(sys.platform != "win32", reason="propose_interpreters calls from_exe with Windows paths")
 @pytest.mark.usefixtures("_mock_registry")
 @pytest.mark.usefixtures("_populate_pyinfo_cache")
@@ -61,3 +47,17 @@ def test_propose_interpreters(string_spec: str, expected_exe: str) -> None:
     spec = PythonSpec.from_string_spec(string_spec)
     interpreter = next(propose_interpreters(spec=spec, cache=None, env={}))
     assert interpreter.executable == expected_exe
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows executable names")
+@pytest.mark.parametrize("name", ["python3.exe", "PYTHON3.EXE", "pythonw.exe"])
+def test_discovery_via_path_exe_suffixed_name(tmp_path: Path, name: str) -> None:
+    venv = tmp_path / "venv"
+    check_call([sys.executable, "-m", "venv", "--without-pip", str(venv)])
+    scripts = venv / "Scripts"
+    shutil.copyfile(scripts / "python.exe", scripts / "python3.exe")
+
+    interpreter = get_interpreter(name, [], env={"PATH": str(scripts)})
+
+    assert interpreter is not None
+    assert interpreter.executable == str(scripts / name)
