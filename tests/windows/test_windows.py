@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -57,7 +58,7 @@ def test_discovery_via_path_exe_suffixed_name(tmp_path: Path, name: str) -> None
     scripts = venv / "Scripts"
     shutil.copyfile(scripts / "python.exe", scripts / "python3.exe")
 
-    interpreter = get_interpreter(name, [], env={"PATH": str(scripts)})
+    interpreter = get_interpreter(name, [], env={"PATH": str(scripts), "SYSTEMROOT": os.environ["SYSTEMROOT"]})
 
     assert interpreter is not None
     assert interpreter.executable == str(scripts / name)
