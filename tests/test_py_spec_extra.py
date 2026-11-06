@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 
 from python_discovery import PythonSpec
@@ -165,16 +163,35 @@ def test_specifier_set_parsed_for_valid_format() -> None:
     assert spec.implementation == "cpython"
 
 
-def test_get_required_precision_attribute_error() -> None:
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param(">=3", 1, id="major"),
+        pytest.param(">=3.12", 2, id="minor"),
+        pytest.param(">=3.12.1", 3, id="micro"),
+        pytest.param(">=3.14rc1", 2, id="minor-pre"),
+        pytest.param(">=3.14.0b2", 3, id="micro-pre"),
+        pytest.param("==3.12.*", 2, id="wildcard"),
+    ],
+)
+def test_get_required_precision_counts_written_parts(text: str, expected: int) -> None:
     from python_discovery._specifier import SimpleSpecifier
 
-    mock_version = MagicMock(spec=[])
-    specifier = SimpleSpecifier(
-        spec_str=">=3.12",
-        operator=">=",
-        version_str="3.12",
-        is_wildcard=False,
-        wildcard_precision=None,
-        version=mock_version,
-    )
-    assert PythonSpec._get_required_precision(specifier) is None
+    assert PythonSpec._get_required_precision(SimpleSpecifier.from_string(text)) == expected
+
+
+@pytest.mark.parametrize(
+    ("candidate", "text", "expected"),
+    [
+        pytest.param("3.11", ">=3.13", False, id="minor-too-old"),
+        pytest.param("3.14", "<3.13", False, id="minor-too-new"),
+        pytest.param("3.11", "==3.12.*", False, id="minor-wildcard-miss"),
+        pytest.param("3.12", "==3.12.*", True, id="minor-wildcard-hit"),
+        pytest.param("3.13", ">=3.12,<3.14", True, id="minor-in-range"),
+        pytest.param("3", ">=4", False, id="major-too-old"),
+        pytest.param("3.12", ">=3.12.5", True, id="micro-unknown"),
+        pytest.param("3.12.1", "==3.12", True, id="micro-at-minor-precision"),
+    ],
+)
+def test_version_specifier_compared_at_written_precision(candidate: str, text: str, expected: bool) -> None:
+    assert PythonSpec.from_string_spec(candidate).satisfies(PythonSpec.from_string_spec(text)) is expected
