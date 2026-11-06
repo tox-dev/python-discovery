@@ -145,6 +145,21 @@ def test_iter_interpreters_no_key_probes_variant_builds_on_path(
 
 
 @pytest.mark.usefixtures("uv_dir")
+def test_iter_interpreters_no_key_does_not_probe_path_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    exe = tmp_path / "bin" / f"python3.99{'.exe' if IS_WIN else ''}"
+    exe.parent.mkdir()
+    exe.touch()
+    monkeypatch.setenv("PATH", str(exe.parent))
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+
+    list(iter_interpreters())
+
+    assert [call.args[0] for call in from_exe.call_args_list] == [str(exe)]
+
+
+@pytest.mark.usefixtures("uv_dir")
 def test_iter_interpreters_dedups_symlinks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
