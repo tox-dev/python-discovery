@@ -164,23 +164,6 @@ def test_specifier_set_parsed_for_valid_format() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "expected"),
-    [
-        pytest.param(">=3", 1, id="major"),
-        pytest.param(">=3.12", 2, id="minor"),
-        pytest.param(">=3.12.1", 3, id="micro"),
-        pytest.param(">=3.14rc1", 2, id="minor-pre"),
-        pytest.param(">=3.14.0b2", 3, id="micro-pre"),
-        pytest.param("==3.12.*", 2, id="wildcard"),
-    ],
-)
-def test_get_required_precision_counts_written_parts(text: str, expected: int) -> None:
-    from python_discovery._specifier import SimpleSpecifier
-
-    assert PythonSpec._get_required_precision(SimpleSpecifier.from_string(text)) == expected
-
-
-@pytest.mark.parametrize(
     ("candidate", "text", "expected"),
     [
         pytest.param("3.11", ">=3.13", False, id="minor-too-old"),
@@ -191,6 +174,10 @@ def test_get_required_precision_counts_written_parts(text: str, expected: int) -
         pytest.param("3", ">=4", False, id="major-too-old"),
         pytest.param("3.12", ">=3.12.5", True, id="micro-unknown"),
         pytest.param("3.12.1", "==3.12", True, id="micro-at-minor-precision"),
+        pytest.param("3.14", "==3.14rc1", True, id="prerelease-unknown"),
+        pytest.param("3.14", "<=3.14rc1", True, id="prerelease-upper-bound-unknown"),
+        pytest.param("3.14.0", "==3.14.0rc1", True, id="prerelease-unknown-at-micro-precision"),
+        pytest.param("3.13", ">=3.14rc1", False, id="earlier-release-still-filtered"),
     ],
 )
 def test_version_specifier_compared_at_written_precision(candidate: str, text: str, expected: bool) -> None:

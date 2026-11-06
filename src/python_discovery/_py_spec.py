@@ -240,6 +240,13 @@ class PythonSpec:
             required_precision = self._get_required_precision(item)
             if required_precision is None or len(components) < required_precision:
                 continue
+            # Registry versions omit prerelease status, so a matching release still needs interrogation.
+            if (
+                (version := item.version) is not None
+                and version.pre_type is not None
+                and tuple(components[:required_precision]) == version.release[:required_precision]
+            ):
+                continue
             # compare at the precision the specifier was written with, as PythonInfo.satisfies does
             if not item.contains(".".join(str(part) for part in components[:required_precision])):
                 return False
@@ -247,7 +254,6 @@ class PythonSpec:
 
     @staticmethod
     def _get_required_precision(item: SimpleSpecifier) -> int | None:
-        """Get the number of release parts a specifier item was written with (``>=3.12`` has two)."""
         if item.version is None:
             return None
         if item.wildcard_precision is not None:
