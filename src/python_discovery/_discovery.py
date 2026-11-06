@@ -496,12 +496,13 @@ def path_exe_finder(
         direct = f"{direct}.exe"
 
     def path_exes(path: Path) -> Generator[tuple[Path, bool], None, None]:
+        # an empty spec (enumerating everything) would make the direct path the PATH directory itself
         direct_path = path / direct
-        if direct_path.exists():
+        if direct_path.is_file():
             yield direct_path, impl_must_match
 
         for exe in path.iterdir():
-            if match := pat.fullmatch(exe.name):
+            if (match := pat.fullmatch(exe.name)) and exe.is_file():
                 yield exe.absolute(), impl_must_match or match["impl"].lower() == "python"
 
     return path_exes
