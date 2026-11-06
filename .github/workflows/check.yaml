@@ -63,10 +63,18 @@ jobs:
             run: tasks/old_target_check.sh 3.5 rejected
           - name: 🧪 Reject Python 2.7
             run: tasks/old_target_check.sh 2.7 rejected
+  release:
+    name: 🏷️ Release dry run
+    uses: $/.github/workflows/prepare-release.yaml
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      dry-run: true
   gate:
     name: 🚦 ${{ github.event_name == 'pull_request' && 'Required checks pass' || 'Non-PR checks pass' }}
     if: ${{ !cancelled() }} # codespell:ignore cancelled
-    needs: [test, old-target]
+    needs: [test, old-target, release]
     runs-on: ubuntu-26.04
     permissions: {}
     steps:
