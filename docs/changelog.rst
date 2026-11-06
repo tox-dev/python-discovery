@@ -6,6 +6,23 @@
 
 .. towncrier release notes start
 
+.. _release-1-9-5:
+
+*********************
+ v1.9.5 (2026-11-06)
+*********************
+
+.. _release-1-9-5-fixed:
+
+Fixed
+-----
+
+- :func:`~python_discovery.iter_interpreters` with no key no longer probes ``PATH`` directories or subdirectories named
+  like Python executables as interpreters (:pr:`247`) by :user:`qodelicious` and :user:`gaborbernat`.
+- ``PythonSpec.satisfies`` now checks a version specifier at the precision it was written with, so ``3.11`` no longer
+  satisfies ``>=3.13``. The Windows registry pre-filter skips mismatched releases and interrogates candidates whose
+  prerelease status is unknown (:pr:`246`) by :user:`qodelicious` and :user:`gaborbernat`.
+
 .. _release-1-9-4:
 
 *********************
