@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import pathlib
 import re
 from typing import Final
@@ -235,27 +234,31 @@ class PythonSpec:
         if not components:
             return True
 
-        version_str = ".".join(str(part) for part in components)
         if spec.version_specifier is None:
             return True
-        with contextlib.suppress(InvalidVersion):
-            Version.from_string(version_str)
-            for item in spec.version_specifier:
-                required_precision = self._get_required_precision(item)
-                if required_precision is None or len(components) < required_precision:
-                    continue
-                if not item.contains(version_str):
-                    return False
+        for item in spec.version_specifier:
+            required_precision = self._get_required_precision(item)
+            if required_precision is None or len(components) < required_precision:
+                continue
+            # Registry versions omit prerelease status, so a matching release still needs interrogation.
+            if (
+                (version := item.version) is not None
+                and version.pre_type is not None
+                and tuple(components[:required_precision]) == version.release[:required_precision]
+            ):
+                continue
+            # compare at the precision the specifier was written with, as PythonInfo.satisfies does
+            if not item.contains(".".join(str(part) for part in components[:required_precision])):
+                return False
         return True
 
     @staticmethod
     def _get_required_precision(item: SimpleSpecifier) -> int | None:
-        """Get the required precision for a specifier item."""
         if item.version is None:
             return None
-        with contextlib.suppress(AttributeError, ValueError):
-            return len(item.version.release)
-        return None
+        if item.wildcard_precision is not None:
+            return item.wildcard_precision
+        return re.split(r"a|b|rc", item.version_str, maxsplit=1)[0].count(".") + 1
 
     def satisfies(self, spec: PythonSpec) -> bool:  # ruff:ignore[too-many-return-statements]
         """
