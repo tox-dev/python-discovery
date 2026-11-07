@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from python_discovery import DiskCache, PythonInfo, PythonSpec, SimpleSpecifierSet
+from python_discovery import DiskCache, PyInfoCache, PythonInfo, PythonSpec, SimpleSpecifierSet
 from python_discovery._py_info import VersionInfo
 
 if TYPE_CHECKING:
@@ -184,7 +184,7 @@ def test_discover_exe_cache_hit() -> None:
     cached = copy.deepcopy(_CURRENT)
     PythonInfo._cache_exe_discovery["/some/prefix", True, info.version_info] = cached
     try:
-        result = info.discover_exe(MagicMock(), prefix="/some/prefix", exact=True)
+        result = info.discover_exe(MagicMock(spec=PyInfoCache), prefix="/some/prefix", exact=True)
         assert result is cached
     finally:
         del PythonInfo._cache_exe_discovery["/some/prefix", True, info.version_info]
@@ -208,7 +208,9 @@ def test_discover_exe_cache_keeps_requested_version(tmp_path: Path) -> None:
 
 def test_check_exe_none_path(tmp_path: Path) -> None:
     info = copy.deepcopy(_CURRENT)
-    result = info._check_exe(MagicMock(), str(tmp_path), "nonexistent", [], dict(os.environ), exact=True)
+    result = info._check_exe(
+        MagicMock(spec=PyInfoCache), str(tmp_path), "nonexistent", [], dict(os.environ), exact=True
+    )
     assert result is None
 
 
@@ -409,7 +411,7 @@ def test_check_exe_from_exe_returns_none(tmp_path: Path, mocker: MockerFixture) 
     info = copy.deepcopy(_CURRENT)
     (tmp_path / "python").touch()
     mocker.patch.object(PythonInfo, "from_exe", return_value=None, autospec=True)
-    result = info._check_exe(MagicMock(), str(tmp_path), "python", [], dict(os.environ), exact=True)
+    result = info._check_exe(MagicMock(spec=PyInfoCache), str(tmp_path), "python", [], dict(os.environ), exact=True)
     assert result is None
 
 
@@ -420,7 +422,9 @@ def test_check_exe_mismatch_not_exact(tmp_path: Path, mocker: MockerFixture) -> 
     other.architecture = 32 if info.architecture == 64 else 64
     mocker.patch.object(PythonInfo, "from_exe", return_value=other, autospec=True)
     discovered: list[PythonInfo] = []
-    result = info._check_exe(MagicMock(), str(tmp_path), "python", discovered, dict(os.environ), exact=False)
+    result = info._check_exe(
+        MagicMock(spec=PyInfoCache), str(tmp_path), "python", discovered, dict(os.environ), exact=False
+    )
     assert result is None
     assert len(discovered) == 1
 
@@ -432,7 +436,9 @@ def test_check_exe_mismatch_exact(tmp_path: Path, mocker: MockerFixture) -> None
     other.architecture = 32 if info.architecture == 64 else 64
     mocker.patch.object(PythonInfo, "from_exe", return_value=other, autospec=True)
     discovered: list[PythonInfo] = []
-    result = info._check_exe(MagicMock(), str(tmp_path), "python", discovered, dict(os.environ), exact=True)
+    result = info._check_exe(
+        MagicMock(spec=PyInfoCache), str(tmp_path), "python", discovered, dict(os.environ), exact=True
+    )
     assert result is None
     assert len(discovered) == 0
 

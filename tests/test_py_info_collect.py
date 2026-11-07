@@ -331,12 +331,12 @@ def test_tcl_tk_libs_queried_with_env(tmp_path: Path, mocker: MockerFixture) -> 
 
 
 def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] | Exception) -> Mock:
-    evaluate = mocker.Mock(side_effect=eval_side_effect, autospec=True)
-    profile = mocker.Mock(return_value=None, autospec=True)
+    evaluate = mocker.Mock(side_effect=eval_side_effect)
+    profile = mocker.Mock(return_value=None)
     interpreter = type(
         "Tk", (), {"__init__": lambda self, **_: self.readprofile("Tk", "Tk"), "readprofile": profile, "eval": evaluate}
     )
-    module = mocker.MagicMock(TclError=_TclError, Tk=interpreter, autospec=True)
+    module = mocker.MagicMock(TclError=_TclError, Tk=interpreter)
     module.Tcl.side_effect = lambda: interpreter(useTk=False)
     mocker.patch.dict(sys.modules, {"tkinter": module})
     return profile
@@ -361,7 +361,7 @@ def test_tk_lib_resolved_without_loading_tk(tmp_path: Path, mocker: MockerFixtur
         raise AssertionError
 
     _fake_tkinter(mocker, evaluate)
-    mocker.patch.dict(sys.modules, {"_tkinter": mocker.MagicMock(TK_VERSION="8.6", autospec=True)})
+    mocker.patch.dict(sys.modules, {"_tkinter": mocker.MagicMock(TK_VERSION="8.6")})
     mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tcl_dir)})
 
     info = PythonInfo()

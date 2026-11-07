@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from python_discovery import DiskCache, PythonInfo
+from python_discovery import ContentStore, DiskCache, PythonInfo
 from python_discovery._cached_py_info import (
     _MAX_QUERY_OUTPUT,
     LogCmd,
@@ -277,27 +277,27 @@ def test_collect_query_output_read_error(mocker: MockerFixture) -> None:
     ],
 )
 def test_collect_query_output_requires_pipes(stdout: StringIO | None, stderr: StringIO | None) -> None:
-    process = MagicMock(stdout=stdout, stderr=stderr, autospec=True)
+    process = MagicMock(spec=Popen, stdout=stdout, stderr=stderr)
 
     with pytest.raises(ValueError, match="query output pipes are required"):
         _collect_query_output(process, 1)
 
 
 def test_load_cached_py_info_valid() -> None:
-    result = _load_cached_py_info(PythonInfo, MagicMock(), PythonInfo().to_dict())
+    result = _load_cached_py_info(PythonInfo, MagicMock(spec=ContentStore), PythonInfo().to_dict())
     assert result is not None
     assert isinstance(result, PythonInfo)
 
 
 def test_load_cached_py_info_bad_data() -> None:
-    store = MagicMock()
+    store = MagicMock(spec=ContentStore)
     result = _load_cached_py_info(PythonInfo, store, {"bad": "data"})
     assert result is None
     store.remove.assert_called_once()
 
 
 def test_load_cached_py_info_system_exe_missing(mocker: MockerFixture) -> None:
-    store = MagicMock()
+    store = MagicMock(spec=ContentStore)
     content = PythonInfo().to_dict()
     content["system_executable"] = "/nonexistent/python"
     mocker.patch("os.path.exists", return_value=False, autospec=True)
