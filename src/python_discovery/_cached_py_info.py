@@ -21,7 +21,7 @@ from shlex import quote
 from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline  # ruff:ignore[suspicious-subprocess-import] list2cmdline only formats the command for logging
 from threading import Event, Thread
 from time import monotonic
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 from ._cache import NoOpCache
 from ._py_info import PythonInfo
@@ -299,7 +299,13 @@ class LogCmd:
         return cmd_repr
 
 
-def _collect_query_output(process: Popen[str], timeout: float | None) -> tuple[str, str, int]:
+class _QueryOutput(NamedTuple):
+    out: str
+    err: str
+    code: int
+
+
+def _collect_query_output(process: Popen[str], timeout: float | None) -> _QueryOutput:
     stdout, stderr = process.stdout, process.stderr
     if stdout is None or stderr is None:
         msg = "query output pipes are required"
@@ -321,12 +327,12 @@ def _collect_query_output(process: Popen[str], timeout: float | None) -> tuple[s
         # A descendant may keep the pipes open after the candidate exits.
         process.wait()
         _stop_query_readers(readers)
-        return "", "timed out", -1
+        return _QueryOutput("", "timed out", -1)
     if state.read_errors:
         raise state.read_errors[0]
     if state.overflow.is_set():
-        return "", f"produced more than {_MAX_QUERY_OUTPUT} characters of output", -1
-    return "".join(out_chunks), "".join(err_chunks), process.wait()
+        return _QueryOutput("", f"produced more than {_MAX_QUERY_OUTPUT} characters of output", -1)
+    return _QueryOutput("".join(out_chunks), "".join(err_chunks), process.wait())
 
 
 @dataclass(frozen=True)
@@ -401,7 +407,14 @@ def _query_failure(exe: str, out: str, err: str | None, code: int | None) -> Run
     return RuntimeError(f"failed to query {msg}")
 
 
-def _extract_between_cookies(out: str, start_cookie: str, end_cookie: str) -> tuple[str, str, int, int]:
+class _CookieSlice(NamedTuple):
+    out: str
+    raw_out: str
+    out_starts: int
+    out_ends: int
+
+
+def _extract_between_cookies(out: str, start_cookie: str, end_cookie: str) -> _CookieSlice:
     # Extract payload between reversed cookie markers, forwarding any surrounding output to stdout.
     raw_out = out
     out_starts = out.find(start_cookie[::-1])
@@ -414,7 +427,7 @@ def _extract_between_cookies(out: str, start_cookie: str, end_cookie: str) -> tu
         if post_cookie := out[out_ends + _COOKIE_LENGTH :]:
             sys.stdout.write(post_cookie)
         out = out[:out_ends]
-    return out, raw_out, out_starts, out_ends
+    return _CookieSlice(out, raw_out, out_starts, out_ends)
 
 
 class _UnsupportedInterpreterError(RuntimeError):

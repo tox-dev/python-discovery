@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pathlib
 import re
-from typing import Final
+from typing import Final, NamedTuple
 
 from ._py_info import normalize_isa
 from ._specifier import SimpleSpecifier, SimpleSpecifierSet, SimpleVersion
@@ -44,7 +44,13 @@ InvalidSpecifier = ValueError
 InvalidVersion = ValueError
 
 
-def _parse_version_parts(version: str) -> tuple[int | None, int | None, int | None]:
+class _VersionParts(NamedTuple):
+    major: int | None
+    minor: int | None
+    micro: int | None
+
+
+def _parse_version_parts(version: str) -> _VersionParts:
     max_version_parts = 3
     single_digit_max = 9
     versions = tuple(int(i) for i in version.split(".") if i)
@@ -55,11 +61,15 @@ def _parse_version_parts(version: str) -> tuple[int | None, int | None, int | No
         msg = "too many version parts"
         raise ValueError(msg)
     if len(versions) == max_version_parts:
-        return versions[0], versions[1], versions[2]
+        return _VersionParts(versions[0], versions[1], versions[2])
     if len(versions) == 2:  # ruff:ignore[magic-value-comparison] a two-part version is major.minor
-        return versions[0], versions[1], None
+        return _VersionParts(versions[0], versions[1], None)
     version_data = versions[0]
-    return int(str(version_data)[0]), (int(str(version_data)[1:]) if version_data > single_digit_max else None), None
+    return _VersionParts(
+        int(str(version_data)[0]),
+        int(str(version_data)[1:]) if version_data > single_digit_max else None,
+        None,
+    )
 
 
 def _parse_spec_pattern(string_spec: str) -> PythonSpec | None:

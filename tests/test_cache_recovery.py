@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import pytest
 
@@ -66,9 +66,15 @@ def test_from_exe_recovers_invalid_system_executable(
     )
 
 
+class _CachedInterpreter(NamedTuple):
+    cache: DiskCache
+    cache_file: Path
+    expected: dict
+
+
 @pytest.fixture
-def cached_interpreter(tmp_path: Path) -> tuple[DiskCache, Path, dict]:
+def cached_interpreter(tmp_path: Path) -> _CachedInterpreter:
     cache = DiskCache(tmp_path)
     assert PythonInfo.from_exe(sys.executable, cache, ignore_cache=True, resolve_to_host=False) is not None
     cache_file = next(tmp_path.rglob("*.json"))
-    return cache, cache_file, json.loads(cache_file.read_text(encoding="utf-8"))
+    return _CachedInterpreter(cache, cache_file, json.loads(cache_file.read_text(encoding="utf-8")))

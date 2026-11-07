@@ -5,7 +5,7 @@ import sys
 from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from types import ModuleType, TracebackType
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, NamedTuple, Protocol
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,30 +14,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 
     from typing_extensions import Self
-
-
-class _OpenKeyEx(Protocol):
-    def __call__(self, *args: object) -> AbstractContextManager[_Key | int | OSError]: ...
-
-
-def _make_open_key_ex(
-    key_open: dict[int, dict[str, int]], hive_open: dict[tuple[int, str, int, int], int | OSError]
-) -> _OpenKeyEx:
-    @contextmanager
-    def _open_key_ex(*args: object) -> Generator[_Key | int | OSError]:
-        if len(args) == 2:
-            key, value = args
-            result = _Key(key_open[(key.value if isinstance(key, _Key) else key)][value])
-        elif len(args) == 4:
-            result = hive_open[args]
-        else:
-            raise RuntimeError
-        value = result.value if isinstance(result, _Key) else result
-        if isinstance(value, OSError):
-            raise value
-        yield result
-
-    return _open_key_ex
 
 
 @pytest.fixture
@@ -77,20 +53,20 @@ def _create_winreg_mock() -> ModuleType:
     return winreg
 
 
-def _load_registry_data(
-    winreg: ModuleType,
-) -> tuple[
-    dict[int, list[str | OSError]],
-    dict[int, dict[str, tuple[str, int] | OSError]],
-    dict[int, dict[str, int]],
-    dict[tuple[int, str, int, int], int | OSError],
-]:
+class _RegistryData(NamedTuple):
+    enum_collect: dict[int, list[str | OSError]]
+    value_collect: dict[int, dict[str, tuple[str, int] | OSError]]
+    key_open: dict[int, dict[str, int]]
+    hive_open: dict[tuple[int, str, int, int], int | OSError]
+
+
+def _load_registry_data(winreg: ModuleType) -> _RegistryData:
     # Load winreg mock values using the given (possibly mock) winreg module.
     loc: dict[str, object] = {}
     glob: dict[str, object] = {"winreg": winreg}
     mock_value_str = (Path(__file__).parent / "winreg_mock_values.py").read_text(encoding="utf-8")
     exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin] the mock values are Python source kept in a separate file
-    return loc["_ENUM_COLLECT"], loc["_VALUE_COLLECT"], loc["_KEY_OPEN"], loc["_HIVE_OPEN"]  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
+    return _RegistryData(loc["_ENUM_COLLECT"], loc["_VALUE_COLLECT"], loc["_KEY_OPEN"], loc["_HIVE_OPEN"])  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
 
 
 def _make_enum_key(enum_collect: dict[int, list[str | OSError]]) -> Callable[[object, int], str]:
@@ -126,6 +102,30 @@ def _make_query_value_ex(
         return result
 
     return _query_value_ex
+
+
+def _make_open_key_ex(
+    key_open: dict[int, dict[str, int]], hive_open: dict[tuple[int, str, int, int], int | OSError]
+) -> _OpenKeyEx:
+    @contextmanager
+    def _open_key_ex(*args: object) -> Generator[_Key | int | OSError]:
+        if len(args) == 2:
+            key, value = args
+            result = _Key(key_open[(key.value if isinstance(key, _Key) else key)][value])
+        elif len(args) == 4:
+            result = hive_open[args]
+        else:
+            raise RuntimeError
+        value = result.value if isinstance(result, _Key) else result
+        if isinstance(value, OSError):
+            raise value
+        yield result
+
+    return _open_key_ex
+
+
+class _OpenKeyEx(Protocol):
+    def __call__(self, *args: object) -> AbstractContextManager[_Key | int | OSError]: ...
 
 
 @pytest.fixture
