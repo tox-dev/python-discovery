@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import stat
@@ -17,7 +18,7 @@ from python_discovery import DiskCache, PythonInfo, PythonSpec, SimpleSpecifierS
 from python_discovery._discovery import IS_WIN, LazyPathDump, get_paths, propose_interpreters
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     from pytest_mock import MockerFixture
 
@@ -45,28 +46,22 @@ def test_discovery_via_path(
 ) -> None:
     caplog.set_level(logging.DEBUG)
     current = PythonInfo.current_system(session_cache)
-    name = "somethingVeryCryptic"
-    threaded = "t" if current.free_threaded else ""
-    if case == "lower":
-        name = name.lower()
-    elif case == "upper":
-        name = name.upper()
-    if specificity == "more":
-        core_ver = current.version_info.major
-        exe_ver = ".".join(str(i) for i in current.version_info[0:2]) + threaded
-    elif specificity == "less":
-        core_ver = ".".join(str(i) for i in current.version_info[0:3])
-        exe_ver = current.version_info.major
-    elif specificity == "none":  # pragma: no branch, the branch depends on the interpreter's own version
-        core_ver = ".".join(str(i) for i in current.version_info[0:3])
-        exe_ver = ""
-    core = "" if specificity == "none" else f"{name}{core_ver}{threaded}"
-    exe_name = f"{name}{exe_ver}{'.exe' if sys.platform == 'win32' else ''}"
+    name = {"mixed": "somethingVeryCryptic", "lower": "somethingverycryptic", "upper": "SOMETHINGVERYCRYPTIC"}[case]
+    threaded = "t" * current.free_threaded
+    minor_version = ".".join(str(i) for i in current.version_info[0:2])
+    full_version = ".".join(str(i) for i in current.version_info[0:3])
+    core_ver, exe_ver = {
+        "more": (current.version_info.major, minor_version + threaded),
+        "less": (full_version, current.version_info.major),
+        "none": (full_version, ""),
+    }[specificity]
+    core = f"{name}{core_ver}{threaded}" * (specificity != "none")
+    exe_name = f"{name}{exe_ver}{_EXE_SUFFIX}"
     target = tmp_path / current.install_path("scripts")
     target.mkdir(parents=True)
     Path(str(target / exe_name)).symlink_to(sys.executable)
     pyvenv_cfg = Path(sys.executable).parents[1] / "pyvenv.cfg"
-    if pyvenv_cfg.exists():  # pragma: no branch, the branch depends on the host interpreter layout
+    with contextlib.suppress(FileNotFoundError):
         (target / pyvenv_cfg.name).write_bytes(pyvenv_cfg.read_bytes())
     monkeypatch.setenv("PATH", os.pathsep.join([str(target), *os.environ.get("PATH", "").split(os.pathsep)]))
     interpreter = get_interpreter(core, [])
@@ -101,7 +96,7 @@ def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
 @pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
 @pytest.mark.parametrize("name", [pytest.param("pypy", id="pypy"), pytest.param("Python", id="mixed-case-python")])
 def test_pypy_spec_rejects_cpython_alias(name: str, tmp_path: Path, session_cache: DiskCache) -> None:
-    threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
+    threaded = "t" * PythonInfo.current_system(session_cache).free_threaded
     version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
     (tmp_path / f"{name}{version}{_EXE_SUFFIX}").symlink_to(sys.executable)
     env = {"PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")}
@@ -115,7 +110,7 @@ def test_pypy_spec_rejects_cpython_alias(name: str, tmp_path: Path, session_cach
 
 @pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
 def test_generic_python_spec_accepts_mixed_case_alias(tmp_path: Path, session_cache: DiskCache) -> None:
-    threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
+    threaded = "t" * PythonInfo.current_system(session_cache).free_threaded
     version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
     alias = tmp_path / f"Python{version}{_EXE_SUFFIX}"
     alias.symlink_to(sys.executable)
@@ -242,11 +237,11 @@ def test_discovery_invalid_specifier_raises(session_cache: DiskCache) -> None:
 
 
 @pytest.mark.parametrize(
-    "use_iterator",
-    [pytest.param(False, id="list"), pytest.param(True, id="iterator")],
+    "wrap",
+    [pytest.param(list, id="list"), pytest.param(iter, id="iterator")],
 )
 def test_discovery_fallback_reuses_preferred_paths(
-    tmp_path: Path, session_cache: DiskCache, mocker: MockerFixture, *, use_iterator: bool
+    tmp_path: Path, session_cache: DiskCache, mocker: MockerFixture, *, wrap: Callable[[list[str]], Iterable[str]]
 ) -> None:
     executable = tmp_path / "preferred" / _VENV_PYTHON
     executable.parent.mkdir(parents=True)
@@ -257,7 +252,7 @@ def test_discovery_fallback_reuses_preferred_paths(
     paths = [str(executable)]
     result = get_interpreter(
         ["missing-interpreter", ">=3"],
-        try_first_with=iter(paths) if use_iterator else paths,
+        try_first_with=wrap(paths),
         cache=session_cache,
         env={**os.environ, "PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
         predicate=lambda info: Path(info.executable) == executable,
@@ -489,9 +484,8 @@ def test_shim_resolved_to_real_binary(
     monkeypatch.setenv("PATH", str(root / "shims"))
     monkeypatch.setenv(env_var, str(root))
     monkeypatch.setenv("PYENV_VERSION", "2.7.18")
-    monkeypatch.delenv("MISE_DATA_DIR", raising=False) if env_var != "MISE_DATA_DIR" else None
-    monkeypatch.delenv("ASDF_DATA_DIR", raising=False) if env_var != "ASDF_DATA_DIR" else None
-    monkeypatch.delenv("PYENV_ROOT", raising=False) if env_var != "PYENV_ROOT" else None
+    for name in {"MISE_DATA_DIR", "ASDF_DATA_DIR", "PYENV_ROOT"} - {env_var}:
+        monkeypatch.delenv(name, raising=False)
 
     with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
@@ -783,7 +777,7 @@ def test_predicate_with_fallback_specs(session_cache: DiskCache) -> None:
         proposed.append(str(info.executable))
         return len(proposed) > 1
 
-    threaded = "t" if current.free_threaded else ""
+    threaded = "t" * current.free_threaded
     result = get_interpreter([f"{major}.{minor}{threaded}", sys.executable], [], session_cache, predicate=reject_first)
     # rejecting the first proposal must not abort discovery; a later proposal (same or fallback spec) is accepted -
     # on hosts where every alias resolves to one interpreter the fallback re-proposes it, so executables may match
@@ -842,7 +836,7 @@ def test_discovery_uv_store_install_dir_overrides_the_platform_default(
     uv_probed: UvProbe,
     expand_user: bool,
 ) -> None:
-    monkeypatch.setenv("UV_PYTHON_INSTALL_DIR", "~/store" if expand_user else str(uv_home / "store"))
+    monkeypatch.setenv("UV_PYTHON_INSTALL_DIR", ("~/store", str(uv_home / "store"))[not expand_user])
     uv_plant(uv_home / ".local" / "share" / "uv" / "python")
     executable = uv_plant(uv_home / "store")
 
@@ -1044,7 +1038,7 @@ def test_discovery_uv_patch_release_matches_minor_spec(
     info.executable = str(executable)
     info.system_executable = str(executable)
     info.version_info = info.version_info._replace(
-        major=3, minor=99, micro=2 if releaselevel == "final" else 0, releaselevel=releaselevel, serial=2
+        major=3, minor=99, micro={"final": 2}.get(releaselevel, 0), releaselevel=releaselevel, serial=2
     )
     mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=info, autospec=True)
 

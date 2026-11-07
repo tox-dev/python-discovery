@@ -53,13 +53,6 @@ def _create_winreg_mock() -> ModuleType:
     return winreg
 
 
-class _RegistryData(NamedTuple):
-    enum_collect: dict[int, list[str | OSError]]
-    value_collect: dict[int, dict[str, tuple[str, int] | OSError]]
-    key_open: dict[int, dict[str, int]]
-    hive_open: dict[tuple[int, str, int, int], int | OSError]
-
-
 def _load_registry_data(winreg: ModuleType) -> _RegistryData:
     # Load winreg mock values using the given (possibly mock) winreg module.
     loc: dict[str, object] = {}
@@ -67,6 +60,13 @@ def _load_registry_data(winreg: ModuleType) -> _RegistryData:
     mock_value_str = (Path(__file__).parent / "winreg_mock_values.py").read_text(encoding="utf-8")
     exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin] the mock values are Python source kept in a separate file
     return _RegistryData(loc["_ENUM_COLLECT"], loc["_VALUE_COLLECT"], loc["_KEY_OPEN"], loc["_HIVE_OPEN"])  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
+
+
+class _RegistryData(NamedTuple):
+    enum_collect: dict[int, list[str | OSError]]
+    value_collect: dict[int, dict[str, tuple[str, int] | OSError]]
+    key_open: dict[int, dict[str, int]]
+    hive_open: dict[tuple[int, str, int, int], int | OSError]
 
 
 def _make_enum_key(enum_collect: dict[int, list[str | OSError]]) -> Callable[[object, int], str]:

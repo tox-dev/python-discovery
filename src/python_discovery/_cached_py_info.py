@@ -299,12 +299,6 @@ class LogCmd:
         return cmd_repr
 
 
-class _QueryOutput(NamedTuple):
-    out: str
-    err: str
-    code: int
-
-
 def _collect_query_output(process: Popen[str], timeout: float | None) -> _QueryOutput:
     stdout, stderr = process.stdout, process.stderr
     if stdout is None or stderr is None:
@@ -393,6 +387,12 @@ def _stop_query_readers(readers: tuple[Thread, Thread]) -> None:
             reader.join()
 
 
+class _QueryOutput(NamedTuple):
+    out: str
+    err: str
+    code: int
+
+
 def _query_failure(exe: str, out: str, err: str | None, code: int | None) -> RuntimeError:
     # the gate's exit code and stderr marker must both be present: either alone can collide, an errno of 79 from a
     # failed exec or a shim that echoes the marker phrase, but only the gate produces the combination
@@ -405,13 +405,6 @@ def _query_failure(exe: str, out: str, err: str | None, code: int | None) -> Run
         return _UnsupportedInterpreterError(msg, details[1].strip() if len(details) > 1 else None)
     msg = f"{exe} with code {code}{f' out: {out!r}' if out else ''}{f' err: {err!r}' if err else ''}"
     return RuntimeError(f"failed to query {msg}")
-
-
-class _CookieSlice(NamedTuple):
-    out: str
-    raw_out: str
-    out_starts: int
-    out_ends: int
 
 
 def _extract_between_cookies(out: str, start_cookie: str, end_cookie: str) -> _CookieSlice:
@@ -428,6 +421,13 @@ def _extract_between_cookies(out: str, start_cookie: str, end_cookie: str) -> _C
             sys.stdout.write(post_cookie)
         out = out[:out_ends]
     return _CookieSlice(out, raw_out, out_starts, out_ends)
+
+
+class _CookieSlice(NamedTuple):
+    out: str
+    raw_out: str
+    out_starts: int
+    out_ends: int
 
 
 class _UnsupportedInterpreterError(RuntimeError):

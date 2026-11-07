@@ -434,8 +434,7 @@ def test_py_info_satisfies_not_machine() -> None:
 
 
 def test_py_info_satisfies_no_machine_in_spec() -> None:
-    threaded = _THREADED
-    spec_str = f"{_CURRENT.implementation}{_CURRENT.version_info.major}{threaded}-{_CURRENT.architecture}"
+    spec_str = f"{_CURRENT.implementation}{_CURRENT.version_info.major}{_THREADED}-{_CURRENT.architecture}"
     parsed_spec = PythonSpec.from_string_spec(spec_str)
     assert parsed_spec.machine is None
     assert _CURRENT.satisfies(parsed_spec, impl_must_match=True) is True

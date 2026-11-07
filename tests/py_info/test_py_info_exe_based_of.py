@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import logging
 from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
@@ -12,9 +12,12 @@ from python_discovery._compat import fs_is_case_sensitive
 from python_discovery._discovery import IS_WIN
 from python_discovery._py_info import EXTENSIONS
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 _CURRENT: Final[PythonInfo] = PythonInfo.current()
 _THREADED: Final[str] = "t" if _CURRENT.free_threaded else ""
-_CASE_FOLD: Final = str.lower if not fs_is_case_sensitive() else str
+_CASE_FOLD: Final[Callable[[str], str]] = str.lower if not fs_is_case_sensitive() else str
 
 
 def _fs_supports_symlink() -> bool:
@@ -69,8 +72,7 @@ def test_discover_ok(
     caplog.set_level(logging.DEBUG)
     folder = tmp_path / into
     folder.mkdir(parents=True, exist_ok=True)
-    name = f"{impl}{version}{_THREADED}{f'-{arch}' * bool(arch)}{suffix}"
-    dest = folder / name
+    dest = folder / f"{impl}{version}{_THREADED}{f'-{arch}' * bool(arch)}{suffix}"
     Path(str(dest)).symlink_to(_CURRENT.executable)
     pyvenv = Path(_CURRENT.executable).parents[1] / "pyvenv.cfg"
     with contextlib.suppress(FileNotFoundError):

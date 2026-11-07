@@ -54,6 +54,5 @@ class Pep514PythonInfo(PythonInfo):
 
 
 __all__ = [
-    "Pep514PythonInfo",
     "propose_interpreters",
 ]
