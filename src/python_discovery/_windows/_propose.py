@@ -37,7 +37,7 @@ def propose_interpreters(
         skip_pre_filter = implementation.lower() != "cpython"
         registry_spec = PythonSpec("", implementation, major, minor, None, arch, exe, free_threaded=threaded)
         if skip_pre_filter or registry_spec.satisfies(spec):
-            interpreter = Pep514PythonInfo._from_exe_with_args(  # ruff:ignore[private-member-access]
+            interpreter = Pep514PythonInfo._from_exe_with_args(  # ruff:ignore[private-member-access] same package; the Windows proposer builds the same info object
                 exe,
                 cache,
                 env=env,

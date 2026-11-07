@@ -244,11 +244,11 @@ class PythonInfoCollector:
         with warnings.catch_warnings():  # disable warning for PEP-632
             warnings.simplefilter("ignore")
             try:
-                # ruff:ignore[import-outside-top-level]
-                from distutils import dist  # ty: ignore[unresolved-import]
+                # ruff:ignore[import-outside-top-level] distutils is optional and removed in newer Pythons
+                from distutils import dist  # ty: ignore[unresolved-import] distutils is removed from the stdlib in Python 3.12
 
-                # ruff:ignore[import-outside-top-level]
-                from distutils.command.install import SCHEME_KEYS  # ty: ignore[unresolved-import]
+                # ruff:ignore[import-outside-top-level] distutils is optional and removed in newer Pythons
+                from distutils.command.install import SCHEME_KEYS  # ty: ignore[unresolved-import] distutils is removed from the stdlib in Python 3.12
             except ImportError:  # pragma: no cover # if removed or not installed ignore
                 return {}
 
@@ -323,7 +323,7 @@ class PythonInfoCollector:
         return tcl_lib, tk_lib
 
     @staticmethod
-    def _resolve_tk_lib(tcl, tcl_lib):  # pragma: no cover
+    def _resolve_tk_lib(tcl, tcl_lib):  # pragma: no cover, Tcl probing needs a Tk install the test runners lack
         # Resolve the TK library path by direct query or path construction.
         tk_lib = PythonInfoCollector._query_tk_library(tcl)
         if tk_lib is not None:
@@ -340,7 +340,7 @@ class PythonInfoCollector:
         return None
 
     @staticmethod
-    def _query_tk_library(tcl):  # pragma: no cover
+    def _query_tk_library(tcl):  # pragma: no cover, Tcl probing needs a Tk install the test runners lack
         # Try to get the TK library path directly from Tcl.
         import tkinter as tk  # ruff:ignore[import-outside-top-level] # novermin # unreached below the version gate
 

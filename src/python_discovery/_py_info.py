@@ -44,7 +44,7 @@ def _get_path_extensions() -> list[str]:
 EXTENSIONS: Final[list[str]] = _get_path_extensions()
 
 
-class PythonInfo:  # ruff:ignore[too-many-public-methods]
+class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the public query surface; splitting it breaks callers
     """
     Contains information for a Python interpreter.
 
@@ -163,7 +163,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         return cls._current
 
     @classmethod
-    def from_exe(  # ruff:ignore[too-many-arguments]
+    def from_exe(  # ruff:ignore[too-many-arguments] each argument is a separate probe input
         cls,
         exe: str,
         cache: PyInfoCache | None = None,
@@ -195,7 +195,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         )
 
     @classmethod
-    def _from_exe_with_args(  # ruff:ignore[too-many-arguments]
+    def _from_exe_with_args(  # ruff:ignore[too-many-arguments] each argument is a separate probe input
         cls,
         exe: str,
         cache: PyInfoCache | None = None,
@@ -467,12 +467,12 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
 
         :param cache: the cache store to clear.
         """
-        from ._cached_py_info import clear  # ruff:ignore[import-outside-top-level]
+        from ._cached_py_info import clear  # ruff:ignore[import-outside-top-level] deferred import avoids a cycle with _cached_py_info
 
         clear(cache)
         cls._cache_exe_discovery.clear()
 
-    def satisfies(self, spec: PythonSpec, *, impl_must_match: bool) -> bool:  # ruff:ignore[too-many-return-statements]
+    def satisfies(self, spec: PythonSpec, *, impl_must_match: bool) -> bool:  # ruff:ignore[too-many-return-statements] one return per distinct satisfaction outcome
         """
         Check if a given specification can be satisfied by this python interpreter instance.
 
@@ -515,7 +515,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         return spec.implementation is None or spec.implementation.lower() == self.implementation.lower()
 
     def _satisfies_version_specifier(self, spec: PythonSpec) -> bool:
-        if spec.version_specifier is None:  # pragma: no cover
+        if spec.version_specifier is None:  # pragma: no cover, defensive guard for specs without a version specifier
             return True
         version_info = self.version_info
         for specifier in spec.version_specifier:
@@ -530,7 +530,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             release = ".".join(str(c) for c in [version_info.major, version_info.minor, version_info.micro][:precision])
             if (
                 version_info.releaselevel != "final"
-                and (precision == 3 or specifier.version.pre_type is not None)  # ruff:ignore[magic-value-comparison]
+                and (precision == 3 or specifier.version.pre_type is not None)  # ruff:ignore[magic-value-comparison] 3 is the precision of a full version tuple
                 and (suffix := {"alpha": "a", "beta": "b", "candidate": "rc"}.get(version_info.releaselevel))
             ):
                 release = f"{release}{suffix}{version_info.serial}"
@@ -624,9 +624,9 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         for base in possible_base:
             lower = base.lower()
             yield lower
-            from ._compat import fs_is_case_sensitive  # ruff:ignore[import-outside-top-level]
+            from ._compat import fs_is_case_sensitive  # ruff:ignore[import-outside-top-level] imported only when this path is walked
 
-            if fs_is_case_sensitive():  # pragma: no branch
+            if fs_is_case_sensitive():  # pragma: no branch, the branch depends on the host filesystem
                 if base != lower:
                     yield base
                 if (upper := base.upper()) != base:
@@ -648,7 +648,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         candidate_folder[inside_folder] = None
         return [i for i in candidate_folder if os.path.exists(i)]
 
-    def _check_exe(  # ruff:ignore[too-many-arguments]
+    def _check_exe(  # ruff:ignore[too-many-arguments] each argument is a separate probe input
         self,
         cache: PyInfoCache | None,
         folder: str,

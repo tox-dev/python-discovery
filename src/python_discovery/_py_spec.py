@@ -60,7 +60,7 @@ def _parse_version_parts(version: str) -> tuple[int | None, int | None, int | No
         raise ValueError(msg)
     if len(versions) == _MAX_VERSION_PARTS:
         return versions[0], versions[1], versions[2]
-    if len(versions) == 2:  # ruff:ignore[magic-value-comparison]
+    if len(versions) == 2:  # ruff:ignore[magic-value-comparison] a two-part version is major.minor
         return versions[0], versions[1], None
     version_data = versions[0]
     return int(str(version_data)[0]), (int(str(version_data)[1:]) if version_data > _SINGLE_DIGIT_MAX else None), None
@@ -144,7 +144,7 @@ class PythonSpec:
         constraints, or ``None``.
     """
 
-    def __init__(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+    def __init__(  # ruff:ignore[too-many-arguments, too-many-positional-arguments] making the arguments keyword-only breaks positional callers
         self,
         str_spec: str,
         implementation: str | None,
@@ -235,7 +235,7 @@ class PythonSpec:
             flags=re.IGNORECASE,
         )
 
-    def satisfies(self, spec: PythonSpec) -> bool:  # ruff:ignore[too-many-return-statements]
+    def satisfies(self, spec: PythonSpec) -> bool:  # ruff:ignore[too-many-return-statements] one return per distinct satisfaction outcome
         """
         Check if this spec is compatible with the given *spec* (e.g. PEP-514 on Windows).
 

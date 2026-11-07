@@ -42,14 +42,14 @@ def _mock_registry(monkeypatch: pytest.MonkeyPatch) -> None:
 def _create_winreg_mock() -> ModuleType:
     # Create a mock winreg module that works on all platforms.
     winreg = ModuleType("winreg")
-    winreg.HKEY_CURRENT_USER = 0x80000001  # ty: ignore[unresolved-attribute]
-    winreg.HKEY_LOCAL_MACHINE = 0x80000002  # ty: ignore[unresolved-attribute]
-    winreg.KEY_READ = 0x20019  # ty: ignore[unresolved-attribute]
-    winreg.KEY_WOW64_64KEY = 0x0100  # ty: ignore[unresolved-attribute]
-    winreg.KEY_WOW64_32KEY = 0x0200  # ty: ignore[unresolved-attribute]
-    winreg.EnumKey = MagicMock()  # ty: ignore[unresolved-attribute]
-    winreg.QueryValueEx = MagicMock()  # ty: ignore[unresolved-attribute]
-    winreg.OpenKeyEx = MagicMock()  # ty: ignore[unresolved-attribute]
+    winreg.HKEY_CURRENT_USER = 0x80000001  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    winreg.HKEY_LOCAL_MACHINE = 0x80000002  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    winreg.KEY_READ = 0x20019  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    winreg.KEY_WOW64_64KEY = 0x0100  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    winreg.KEY_WOW64_32KEY = 0x0200  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    winreg.EnumKey = MagicMock()  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    winreg.QueryValueEx = MagicMock()  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    winreg.OpenKeyEx = MagicMock()  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
     return winreg
 
 
@@ -65,8 +65,8 @@ def _load_registry_data(
     loc: dict[str, object] = {}
     glob: dict[str, object] = {"winreg": winreg}
     mock_value_str = (Path(__file__).parent / "winreg_mock_values.py").read_text(encoding="utf-8")
-    exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin]
-    return loc["enum_collect"], loc["value_collect"], loc["key_open"], loc["hive_open"]  # ty: ignore[invalid-return-type]
+    exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin] the mock values are Python source kept in a separate file
+    return loc["enum_collect"], loc["value_collect"], loc["key_open"], loc["hive_open"]  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
 
 
 def _make_enum_key(enum_collect: dict[object, dict[int, object]]) -> object:
@@ -74,7 +74,7 @@ def _make_enum_key(enum_collect: dict[object, dict[int, object]]) -> object:
         result = enum_collect[(key.value if isinstance(key, _Key) else key)][at]
         if isinstance(result, OSError):
             raise result
-        return result  # ty: ignore[invalid-return-type]
+        return result  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
 
     return _enum_key
 

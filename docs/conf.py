@@ -14,7 +14,7 @@ name = "python-discovery"
 repository: Final[str] = f"https://github.com/{company}/{name}"
 version = ".".join(__version__.split(".")[:2])
 release = __version__
-copyright: Final[str] = f"2026-{datetime.now(tz=timezone.utc).year}, {company}"  # ruff:ignore[builtin-variable-shadowing]
+copyright: Final[str] = f"2026-{datetime.now(tz=timezone.utc).year}, {company}"  # ruff:ignore[builtin-variable-shadowing] Sphinx reads the name `copyright`
 
 extensions = [
     "sphinx_llm.txt",

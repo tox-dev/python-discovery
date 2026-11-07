@@ -215,7 +215,7 @@ class DiskContentStore:
 
     @contextmanager
     def locked(self) -> Generator[None]:
-        from filelock import FileLock  # ruff:ignore[import-outside-top-level]
+        from filelock import FileLock  # ruff:ignore[import-outside-top-level] filelock is needed only when locking
 
         self._folder.mkdir(parents=True, exist_ok=True)
         if os.name == "posix":
@@ -234,7 +234,7 @@ class NoOpContentStore(ContentStore):
     def exists(self) -> bool:  # ruff:ignore[no-self-use]
         return False
 
-    def read(self) -> dict | None:  # ruff:ignore[no-self-use]
+    def read(self) -> dict | None:  # ruff:ignore[no-self-use] keeps the cache interface uniform across implementations
         return None
 
     def write(self, content: dict) -> None:
@@ -244,7 +244,7 @@ class NoOpContentStore(ContentStore):
         pass
 
     @contextmanager
-    def locked(self) -> Generator[None]:  # ruff:ignore[no-self-use]
+    def locked(self) -> Generator[None]:  # ruff:ignore[no-self-use] keeps the cache interface uniform across implementations
         yield
 
 

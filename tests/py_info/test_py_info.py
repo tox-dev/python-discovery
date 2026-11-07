@@ -225,7 +225,7 @@ def test_system_executable_no_exact_match(
         assert system_executable is not None
         py_info.system_executable = system_executable
         py_info.executable = system_executable
-        py_info.base_executable = str(path)  # ty: ignore[unresolved-attribute]
+        py_info.base_executable = str(path)  # ty: ignore[unresolved-attribute] the test stub is a plain object, not a PythonInfo
         if pos == position:
             selected = py_info
         discovered_with_path[str(path)] = py_info

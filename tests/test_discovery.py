@@ -49,7 +49,7 @@ def test_discovery_via_path(
     elif specificity == "less":
         core_ver = ".".join(str(i) for i in current.version_info[0:3])
         exe_ver = current.version_info.major
-    elif specificity == "none":  # pragma: no branch
+    elif specificity == "none":  # pragma: no branch, the branch depends on the interpreter's own version
         core_ver = ".".join(str(i) for i in current.version_info[0:3])
         exe_ver = ""
     core = "" if specificity == "none" else f"{name}{core_ver}{threaded}"
@@ -58,7 +58,7 @@ def test_discovery_via_path(
     target.mkdir(parents=True)
     Path(str(target / exe_name)).symlink_to(sys.executable)
     pyvenv_cfg = Path(sys.executable).parents[1] / "pyvenv.cfg"
-    if pyvenv_cfg.exists():  # pragma: no branch
+    if pyvenv_cfg.exists():  # pragma: no branch, the branch depends on the host interpreter layout
         (target / pyvenv_cfg.name).write_bytes(pyvenv_cfg.read_bytes())
     monkeypatch.setenv("PATH", os.pathsep.join([str(target), *os.environ.get("PATH", "").split(os.pathsep)]))
     interpreter = get_interpreter(core, [])
@@ -450,7 +450,7 @@ def test_discovery_via_version_specifier(session_cache: DiskCache) -> None:
 
     spec = f"cpython>={major}.{minor}"
     interpreter = get_interpreter(spec, [], session_cache)
-    if current.implementation == "CPython":  # pragma: no branch
+    if current.implementation == "CPython":  # pragma: no branch, the branch depends on the host interpreter
         assert interpreter is not None
         assert interpreter.implementation == "CPython"
 

@@ -18,7 +18,7 @@ from io import DEFAULT_BUFFER_SIZE, IncrementalNewlineDecoder
 from pathlib import Path
 from select import select
 from shlex import quote
-from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline  # ruff:ignore[suspicious-subprocess-import]
+from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline  # ruff:ignore[suspicious-subprocess-import] list2cmdline only formats the command for logging
 from threading import Event, Thread
 from time import monotonic
 from typing import TYPE_CHECKING, Final
@@ -53,7 +53,7 @@ _MAX_QUERY_TIMEOUT: Final[float] = (2**31 - 1) / 1000
 _MAX_QUERY_OUTPUT: Final[int] = 1 << 20
 
 
-def from_exe(  # ruff:ignore[too-many-arguments]
+def from_exe(  # ruff:ignore[too-many-arguments] each argument is a separate probe input
     cls: type[PythonInfo],
     cache: PyInfoCache | None,
     exe: str,
@@ -80,7 +80,7 @@ def from_exe(  # ruff:ignore[too-many-arguments]
     return result
 
 
-def _get_from_cache(  # ruff:ignore[too-many-arguments]
+def _get_from_cache(  # ruff:ignore[too-many-arguments] each argument is a separate probe input
     cls: type[PythonInfo],
     cache: PyInfoCache | None,
     exe: str,
@@ -104,7 +104,7 @@ def _get_from_cache(  # ruff:ignore[too-many-arguments]
     return result
 
 
-def _get_via_file_cache(  # ruff:ignore[too-many-arguments]
+def _get_via_file_cache(  # ruff:ignore[too-many-arguments] each argument is a separate probe input
     cls: type[PythonInfo],
     cache: PyInfoCache | None,
     path: Path,
@@ -207,7 +207,7 @@ def _run_subprocess(
         env["PYTHONUTF8"] = "1"
         _LOGGER.debug("get interpreter info via cmd: %s", cmd if isinstance(cmd, str) else LogCmd(cmd))
         try:
-            process = Popen(  # ruff:ignore[subprocess-without-shell-equals-true]
+            process = Popen(  # ruff:ignore[subprocess-without-shell-equals-true] argv list without a shell, so no shell injection
                 cmd,
                 universal_newlines=True,
                 stdin=DEVNULL,

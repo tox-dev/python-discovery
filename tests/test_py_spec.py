@@ -168,7 +168,7 @@ def _version_not_satisfies_pairs() -> list[tuple[str, str]]:
                     temp = sat_ver.copy()
                     temp[patch] += offset
                     if temp[patch] < 0:
-                        continue  # pragma: no cover
+                        continue  # pragma: no cover, the branch needs an interpreter the test runners lack
                     target.add((req, ".".join(str(i) for i in temp)))
     return sorted(target)
 

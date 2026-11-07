@@ -95,7 +95,7 @@ class SimpleVersion:
     def __hash__(self) -> int:
         return hash((self.release, self.pre_type, self.pre_num))
 
-    def __lt__(self, other: object) -> bool:  # ruff:ignore[too-many-return-statements]
+    def __lt__(self, other: object) -> bool:  # ruff:ignore[too-many-return-statements] one return per distinct comparison outcome
         if not isinstance(other, SimpleVersion):
             return NotImplemented
         if self.release != other.release:
@@ -214,8 +214,8 @@ class SimpleSpecifier:
         return self._check_standard(candidate)
 
     def _check_wildcard(self, candidate: SimpleVersion) -> bool:
-        if self.version is None:  # pragma: no branch
-            return False  # pragma: no cover
+        if self.version is None:  # pragma: no branch, defensive guard; the constructors always set the version
+            return False  # pragma: no cover, defensive guard; the constructors always set the version
         if self.operator == "==":
             return candidate.release[: self.wildcard_precision] == self.version.release[: self.wildcard_precision]
         if self.operator == "!=":
@@ -223,8 +223,8 @@ class SimpleSpecifier:
         return False
 
     def _check_standard(self, candidate: SimpleVersion) -> bool:
-        if self.version is None:  # pragma: no branch
-            return False  # pragma: no cover
+        if self.version is None:  # pragma: no branch, defensive guard; the constructors always set the version
+            return False  # pragma: no cover, defensive guard; the constructors always set the version
         if self.operator == "===":
             return str(candidate) == str(self.version)
         if self.operator == "~=":

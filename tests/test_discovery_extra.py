@@ -35,7 +35,7 @@ def test_propose_interpreters_try_first_with_valid(session_cache: DiskCache) -> 
 def test_propose_interpreters_try_first_with_missing(tmp_path: Path) -> None:
     gen = propose_interpreters(PythonSpec.from_string_spec("python"), [str(tmp_path / "nonexistent")])
     results = []
-    for result in gen:  # pragma: no branch
+    for result in gen:  # pragma: no branch, the loop runs zero or more times depending on the host
         results.append(result)
         break
     assert len(results) >= 0

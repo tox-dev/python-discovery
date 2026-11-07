@@ -67,7 +67,7 @@ def _find_interpreter(
     proposed_paths: set[tuple[str | None, bool]] = set()
     env = os.environ if env is None else env
     for interpreter, impl_must_match in propose_interpreters(spec, try_first_with, cache, env):
-        if interpreter is None:  # pragma: no cover
+        if interpreter is None:  # pragma: no cover, defensive guard the proposer does not currently trigger
             continue
         proposed_key = interpreter.system_executable, impl_must_match
         if proposed_key in proposed_paths:
@@ -149,7 +149,7 @@ def _propose_current_and_windows(
         yield current_python, True
 
     if IS_WIN:  # pragma: win32 cover
-        from ._windows import propose_interpreters as win_propose  # ruff:ignore[import-outside-top-level]
+        from ._windows import propose_interpreters as win_propose  # ruff:ignore[import-outside-top-level] the module is Windows-only and imported only there
 
         for interpreter in win_propose(spec, cache, env):
             if _is_new_exe(str(interpreter.executable), tested_exes):
@@ -426,7 +426,7 @@ def _uv_version_matches(key: _UvKey, spec: PythonSpec) -> bool:
             precision = numeric_version.count(".") + 1
             release = ".".join(str(part) for part in key.version.release[:precision])
             if key.version.pre_type is not None and (
-                precision == 3 or specifier.version.pre_type is not None  # ruff:ignore[magic-value-comparison]
+                precision == 3 or specifier.version.pre_type is not None  # ruff:ignore[magic-value-comparison] 3 is the precision of a full version tuple
             ):
                 release = f"{release}{key.version.pre_type}{key.version.pre_num}"
             if not specifier.contains(release):
@@ -524,7 +524,7 @@ def iter_interpreters(
         yield from _iter_for_spec(spec_str, first_with, cache, env_map, predicate, seen)
 
 
-def _iter_for_spec(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+def _iter_for_spec(  # ruff:ignore[too-many-arguments, too-many-positional-arguments] each argument is a separate spec input
     spec_str: str | None,
     try_first_with: tuple[str, ...],
     cache: PyInfoCache | None,

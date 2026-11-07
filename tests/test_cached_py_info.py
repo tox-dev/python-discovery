@@ -76,7 +76,7 @@ def test_resolve_py_info_script_pkgutil_returns_none(mocker: MockerFixture) -> N
     mocker.patch("python_discovery._cached_py_info.Path.is_file", return_value=False)
     mocker.patch("pkgutil.get_data", return_value=None)
     with pytest.raises(FileNotFoundError, match="cannot locate"), _resolve_py_info_script():
-        pass  # pragma: no cover
+        pass  # pragma: no cover, the cache file is absent on this path
 
 
 def test_run_subprocess_success() -> None:
