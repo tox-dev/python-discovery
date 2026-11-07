@@ -83,8 +83,8 @@ def test_lazy_path_dump_debug_non_executable(tmp_path: Path) -> None:
 
 def test_lazy_path_dump_debug_oserror(tmp_path: Path, mocker: MockerFixture) -> None:
     (tmp_path / "bad_file").touch()
-    mocker.patch("pathlib.Path.is_dir", side_effect=[False, False])
-    mocker.patch("pathlib.Path.stat", side_effect=OSError("permission denied"))
+    mocker.patch("pathlib.Path.is_dir", side_effect=[False, False], autospec=True)
+    mocker.patch("pathlib.Path.stat", side_effect=OSError("permission denied"), autospec=True)
     repr(LazyPathDump(0, tmp_path, {"_VIRTUALENV_DEBUG": "1"}))
 
 

@@ -188,7 +188,7 @@ def test_bare_name_spec_does_not_probe_cwd(
 ) -> None:
     (tmp_path / name).touch(mode=0o755)
     monkeypatch.chdir(tmp_path)
-    from_exe = mocker.patch("python_discovery._discovery.PythonInfo.from_exe", return_value=None)
+    from_exe = mocker.patch("python_discovery._discovery.PythonInfo.from_exe", return_value=None, autospec=True)
 
     assert get_interpreter(name, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "uv")}) is None
     from_exe.assert_not_called()
@@ -245,7 +245,7 @@ def test_discovery_fallback_reuses_preferred_paths(
     executable.touch()
     preferred_info = deepcopy(PythonInfo.current_system(session_cache))
     preferred_info.executable = str(executable)
-    mocker.patch.object(PythonInfo, "from_exe", return_value=preferred_info)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=preferred_info, autospec=True)
     paths = [str(executable)]
     result = get_interpreter(
         ["missing-interpreter", ">=3"],
@@ -384,7 +384,7 @@ def test_get_paths_skips_relative_default(tmp_path: Path, monkeypatch: pytest.Mo
     (absolute_dir / "python3").touch()
 
     with (
-        patch("python_discovery._discovery.os.confstr", side_effect=AttributeError, create=True),
+        patch("python_discovery._discovery.os.confstr", side_effect=AttributeError, create=True, autospec=True),
         patch("python_discovery._discovery.os.defpath", f".{os.pathsep}{absolute_dir}"),
     ):
         assert list(get_paths({})) == [absolute_dir]
@@ -485,7 +485,7 @@ def test_shim_resolved_to_real_binary(
     monkeypatch.delenv("ASDF_DATA_DIR", raising=False) if env_var != "ASDF_DATA_DIR" else None
     monkeypatch.delenv("PYENV_ROOT", raising=False) if env_var != "PYENV_ROOT" else None
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
@@ -518,7 +518,7 @@ def test_shim_not_resolved_without_version_manager_env(tmp_path: Path, monkeypat
     monkeypatch.delenv("MISE_DATA_DIR", raising=False)
     monkeypatch.delenv("ASDF_DATA_DIR", raising=False)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(shim)
@@ -533,7 +533,7 @@ def test_shim_falls_through_when_binary_missing(tmp_path: Path, monkeypatch: pyt
     monkeypatch.setenv("PYENV_ROOT", str(root))
     monkeypatch.setenv("PYENV_VERSION", "2.7.18")
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(shim)
@@ -550,7 +550,7 @@ def test_shim_uses_python_version_file(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.delenv("PYENV_VERSION", raising=False)
     monkeypatch.chdir(tmp_path)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
@@ -587,7 +587,7 @@ def test_shim_skips_path_like_version(
     monkeypatch.delenv("PYENV_VERSION", raising=False)
     monkeypatch.chdir(tmp_path)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
@@ -603,7 +603,7 @@ def test_shim_skips_empty_environment_version(tmp_path: Path, monkeypatch: pytes
     monkeypatch.setenv("PYENV_ROOT", str(root))
     monkeypatch.setenv("PYENV_VERSION", ":2.7.18")
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
@@ -684,7 +684,7 @@ def pyenv_probed(
     monkeypatch.setenv("PATH", str(root / "shims"))
     monkeypatch.setenv("PYENV_ROOT", str(root))
     monkeypatch.delenv("PYENV_VERSION", raising=False)
-    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
 
     def _probed() -> tuple[str, ...]:
         get_interpreter("python2.7", [])
@@ -705,7 +705,7 @@ def test_shim_pyenv_version_env_takes_priority_over_file(tmp_path: Path, monkeyp
     monkeypatch.setenv("PYENV_VERSION", "2.7.15")
     monkeypatch.chdir(tmp_path)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(env_binary)
@@ -724,7 +724,7 @@ def test_shim_uses_global_version_file(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.delenv("PYENV_VERSION", raising=False)
     monkeypatch.chdir(workdir)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
@@ -743,7 +743,7 @@ def test_shim_colon_separated_pyenv_version_picks_first_match(
     monkeypatch.setenv("PYENV_ROOT", str(root))
     monkeypatch.setenv("PYENV_VERSION", "3.9.1:2.7.15")
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(second_binary)
@@ -813,7 +813,7 @@ def uv_plant() -> Callable[[Path], str]:
 @pytest.fixture
 def uv_probed(mocker: MockerFixture) -> Callable[..., list[str]]:
     # Run a discovery with the interrogation subprocess stubbed out, reporting the executables it reached for.
-    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
 
     def _probed(**kwargs: object) -> list[str]:
         get_interpreter(_NO_UV_MATCH, [], **kwargs)
@@ -1034,7 +1034,7 @@ def test_discovery_uv_patch_release_matches_minor_spec(
     info.version_info = info.version_info._replace(
         major=3, minor=99, micro=2 if releaselevel == "final" else 0, releaselevel=releaselevel, serial=2
     )
-    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=info)
+    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=info, autospec=True)
 
     found = get_interpreter(spec, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(store)})
 
@@ -1050,7 +1050,7 @@ def test_discovery_uv_invalid_hand_built_spec_skips_install(tmp_path: Path, mock
     spec.version_specifier = SimpleSpecifierSet.from_string("==invalid")
     info = deepcopy(PythonInfo.current_system())
     info.executable = str(executable)
-    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=info)
+    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=info, autospec=True)
 
     candidates = list(propose_interpreters(spec, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(store)}))
 

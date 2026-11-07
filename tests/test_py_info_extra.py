@@ -20,14 +20,14 @@ _CURRENT = PythonInfo.current_system()
 
 
 def test_py_info_pypy_version(mocker: MockerFixture) -> None:
-    mocker.patch("platform.python_implementation", return_value="PyPy")
+    mocker.patch("platform.python_implementation", return_value="PyPy", autospec=True)
     mocker.patch.object(sys, "pypy_version_info", (7, 3, 11, "final", 0), create=True)
     info = PythonInfo()
     assert (info.implementation, info.pypy_version_info) == ("PyPy", (7, 3, 11, "final", 0))
 
 
 def test_py_info_canonicalizes_graalvm(mocker: MockerFixture) -> None:
-    mocker.patch("platform.python_implementation", return_value="GraalVM")
+    mocker.patch("platform.python_implementation", return_value="GraalVM", autospec=True)
     info = PythonInfo()
     assert info.implementation == "GraalPy"
 
@@ -139,7 +139,7 @@ def test_resolve_to_system_circle(mocker: MockerFixture, caplog: pytest.LogCaptu
     third.real_prefix = None
     third.base_prefix = "/prefix_a"
 
-    mocker.patch.object(PythonInfo, "discover_exe", side_effect=[second, third])
+    mocker.patch.object(PythonInfo, "discover_exe", side_effect=[second, third], autospec=True)
 
     with pytest.raises(RuntimeError, match="prefixes are causing a circle"):
         PythonInfo.resolve_to_system(None, target)
@@ -157,7 +157,7 @@ def test_resolve_to_system_single_prefix_self_link(mocker: MockerFixture, caplog
     second.real_prefix = None
     second.base_prefix = "/prefix_a"
 
-    mocker.patch.object(PythonInfo, "discover_exe", return_value=second)
+    mocker.patch.object(PythonInfo, "discover_exe", return_value=second, autospec=True)
 
     result = PythonInfo.resolve_to_system(None, target)
     assert result.system_executable is not None
@@ -172,7 +172,7 @@ def test_resolve_to_system_repeated_prefix_with_parent_segments(tmp_path: Path, 
     repeated = PythonInfo()
     repeated.system_executable = repeated.real_prefix = None
     repeated.base_prefix = str(tmp_path / "child" / "..")
-    mocker.patch.object(PythonInfo, "discover_exe", return_value=repeated)
+    mocker.patch.object(PythonInfo, "discover_exe", return_value=repeated, autospec=True)
 
     result = PythonInfo.resolve_to_system(None, target)
 
@@ -362,8 +362,9 @@ def test_from_exe_resolve_error(mocker: MockerFixture, caplog: pytest.LogCapture
     mocker.patch(
         "python_discovery._cached_py_info.from_exe",
         return_value=fake_info,
+        autospec=True,
     )
-    mocker.patch.object(PythonInfo, "resolve_to_system", side_effect=RuntimeError("test error"))
+    mocker.patch.object(PythonInfo, "resolve_to_system", side_effect=RuntimeError("test error"), autospec=True)
     result = PythonInfo.from_exe(sys.executable, raise_on_error=False, resolve_to_host=True)
     assert result is None
     assert any("cannot resolve system" in r.message for r in caplog.records)
@@ -390,7 +391,7 @@ def test_satisfies_abs_spec_path_match() -> None:
 
 def test_current_returns_none_raises(mocker: MockerFixture) -> None:
     PythonInfo._current = None
-    mocker.patch.object(PythonInfo, "from_exe", return_value=None)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=None, autospec=True)
     with pytest.raises(RuntimeError, match="failed to query current Python interpreter"):
         PythonInfo.current()
     PythonInfo._current = None
@@ -398,7 +399,7 @@ def test_current_returns_none_raises(mocker: MockerFixture) -> None:
 
 def test_current_system_returns_none_raises(mocker: MockerFixture) -> None:
     PythonInfo._current_system = None
-    mocker.patch.object(PythonInfo, "from_exe", return_value=None)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=None, autospec=True)
     with pytest.raises(RuntimeError, match="failed to query current system Python interpreter"):
         PythonInfo.current_system()
     PythonInfo._current_system = None
@@ -407,7 +408,7 @@ def test_current_system_returns_none_raises(mocker: MockerFixture) -> None:
 def test_check_exe_from_exe_returns_none(tmp_path: Path, mocker: MockerFixture) -> None:
     info = copy.deepcopy(_CURRENT)
     (tmp_path / "python").touch()
-    mocker.patch.object(PythonInfo, "from_exe", return_value=None)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=None, autospec=True)
     result = info._check_exe(MagicMock(), str(tmp_path), "python", [], dict(os.environ), exact=True)
     assert result is None
 
@@ -417,7 +418,7 @@ def test_check_exe_mismatch_not_exact(tmp_path: Path, mocker: MockerFixture) -> 
     (tmp_path / "python").touch()
     other = copy.deepcopy(_CURRENT)
     other.architecture = 32 if info.architecture == 64 else 64
-    mocker.patch.object(PythonInfo, "from_exe", return_value=other)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=other, autospec=True)
     discovered: list[PythonInfo] = []
     result = info._check_exe(MagicMock(), str(tmp_path), "python", discovered, dict(os.environ), exact=False)
     assert result is None
@@ -429,7 +430,7 @@ def test_check_exe_mismatch_exact(tmp_path: Path, mocker: MockerFixture) -> None
     (tmp_path / "python").touch()
     other = copy.deepcopy(_CURRENT)
     other.architecture = 32 if info.architecture == 64 else 64
-    mocker.patch.object(PythonInfo, "from_exe", return_value=other)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=other, autospec=True)
     discovered: list[PythonInfo] = []
     result = info._check_exe(MagicMock(), str(tmp_path), "python", discovered, dict(os.environ), exact=True)
     assert result is None
@@ -456,7 +457,7 @@ def test_possible_base_case_sensitive(mocker: MockerFixture) -> None:
     info = copy.deepcopy(_CURRENT)
     info.executable = "/usr/bin/CPython3.12"
     info.implementation = "CPython"
-    mocker.patch("python_discovery._compat.fs_is_case_sensitive", return_value=True)
+    mocker.patch("python_discovery._compat.fs_is_case_sensitive", return_value=True, autospec=True)
     names = list(info._possible_base())
     lower_names = [n for n in names if n.islower()]
     upper_names = [n for n in names if n.isupper()]
@@ -468,7 +469,7 @@ def test_possible_base_case_sensitive_upper_equals_base(mocker: MockerFixture) -
     info = copy.deepcopy(_CURRENT)
     info.executable = "/usr/bin/JYTHON"
     info.implementation = "JYTHON"
-    mocker.patch("python_discovery._compat.fs_is_case_sensitive", return_value=True)
+    mocker.patch("python_discovery._compat.fs_is_case_sensitive", return_value=True, autospec=True)
     names = list(info._possible_base())
     assert "jython" in names
     assert "JYTHON" in names
@@ -484,7 +485,7 @@ def test_resolve_to_system_resolved_from_exe(mocker: MockerFixture, caplog: pyte
     resolved.system_executable = "/some/system/python"
     resolved.executable = "/some/system/python"
 
-    mocker.patch.object(PythonInfo, "from_exe", return_value=resolved)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=resolved, autospec=True)
     result = PythonInfo.resolve_to_system(None, target)
     assert result.executable == "/some/venv/python"
 
@@ -507,6 +508,7 @@ def test_from_exe_uses_supplied_environment_for_base_probe(
             "venv": target,
             "system": mapped if kwargs["env"] == {"PYTHONPATH": "mapped"} else process_only,
         }[exe],
+        autospec=True,
     )
 
     info = PythonInfo.from_exe("venv", env={"PYTHONPATH": "mapped"})
@@ -530,7 +532,10 @@ def test_resolve_to_system_uses_supplied_environment_for_prefix_probe(mocker: Mo
     mocker.patch.object(
         PythonInfo,
         "discover_exe",
-        side_effect=lambda _cache, **kwargs: mapped if kwargs.get("env") == {"PYTHONPATH": "mapped"} else fallback,
+        side_effect=lambda _cls, _cache, **kwargs: (
+            mapped if kwargs.get("env") == {"PYTHONPATH": "mapped"} else fallback
+        ),
+        autospec=True,
     )
 
     resolved = PythonInfo.resolve_to_system(None, target, env={"PYTHONPATH": "mapped"})
@@ -543,7 +548,7 @@ def test_resolve_to_system_from_exe_returns_none(mocker: MockerFixture) -> None:
     target.system_executable = "/some/system/python"
     target.executable = "/some/venv/python"
 
-    mocker.patch.object(PythonInfo, "from_exe", return_value=None)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=None, autospec=True)
     result = PythonInfo.resolve_to_system(None, target)
     assert result.executable == "/some/venv/python"
 
@@ -558,8 +563,8 @@ def test_resolve_to_system_from_exe_returns_none(mocker: MockerFixture) -> None:
 def test_resolve_to_system_leaves_shared_info_untouched(mocker: MockerFixture, system_executable: str | None) -> None:
     shared = copy.deepcopy(_CURRENT)
     shared.system_executable = shared.executable = "/some/system/python"
-    mocker.patch.object(PythonInfo, "from_exe", return_value=shared)
-    mocker.patch.object(PythonInfo, "discover_exe", return_value=shared)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=shared, autospec=True)
+    mocker.patch.object(PythonInfo, "discover_exe", return_value=shared, autospec=True)
 
     results: list[PythonInfo] = []
     for venv in ("/some/venv-a", "/some/venv-b"):

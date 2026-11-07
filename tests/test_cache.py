@@ -225,7 +225,7 @@ def test_disk_cache_skips_file_as_root(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX ownership and modes")
 def test_disk_cache_skips_uncreatable_directory(tmp_path: Path, mocker: MockerFixture) -> None:
-    mocker.patch.object(Path, "mkdir", side_effect=PermissionError)
+    mocker.patch.object(Path, "mkdir", side_effect=PermissionError, autospec=True)
     assert isinstance(DiskCache(tmp_path / "cache").py_info(Path("/some/path")), NoOpContentStore)
 
 
@@ -233,7 +233,7 @@ def test_disk_cache_skips_uncreatable_directory(tmp_path: Path, mocker: MockerFi
 def test_disk_cache_skips_foreign_directory(tmp_path: Path, mocker: MockerFixture) -> None:
     status = list(tmp_path.stat())
     status[4] = os.geteuid() + 1
-    mocker.patch.object(Path, "lstat", return_value=os.stat_result(status))
+    mocker.patch.object(Path, "lstat", return_value=os.stat_result(status), autospec=True)
     assert isinstance(DiskCache(tmp_path).py_info(Path("/some/path")), NoOpContentStore)
 
 
@@ -290,7 +290,7 @@ def test_disk_content_store_rejects_untrusted_entry(
     store.write({"key": "value"})
     status = list((tmp_path / "entry.json").stat())
     status[0], status[4] = stat.S_IFREG | mode, os.geteuid() + owner_offset
-    mocker.patch("python_discovery._cache.os.fstat", return_value=os.stat_result(status))
+    mocker.patch("python_discovery._cache.os.fstat", return_value=os.stat_result(status), autospec=True)
     assert store.read() is None
     assert not store.exists()
 
@@ -340,7 +340,7 @@ def test_disk_content_store_write_is_private_with_lax_umask(tmp_path: Path) -> N
     ],
 )
 def test_disk_content_store_write_skips_io_failure(tmp_path: Path, mocker: MockerFixture, target: str) -> None:
-    mocker.patch(target, side_effect=PermissionError)
+    mocker.patch(target, side_effect=PermissionError, autospec=True)
     DiskContentStore(tmp_path, "entry").write({"key": "value"})
     assert list(tmp_path.iterdir()) == []
 

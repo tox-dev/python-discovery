@@ -232,13 +232,13 @@ def test_system_executable_no_exact_match(
         names.append(path.name)
 
     target_py_info = _make_py_info(target)
-    mocker.patch.object(target_py_info, "_find_possible_exe_names", return_value=names)
-    mocker.patch.object(target_py_info, "_find_possible_folders", return_value=[str(tmp_path)])
+    mocker.patch.object(target_py_info, "_find_possible_exe_names", return_value=names, autospec=True)
+    mocker.patch.object(target_py_info, "_find_possible_folders", return_value=[str(tmp_path)], autospec=True)
 
     def func(exe_path: str, _cache: object = None, **_kwargs: object) -> PythonInfo:
         return discovered_with_path[exe_path]
 
-    mocker.patch.object(target_py_info, "from_exe", side_effect=func)
+    mocker.patch.object(target_py_info, "from_exe", side_effect=func, autospec=True)
     target_py_info.real_prefix = str(tmp_path)
 
     target_py_info.system_executable = None
@@ -275,9 +275,9 @@ def test_discover_exe_validates_abi_flag(
     match = candidate(flag=True, name="debug")
     by_path = {info.executable: info for info in (mismatch, match)}
 
-    mocker.patch.object(target, "_find_possible_exe_names", return_value=["release", "debug"])
-    mocker.patch.object(target, "_find_possible_folders", return_value=[str(tmp_path)])
-    mocker.patch.object(target, "from_exe", side_effect=lambda exe, *_a, **_k: by_path[exe])
+    mocker.patch.object(target, "_find_possible_exe_names", return_value=["release", "debug"], autospec=True)
+    mocker.patch.object(target, "_find_possible_folders", return_value=[str(tmp_path)], autospec=True)
+    mocker.patch.object(target, "from_exe", side_effect=lambda exe, *_a, **_k: by_path[exe], autospec=True)
 
     found = target.discover_exe(session_cache, prefix=str(tmp_path), exact=True)
     assert found is match  # the release build is refused even though version, impl and arch match
@@ -349,7 +349,7 @@ def test_py_info_to_system_raises(  # pragma: no cover # skipped in venv environ
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.DEBUG)
-    mocker.patch.object(PythonInfo, "_find_possible_folders", return_value=[])
+    mocker.patch.object(PythonInfo, "_find_possible_folders", return_value=[], autospec=True)
     result = PythonInfo.from_exe(sys.executable, cache=session_cache, raise_on_error=False)
     assert result is None
     log = caplog.records[-1]
@@ -413,7 +413,7 @@ def test_py_info_machine_derivation(platform: str, expected: str) -> None:
 def test_py_info_machine_derivation_universal2(mocker: MockerFixture, runtime_isa: str) -> None:
     info = copy.deepcopy(_CURRENT)
     info.sysconfig_platform = "macosx-11.0-universal2"
-    mocker.patch("python_discovery._py_info.platform.machine", return_value=runtime_isa)
+    mocker.patch("python_discovery._py_info.platform.machine", return_value=runtime_isa, autospec=True)
     assert info.machine == runtime_isa
 
 

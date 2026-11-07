@@ -99,6 +99,7 @@ def no_framework(mocker: MockerFixture) -> None:
         sysconfig,
         "get_config_var",
         side_effect=lambda name: "" if name == "PYTHONFRAMEWORK" else get_config_var(name),  # ty: ignore[deprecated]  # resolves the deprecated Literal["SO"] overload even though name is a generic str
+        autospec=True,
     )
 
 
@@ -207,6 +208,7 @@ def test_system_executable_framework_symlink_kept(tmp_path: Path, mocker: Mocker
         sysconfig,
         "get_config_var",
         side_effect=lambda name: "Python" if name == "PYTHONFRAMEWORK" else get_config_var(name),  # ty: ignore[deprecated]  # resolves the deprecated Literal["SO"] overload even though name is a generic str
+        autospec=True,
     )
     mocker.patch.object(sys, "executable", str(link))
     assert PythonInfo().system_executable == str(link)
@@ -305,7 +307,7 @@ def test_system_executable_versioned_fallback(mocker: MockerFixture, tmp_path: P
 
 def test_system_executable_pypy_fallback(mocker: MockerFixture, tmp_path: Path) -> None:
     _venv_missing_base_no_candidates(mocker, tmp_path)
-    mocker.patch("platform.python_implementation", return_value="PyPy")
+    mocker.patch("platform.python_implementation", return_value="PyPy", autospec=True)
     mocker.patch.object(sys, "pypy_version_info", (7, 3, 11, "final", 0), create=True)
     pypy = tmp_path / "pypy3"
     pypy.touch()
@@ -329,12 +331,12 @@ def test_tcl_tk_libs_queried_with_env(tmp_path: Path, mocker: MockerFixture) -> 
 
 
 def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] | Exception) -> Mock:
-    evaluate = mocker.Mock(side_effect=eval_side_effect)
-    profile = mocker.Mock(return_value=None)
+    evaluate = mocker.Mock(side_effect=eval_side_effect, autospec=True)
+    profile = mocker.Mock(return_value=None, autospec=True)
     interpreter = type(
         "Tk", (), {"__init__": lambda self, **_: self.readprofile("Tk", "Tk"), "readprofile": profile, "eval": evaluate}
     )
-    module = mocker.MagicMock(TclError=_TclError, Tk=interpreter)
+    module = mocker.MagicMock(TclError=_TclError, Tk=interpreter, autospec=True)
     module.Tcl.side_effect = lambda: interpreter(useTk=False)
     mocker.patch.dict(sys.modules, {"tkinter": module})
     return profile
@@ -359,7 +361,7 @@ def test_tk_lib_resolved_without_loading_tk(tmp_path: Path, mocker: MockerFixtur
         raise AssertionError
 
     _fake_tkinter(mocker, evaluate)
-    mocker.patch.dict(sys.modules, {"_tkinter": mocker.MagicMock(TK_VERSION="8.6")})
+    mocker.patch.dict(sys.modules, {"_tkinter": mocker.MagicMock(TK_VERSION="8.6", autospec=True)})
     mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tcl_dir)})
 
     info = PythonInfo()
@@ -377,7 +379,9 @@ def test_tcl_tk_libs_none_on_tcl_error(tmp_path: Path, mocker: MockerFixture) ->
 def test_tcl_tk_libs_skip_tk_profile(tmp_path: Path, mocker: MockerFixture) -> None:
     profile = _fake_tkinter(mocker, {"info library": "/tcl-lib"}.__getitem__)
     profile.side_effect = AssertionError("Tk profile loaded")
-    mocker.patch("python_discovery._py_info_collect.PythonInfoCollector._resolve_tk_lib", return_value=None)
+    mocker.patch(
+        "python_discovery._py_info_collect.PythonInfoCollector._resolve_tk_lib", return_value=None, autospec=True
+    )
     mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tmp_path)})
 
     info = PythonInfo()
@@ -388,6 +392,6 @@ def test_tcl_tk_libs_skip_tk_profile(tmp_path: Path, mocker: MockerFixture) -> N
 
 def test_system_stdlib_empty_when_scheme_lacks_path(mocker: MockerFixture) -> None:
     names = tuple(name for name in sysconfig.get_path_names() if name not in {"stdlib", "platstdlib"})
-    mocker.patch.object(sysconfig, "get_path_names", return_value=names)
+    mocker.patch.object(sysconfig, "get_path_names", return_value=names, autospec=True)
     info = PythonInfo()
     assert (info.system_stdlib, info.system_stdlib_platform) == ("", "")

@@ -147,7 +147,7 @@ def _populate_pyinfo_cache(monkeypatch: pytest.MonkeyPatch) -> None:
 def _mock_pyinfo(major: int, minor: int, arch: int, exe: str, threaded: bool) -> MagicMock:
     from python_discovery._py_info import VersionInfo
 
-    info = MagicMock(base_prefix=str(Path(exe).parent))
+    info = MagicMock(base_prefix=str(Path(exe).parent), autospec=True)
     info.executable = info.original_executable = info.system_executable = exe
     info.implementation = "CPython"
     info.architecture = arch

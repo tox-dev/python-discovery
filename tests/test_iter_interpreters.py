@@ -44,7 +44,7 @@ def uv_probed(
 ) -> Callable[[str | None], list[str]]:
     # Stub out the interrogation subprocess, so a run reports the executables discovery reached for.
     monkeypatch.setenv("PATH", "")
-    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
 
     def _probed(key: str | None) -> list[str]:
         list(iter_interpreters(key))
@@ -137,7 +137,7 @@ def test_iter_interpreters_no_key_probes_variant_builds_on_path(
     exe.parent.mkdir()
     exe.touch()
     monkeypatch.setenv("PATH", str(exe.parent))
-    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
 
     list(iter_interpreters())
 
@@ -161,7 +161,7 @@ def test_iter_interpreters_skips_path_directories(
     executable = bin_dir / f"python3.98{'.exe' if IS_WIN else ''}"
     executable.touch()
     monkeypatch.setenv("PATH", str(bin_dir))
-    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
 
     list(iter_interpreters())
 
@@ -207,6 +207,7 @@ def test_iter_interpreters_skips_none_from_propose(
     mocker.patch(
         "python_discovery._discovery.propose_interpreters",
         return_value=iter([(None, True), (real_info, True)]),
+        autospec=True,
     )
     results = list(iter_interpreters(cache=session_cache))
     assert results == [real_info]
@@ -220,6 +221,7 @@ def test_iter_interpreters_skips_when_no_executable(
     mocker.patch(
         "python_discovery._discovery.propose_interpreters",
         return_value=iter([(bogus, True)]),
+        autospec=True,
     )
     assert list(iter_interpreters(cache=session_cache)) == []
 
@@ -238,7 +240,7 @@ def test_iter_interpreters_uv_yields_when_interrogation_succeeds(
     fake_info = mocker.MagicMock(spec=PythonInfo, system_executable=str(uv_dir / "fake-unique" / "python"))
     fake_info.executable = fake_info.system_executable
     fake_info.satisfies.return_value = True
-    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=fake_info)
+    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=fake_info, autospec=True)
 
     assert fake_info in list(iter_interpreters(cache=session_cache))
 
@@ -294,7 +296,9 @@ def test_iter_interpreters_uv_layout(
     for link_rel, target_rel in symlinks:
         Path(str(uv_dir / link_rel)).symlink_to(uv_dir / target_rel)
 
-    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    mock_from_exe = mocker.patch(
+        "python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True
+    )
     list(iter_interpreters(cache=session_cache))
 
     interrogated_real = {os.path.realpath(call.args[0]) for call in mock_from_exe.call_args_list}
@@ -506,7 +510,7 @@ def uv_junction(uv_dir: Path, mocker: MockerFixture) -> Callable[[str, str], Non
         else:  # pragma: win32 no cover
             # stand in for the junction with a symlink that does not report as one
             (uv_dir / link).symlink_to(uv_dir / target)
-            mocker.patch.object(Path, "is_symlink", return_value=False)
+            mocker.patch.object(Path, "is_symlink", return_value=False, autospec=True)
 
     return _junction
 
@@ -523,6 +527,7 @@ def test_iter_interpreters_uv_probes_one_executable_per_install(
         return_value=mocker.create_autospec(
             PythonInfo, instance=True, system_executable=executable, executable=executable
         ),
+        autospec=True,
     )
 
     list(iter_interpreters("graalpy3.11"))

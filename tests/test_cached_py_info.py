@@ -61,8 +61,8 @@ def test_resolve_py_info_script_file_exists() -> None:
 
 
 def test_resolve_py_info_script_fallback_to_pkgutil(mocker: MockerFixture) -> None:
-    mocker.patch("python_discovery._cached_py_info.Path.is_file", return_value=False)
-    mocker.patch("pkgutil.get_data", return_value=b"# mock script")
+    mocker.patch("python_discovery._cached_py_info.Path.is_file", return_value=False, autospec=True)
+    mocker.patch("pkgutil.get_data", return_value=b"# mock script", autospec=True)
     with _resolve_py_info_script() as script:
         assert script.exists()
         content = script.read_text(encoding="utf-8")
@@ -73,8 +73,8 @@ def test_resolve_py_info_script_fallback_to_pkgutil(mocker: MockerFixture) -> No
 
 
 def test_resolve_py_info_script_pkgutil_returns_none(mocker: MockerFixture) -> None:
-    mocker.patch("python_discovery._cached_py_info.Path.is_file", return_value=False)
-    mocker.patch("pkgutil.get_data", return_value=None)
+    mocker.patch("python_discovery._cached_py_info.Path.is_file", return_value=False, autospec=True)
+    mocker.patch("pkgutil.get_data", return_value=None, autospec=True)
     with pytest.raises(FileNotFoundError, match="cannot locate"), _resolve_py_info_script():
         pass  # pragma: no cover, the cache file is absent on this path
 
@@ -94,7 +94,7 @@ def test_run_subprocess_bad_exe() -> None:
 
 
 def test_run_subprocess_invalid_json(mocker: MockerFixture) -> None:
-    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process("not json", "", 0))
+    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process("not json", "", 0), autospec=True)
     failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
     assert failure is not None
     assert result is None
@@ -127,8 +127,11 @@ def test_from_exe_rejects_wrong_shape_json(tmp_path: Path, mocker: MockerFixture
     mocker.patch(
         "python_discovery._cached_py_info.Popen",
         side_effect=[_mock_process(wrapped, "", 0), _mock_process(wrapped, "", 0)],
+        autospec=True,
     )
-    mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start_cookie, end_cookie] * 2)
+    mocker.patch(
+        "python_discovery._cached_py_info.gen_cookie", side_effect=[start_cookie, end_cookie] * 2, autospec=True
+    )
     assert PythonInfo.from_exe(str(tmp_path / "python"), raise_on_error=False, ignore_cache=True) is None
 
 
@@ -137,6 +140,7 @@ def test_from_exe_rejects_json_without_cookies(tmp_path: Path, mocker: MockerFix
     mocker.patch(
         "python_discovery._cached_py_info.Popen",
         side_effect=[_mock_process(output, "", 0), _mock_process(output, "", 0)],
+        autospec=True,
     )
     assert PythonInfo.from_exe(str(tmp_path / "python"), raise_on_error=False, ignore_cache=True) is None
 
@@ -146,10 +150,10 @@ def test_run_subprocess_with_cookies(mocker: MockerFixture) -> None:
     end_cookie = "b" * 32
     out = f"pre{start_cookie[::-1]}{json.dumps(PythonInfo().to_dict())}{end_cookie[::-1]}post"
 
-    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process(out, "", 0))
-    mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start_cookie, end_cookie])
+    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process(out, "", 0), autospec=True)
+    mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start_cookie, end_cookie], autospec=True)
 
-    with patch("sys.stdout") as mock_stdout:
+    with patch("sys.stdout", autospec=True) as mock_stdout:
         failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
 
     assert failure is None
@@ -158,7 +162,9 @@ def test_run_subprocess_with_cookies(mocker: MockerFixture) -> None:
 
 
 def test_run_subprocess_timeout(mocker: MockerFixture) -> None:
-    mocker.patch("python_discovery._cached_py_info._collect_query_output", return_value=("", "timed out", -1))
+    mocker.patch(
+        "python_discovery._cached_py_info._collect_query_output", return_value=("", "timed out", -1), autospec=True
+    )
     failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
     assert failure is not None
     assert "timed out" in str(failure)
@@ -166,7 +172,11 @@ def test_run_subprocess_timeout(mocker: MockerFixture) -> None:
 
 
 def test_run_subprocess_nonzero_exit(mocker: MockerFixture) -> None:
-    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process("some output", "some error", 1))
+    mocker.patch(
+        "python_discovery._cached_py_info.Popen",
+        return_value=_mock_process("some output", "some error", 1),
+        autospec=True,
+    )
     failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
     assert failure is not None
     assert "failed to query" in str(failure)
@@ -206,7 +216,7 @@ def test_collect_query_output_normalizes_trailing_newline() -> None:
 
 
 def test_collect_query_output_decodes_split_utf8() -> None:
-    with patch("python_discovery._cached_py_info.os.read", side_effect=lambda fd, _: read(fd, 1)):
+    with patch("python_discovery._cached_py_info.os.read", side_effect=lambda fd, _: read(fd, 1), autospec=True):
         assert _collect_query_output(_mock_process("é", "", 0), 1) == ("é", "", 0)
 
 
@@ -241,8 +251,8 @@ def test_collect_query_output_timeout_reaps_readers() -> None:
 def test_collect_query_output_timeout_after_eof(mocker: MockerFixture) -> None:
     process = Popen([sys.executable, "-c", ""], stdin=DEVNULL, stdout=PIPE, stderr=PIPE, text=True)
     process.wait(timeout=5)
-    mocker.patch.object(process, "wait", side_effect=[TimeoutExpired("python", 0), 0])
-    mocker.patch.object(process, "kill")
+    mocker.patch.object(process, "wait", side_effect=[TimeoutExpired("python", 0), 0], autospec=True)
+    mocker.patch.object(process, "kill", autospec=True)
 
     assert _collect_query_output(process, 1) == ("", "timed out", -1)
     process.kill.assert_called_once()
@@ -251,8 +261,8 @@ def test_collect_query_output_timeout_after_eof(mocker: MockerFixture) -> None:
 def test_collect_query_output_read_error(mocker: MockerFixture) -> None:
     process = Popen([sys.executable, "-c", ""], stdin=DEVNULL, stdout=PIPE, stderr=PIPE, text=True)
     process.wait(timeout=5)
-    mocker.patch("python_discovery._cached_py_info.os.read", side_effect=OSError("broken pipe"))
-    mocker.patch.object(process, "kill")
+    mocker.patch("python_discovery._cached_py_info.os.read", side_effect=OSError("broken pipe"), autospec=True)
+    mocker.patch.object(process, "kill", autospec=True)
 
     with pytest.raises(OSError, match="broken pipe"):
         _collect_query_output(process, 1)
@@ -267,7 +277,7 @@ def test_collect_query_output_read_error(mocker: MockerFixture) -> None:
     ],
 )
 def test_collect_query_output_requires_pipes(stdout: StringIO | None, stderr: StringIO | None) -> None:
-    process = MagicMock(stdout=stdout, stderr=stderr)
+    process = MagicMock(stdout=stdout, stderr=stderr, autospec=True)
 
     with pytest.raises(ValueError, match="query output pipes are required"):
         _collect_query_output(process, 1)
@@ -290,7 +300,7 @@ def test_load_cached_py_info_system_exe_missing(mocker: MockerFixture) -> None:
     store = MagicMock()
     content = PythonInfo().to_dict()
     content["system_executable"] = "/nonexistent/python"
-    mocker.patch("os.path.exists", return_value=False)
+    mocker.patch("os.path.exists", return_value=False, autospec=True)
     result = _load_cached_py_info(PythonInfo, store, content)
     assert result is None
     store.remove.assert_called_once()
@@ -342,6 +352,7 @@ def test_from_exe_retry_on_first_failure(
     mocker.patch(
         "python_discovery._cached_py_info._run_subprocess",
         side_effect=[(error, None), (None, PythonInfo())],
+        autospec=True,
     )
     result = _get_via_file_cache(PythonInfo, cache, Path("/fake"), "/fake", dict(os.environ))
     assert isinstance(result, PythonInfo)
@@ -351,7 +362,9 @@ def test_from_exe_retry_on_first_failure(
 def test_get_via_file_cache_hash_oserror(tmp_path: Path, mocker: MockerFixture) -> None:
     cache = DiskCache(tmp_path)
     _script_hash.cache_clear()
-    mocker.patch("python_discovery._cached_py_info.Path.read_bytes", side_effect=OSError("permission denied"))
+    mocker.patch(
+        "python_discovery._cached_py_info.Path.read_bytes", side_effect=OSError("permission denied"), autospec=True
+    )
     result = _get_via_file_cache(PythonInfo, cache, Path(sys.executable), sys.executable, dict(os.environ))
     assert isinstance(result, PythonInfo)
 
@@ -361,6 +374,7 @@ def test_get_via_file_cache_py_info_none(tmp_path: Path, mocker: MockerFixture) 
     mocker.patch(
         "python_discovery._cached_py_info._run_subprocess",
         return_value=(None, None),
+        autospec=True,
     )
     result = _get_via_file_cache(PythonInfo, cache, Path("/fake"), "/fake", dict(os.environ))
     assert isinstance(result, RuntimeError)
@@ -530,11 +544,11 @@ _SELECTED: Final[str] = r"C:\Python311\python.exe"
 @pytest.fixture
 def popen(mocker: MockerFixture) -> MagicMock:
     start, end = "a" * 32, "b" * 32
-    mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start, end])
+    mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start, end], autospec=True)
     info = PythonInfo()
     info.executable = _SELECTED
     process = _mock_process(f"{start[::-1]}{info.to_json()}{end[::-1]}", "", 0)
-    return mocker.patch("python_discovery._cached_py_info.Popen", return_value=process)
+    return mocker.patch("python_discovery._cached_py_info.Popen", return_value=process, autospec=True)
 
 
 def test_executable_args_precede_query_script(popen: MagicMock) -> None:
@@ -560,6 +574,7 @@ def test_executable_args_disk_entry_not_reused_without_args(tmp_path: Path, mock
     query = mocker.patch(
         "python_discovery._cached_py_info._run_subprocess",
         side_effect=[(None, with_args), (None, without_args)],
+        autospec=True,
     )
     cache, path, env = DiskCache(tmp_path), Path(sys.executable), dict(os.environ)
     _get_via_file_cache(PythonInfo, cache, path, sys.executable, env, executable_args=_ARGS)
@@ -573,7 +588,9 @@ def test_executable_args_disk_entry_not_reused_without_args(tmp_path: Path, mock
 def test_executable_args_memory_cache_keyed_by_args(tmp_path: Path, mocker: MockerFixture) -> None:
     mocker.patch.dict("python_discovery._cached_py_info._CACHE", clear=True)
     first, second = PythonInfo(), PythonInfo()
-    query = mocker.patch("python_discovery._cached_py_info._get_via_file_cache", side_effect=[first, second])
+    query = mocker.patch(
+        "python_discovery._cached_py_info._get_via_file_cache", side_effect=[first, second], autospec=True
+    )
     cache, env = DiskCache(tmp_path), dict(os.environ)
 
     results = [
