@@ -90,14 +90,7 @@ def propose_interpreters(
     *,
     all_implementations: bool = False,
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
-    # Yield ``(interpreter, impl_must_match)`` candidates for *spec*.
-    #
-    # :param spec: the parsed interpreter specification to match against.
-    # :param try_first_with: executable paths to probe before the standard search.
-    # :param cache: interpreter metadata cache; when ``None`` results are not cached.
-    # :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
-    # :param all_implementations: when ``True`` and *spec* does not constrain the implementation, also surface
-    #     non-CPython binaries on ``PATH`` and under UV's install directory. Used by enumeration APIs.
+    # enumeration APIs pass all_implementations to also surface non-CPython binaries on PATH and under UV's install dir
     env = os.environ if env is None else env
     tested_exes: set[str] = set()
     if spec.is_abs and spec.path is not None:
