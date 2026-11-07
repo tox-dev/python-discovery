@@ -57,8 +57,7 @@ class PythonInfoCollector:
 
         self.version_info = VersionInfo(*sys.version_info)
         # same as stdlib platform.architecture to account for pointer size != max int
-        pointer_bytes = 4
-        self.architecture = 32 if struct.calcsize("P") == pointer_bytes else 64
+        self.architecture = 32 if struct.calcsize("P") < struct.calcsize("Q") else 64
         self.sysconfig_platform = sysconfig.get_platform()
         self.version_nodot = sysconfig.get_config_var("py_version_nodot")
         self.version = sys.version

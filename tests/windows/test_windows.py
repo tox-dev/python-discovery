@@ -56,7 +56,7 @@ def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
     ],
 )
 def test_propose_interpreters(string_spec: str, expected_exe: str) -> None:
-    from python_discovery._windows import propose_interpreters
+    from python_discovery._windows._propose import propose_interpreters
 
     interpreter = next(propose_interpreters(spec=PythonSpec.from_string_spec(string_spec), cache=None, env={}))
     assert interpreter.executable == expected_exe

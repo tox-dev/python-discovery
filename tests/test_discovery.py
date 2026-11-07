@@ -7,7 +7,7 @@ import sys
 from copy import deepcopy
 from pathlib import Path
 from subprocess import check_call, check_output
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, Protocol
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -810,8 +810,12 @@ def uv_plant() -> Callable[[Path], str]:
     return _plant
 
 
+class UvProbe(Protocol):
+    def __call__(self, **kwargs: object) -> list[str]: ...
+
+
 @pytest.fixture
-def uv_probed(mocker: MockerFixture) -> Callable[..., list[str]]:
+def uv_probed(mocker: MockerFixture) -> UvProbe:
     # Run a discovery with the interrogation subprocess stubbed out, reporting the executables it reached for.
     from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
 
@@ -827,7 +831,7 @@ def test_discovery_uv_store_install_dir_overrides_the_platform_default(
     uv_home: Path,
     monkeypatch: pytest.MonkeyPatch,
     uv_plant: Callable[[Path], str],
-    uv_probed: Callable[..., list[str]],
+    uv_probed: UvProbe,
     expand_user: bool,
 ) -> None:
     monkeypatch.setenv("UV_PYTHON_INSTALL_DIR", "~/store" if expand_user else str(uv_home / "store"))
@@ -858,7 +862,7 @@ def test_discovery_uv_store_install_dir_overrides_the_platform_default(
 def test_discovery_uv_store_roots_per_platform(
     monkeypatch: pytest.MonkeyPatch,
     uv_plant: Callable[[Path], str],
-    uv_probed: Callable[..., list[str]],
+    uv_probed: UvProbe,
     platform: str,
     extra_env: dict[str, str],
     expected: list[str],
@@ -882,7 +886,7 @@ def test_discovery_uv_store_invalid_appdata_uses_profile_default(
     uv_home: Path,
     monkeypatch: pytest.MonkeyPatch,
     uv_plant: Callable[[Path], str],
-    uv_probed: Callable[..., list[str]],
+    uv_probed: UvProbe,
     appdata: str,
     store: str,
 ) -> None:
@@ -908,7 +912,7 @@ def test_discovery_uv_store_skips_relative_profile(
     uv_home: Path,
     monkeypatch: pytest.MonkeyPatch,
     uv_plant: Callable[[Path], str],
-    uv_probed: Callable[..., list[str]],
+    uv_probed: UvProbe,
     platform: str,
     profile_var: str,
     store: str,
@@ -926,7 +930,7 @@ def test_discovery_uv_store_windows_ignores_xdg_data_home(
     uv_home: Path,
     monkeypatch: pytest.MonkeyPatch,
     uv_plant: Callable[[Path], str],
-    uv_probed: Callable[..., list[str]],
+    uv_probed: UvProbe,
 ) -> None:
     monkeypatch.setattr(sys, "platform", "win32")
     monkeypatch.setenv("XDG_DATA_HOME", str(uv_home / "xdg"))
@@ -937,7 +941,7 @@ def test_discovery_uv_store_windows_ignores_xdg_data_home(
 
 
 def test_discovery_uv_store_reads_the_env_argument(
-    uv_home: Path, uv_plant: Callable[[Path], str], uv_probed: Callable[..., list[str]]
+    uv_home: Path, uv_plant: Callable[[Path], str], uv_probed: UvProbe
 ) -> None:
     executable = uv_plant(uv_home / "store")
 
@@ -956,7 +960,7 @@ def test_discovery_uv_store_ignores_process_home_without_mapped_home(
     uv_home: Path,
     monkeypatch: pytest.MonkeyPatch,
     uv_plant: Callable[[Path], str],
-    uv_probed: Callable[..., list[str]],
+    uv_probed: UvProbe,
     platform: str,
     store: str,
 ) -> None:
@@ -978,7 +982,7 @@ def test_discovery_uv_store_uses_mapped_directory_without_home(
     uv_home: Path,
     monkeypatch: pytest.MonkeyPatch,
     uv_plant: Callable[[Path], str],
-    uv_probed: Callable[..., list[str]],
+    uv_probed: UvProbe,
     platform: str,
     variable: str,
     store: str,
@@ -991,7 +995,7 @@ def test_discovery_uv_store_uses_mapped_directory_without_home(
 
 
 @pytest.mark.usefixtures("uv_home")
-def test_discovery_uv_store_missing_root_is_not_an_error(uv_probed: Callable[..., list[str]]) -> None:
+def test_discovery_uv_store_missing_root_is_not_an_error(uv_probed: UvProbe) -> None:
     assert uv_probed() == []
 
 
@@ -999,7 +1003,7 @@ def test_discovery_uv_store_is_searched_after_path(
     uv_home: Path,
     monkeypatch: pytest.MonkeyPatch,
     uv_plant: Callable[[Path], str],
-    uv_probed: Callable[..., list[str]],
+    uv_probed: UvProbe,
 ) -> None:
     store_executable = uv_plant(uv_home / ("AppData/Roaming/uv/data" if IS_WIN else ".local/share/uv") / "python")
     (path_dir := uv_home / "path-bin").mkdir()

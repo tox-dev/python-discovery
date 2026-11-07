@@ -150,7 +150,7 @@ def _propose_current_and_windows(
         yield current_python, True
 
     if IS_WIN:  # pragma: win32 cover
-        from ._windows import propose_interpreters as win_propose  # ruff:ignore[import-outside-top-level] the module is Windows-only and imported only there
+        from ._windows._propose import propose_interpreters as win_propose  # ruff:ignore[import-outside-top-level] the module is Windows-only and imported only there
 
         for interpreter in win_propose(spec, cache, env):
             if _is_new_exe(str(interpreter.executable), tested_exes):

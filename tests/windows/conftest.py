@@ -2,18 +2,42 @@ from __future__ import annotations
 
 import os
 import sys
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from types import ModuleType, TracebackType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 from unittest.mock import MagicMock
 
 import pytest
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
 
     from typing_extensions import Self
+
+
+class _OpenKeyEx(Protocol):
+    def __call__(self, *args: object) -> AbstractContextManager[_Key | int | OSError]: ...
+
+
+def _make_open_key_ex(
+    key_open: dict[int, dict[str, int]], hive_open: dict[tuple[int, str, int, int], int | OSError]
+) -> _OpenKeyEx:
+    @contextmanager
+    def _open_key_ex(*args: object) -> Generator[_Key | int | OSError]:
+        if len(args) == 2:
+            key, value = args
+            result = _Key(key_open[(key.value if isinstance(key, _Key) else key)][value])
+        elif len(args) == 4:
+            result = hive_open[args]
+        else:
+            raise RuntimeError
+        value = result.value if isinstance(result, _Key) else result
+        if isinstance(value, OSError):
+            raise value
+        yield result
+
+    return _open_key_ex
 
 
 @pytest.fixture
@@ -56,10 +80,10 @@ def _create_winreg_mock() -> ModuleType:
 def _load_registry_data(
     winreg: ModuleType,
 ) -> tuple[
-    dict[object, dict[int, object]],
-    dict[object, dict[str, object]],
-    dict[object, dict[str, object]],
-    dict[tuple[object, ...], object],
+    dict[int, list[str | OSError]],
+    dict[int, dict[str, tuple[str, int] | OSError]],
+    dict[int, dict[str, int]],
+    dict[tuple[int, str, int, int], int | OSError],
 ]:
     # Load winreg mock values using the given (possibly mock) winreg module.
     loc: dict[str, object] = {}
@@ -69,7 +93,7 @@ def _load_registry_data(
     return loc["_ENUM_COLLECT"], loc["_VALUE_COLLECT"], loc["_KEY_OPEN"], loc["_HIVE_OPEN"]  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
 
 
-def _make_enum_key(enum_collect: dict[object, dict[int, object]]) -> object:
+def _make_enum_key(enum_collect: dict[int, list[str | OSError]]) -> Callable[[object, int], str]:
     def _enum_key(key: object, at: int) -> str:
         result = enum_collect[(key.value if isinstance(key, _Key) else key)][at]
         if isinstance(result, OSError):
@@ -80,7 +104,7 @@ def _make_enum_key(enum_collect: dict[object, dict[int, object]]) -> object:
 
 
 class _Key:
-    def __init__(self, value: object) -> None:
+    def __init__(self, value: int) -> None:
         self.value = value
 
     def __enter__(self) -> Self:
@@ -92,32 +116,16 @@ class _Key:
         return None
 
 
-def _make_query_value_ex(value_collect: dict[object, dict[str, object]]) -> object:
-    def _query_value_ex(key: object, value_name: str) -> object:
+def _make_query_value_ex(
+    value_collect: dict[int, dict[str, tuple[str, int] | OSError]],
+) -> Callable[[object, str], tuple[str, int]]:
+    def _query_value_ex(key: object, value_name: str) -> tuple[str, int]:
         result = value_collect[(key.value if isinstance(key, _Key) else key)][value_name]
         if isinstance(result, OSError):
             raise result
         return result
 
     return _query_value_ex
-
-
-def _make_open_key_ex(key_open: dict[object, dict[str, object]], hive_open: dict[tuple[object, ...], object]) -> object:
-    @contextmanager
-    def _open_key_ex(*args: object) -> Generator[_Key | object]:
-        if len(args) == 2:
-            key, value = args
-            result = _Key(key_open[(key.value if isinstance(key, _Key) else key)][value])
-        elif len(args) == 4:
-            result = hive_open[args]
-        else:
-            raise RuntimeError
-        value = result.value if isinstance(result, _Key) else result
-        if isinstance(value, OSError):
-            raise value
-        yield result
-
-    return _open_key_ex
 
 
 @pytest.fixture

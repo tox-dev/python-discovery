@@ -4,7 +4,7 @@ import contextlib
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 from uuid import uuid4
 
 import pytest
@@ -28,8 +28,12 @@ def uv_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
+class UvInstall(Protocol):
+    def __call__(self, *relative: str) -> None: ...
+
+
 @pytest.fixture
-def uv_install(uv_dir: Path) -> Callable[..., None]:
+def uv_install(uv_dir: Path) -> UvInstall:
     def _install(*relative: str) -> None:
         for entry in relative:
             (path := uv_dir / entry).parent.mkdir(parents=True, exist_ok=True)
@@ -458,7 +462,7 @@ def test_iter_interpreters_uv_layout(
     ],
 )
 def test_iter_interpreters_uv_probe_order(
-    uv_install: Callable[..., None],
+    uv_install: UvInstall,
     uv_probed: Callable[[str | None], list[str]],
     planted: tuple[str, ...],
     key: str | None,
@@ -470,7 +474,7 @@ def test_iter_interpreters_uv_probe_order(
 
 
 def test_iter_interpreters_uv_minor_version_link_loses_to_its_target(
-    uv_dir: Path, uv_install: Callable[..., None], uv_probed: Callable[[str | None], list[str]]
+    uv_dir: Path, uv_install: UvInstall, uv_probed: Callable[[str | None], list[str]]
 ) -> None:
     # uv links `cpython-3.15` at the concrete install, and repoints it on the next patch release.
     uv_install("cpython-3.15.0b3-macos-aarch64-none/bin/python")
@@ -488,7 +492,7 @@ def test_iter_interpreters_uv_minor_version_link_loses_to_its_target(
     ],
 )
 def test_iter_interpreters_uv_minor_version_junction_loses_to_its_target(
-    uv_install: Callable[..., None],
+    uv_install: UvInstall,
     uv_probed: Callable[[str | None], list[str]],
     uv_junction: Callable[[str, str], None],
     concrete: str,
@@ -516,7 +520,7 @@ def uv_junction(uv_dir: Path, mocker: MockerFixture) -> Callable[[str, str], Non
 
 
 def test_iter_interpreters_uv_probes_one_executable_per_install(
-    uv_dir: Path, uv_install: Callable[..., None], monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+    uv_dir: Path, uv_install: UvInstall, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
     # GraalPy ships bin/python as a copy of bin/graalpy, so the realpath dedup alone would spawn it twice.
     monkeypatch.setenv("PATH", "")

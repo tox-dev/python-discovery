@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-from importlib.metadata import version
-
+from ._about import __version__
 from ._cache import ContentStore, DiskCache, PyInfoCache
 from ._discovery import get_interpreter, iter_interpreters
 from ._py_info import KNOWN_ARCHITECTURES, MarkerEnvironment, PythonInfo, normalize_isa
 from ._py_spec import KNOWN_IMPLEMENTATIONS, PythonSpec
 from ._specifier import SimpleSpecifier, SimpleSpecifierSet, SimpleVersion
-
-#: the installed distribution version
-__version__ = version("python-discovery")
 
 __all__ = [
     "KNOWN_ARCHITECTURES",

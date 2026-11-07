@@ -44,10 +44,6 @@ InvalidSpecifier = ValueError
 InvalidVersion = ValueError
 
 
-def _int_or_none(val: str | None) -> int | None:
-    return None if val is None else int(val)
-
-
 def _parse_version_parts(version: str) -> tuple[int | None, int | None, int | None]:
     max_version_parts = 3
     single_digit_max = 9
@@ -96,7 +92,7 @@ def _spec_from_match(
         string_spec,
         impl,
         *release,
-        _int_or_none(match["arch"]),
+        None if (arch := match["arch"]) is None else int(arch),
         None,
         free_threaded=threaded,
         machine=None if (machine := match["machine"]) is None else normalize_isa(machine),
