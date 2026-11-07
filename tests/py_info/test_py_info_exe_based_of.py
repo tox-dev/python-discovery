@@ -40,9 +40,15 @@ _BASE: Final[tuple[str, ...]] = _discover_base_folders()
 @pytest.mark.skipif(not _fs_supports_symlink(), reason="symlink is not supported")
 @pytest.mark.parametrize("suffix", sorted({".exe", ""} & set(EXTENSIONS) if IS_WIN else [""]))
 @pytest.mark.parametrize("into", _BASE)
-@pytest.mark.parametrize("arch", [_CURRENT.architecture, ""])
+@pytest.mark.parametrize(
+    "arch",
+    [pytest.param(_CURRENT.architecture, id="current"), pytest.param("", id="empty")],
+)
 @pytest.mark.parametrize("version", [".".join(str(i) for i in _CURRENT.version_info[0:i]) for i in range(3, 0, -1)])
-@pytest.mark.parametrize("impl", [_CURRENT.implementation, "python"])
+@pytest.mark.parametrize(
+    "impl",
+    [pytest.param(_CURRENT.implementation, id="current"), pytest.param("python", id="python")],
+)
 def test_discover_ok(
     tmp_path: Path,
     suffix: str,

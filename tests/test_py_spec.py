@@ -115,7 +115,11 @@ def test_spec_satisfies_free_threaded() -> None:
 
 @pytest.mark.parametrize(
     ("req", "spec"),
-    [("py", "python"), ("jython", "jython"), ("CPython", "cpython")],
+    [
+        pytest.param("py", "python", id="py"),
+        pytest.param("jython", "jython", id="jython"),
+        pytest.param("CPython", "cpython", id="CPython"),
+    ],
 )
 def test_spec_satisfies_implementation_ok(req: str, spec: str) -> None:
     spec_1 = PythonSpec.from_string_spec(req)
@@ -190,10 +194,10 @@ def test_relative_spec(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        (">=3.12", ">=3.12"),
-        ("python>=3.12", ">=3.12"),
-        ("cpython!=3.11.*", "!=3.11.*"),
-        ("<=3.13,>=3.12", "<=3.13,>=3.12"),
+        pytest.param(">=3.12", ">=3.12", id=">=3.12"),
+        pytest.param("python>=3.12", ">=3.12", id="python>=3.12"),
+        pytest.param("cpython!=3.11.*", "!=3.11.*", id="cpython!=3.11.*"),
+        pytest.param("<=3.13,>=3.12", "<=3.13,>=3.12", id="<=3.13,>=3.12"),
     ],
 )
 def test_specifier_parsing(text: str, expected: str) -> None:
@@ -328,7 +332,10 @@ def test_spec_repr_machine(spec_str: str, in_repr: str) -> None:
     assert in_repr in repr(PythonSpec.from_string_spec(spec_str))
 
 
-@pytest.mark.parametrize(("left", "right"), [("graalpy", "graalvm"), ("graalvm", "graalpy")])
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [pytest.param("graalpy", "graalvm", id="graalpy"), pytest.param("graalvm", "graalpy", id="graalvm")],
+)
 def test_spec_satisfies_graalpy_implementation_aliases(left: str, right: str) -> None:
     spec_1 = PythonSpec.from_string_spec(left)
     spec_2 = PythonSpec.from_string_spec(right)

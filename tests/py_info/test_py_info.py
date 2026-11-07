@@ -169,29 +169,32 @@ class PyInfoMock(NamedTuple):
 @pytest.mark.parametrize(
     ("target", "position", "discovered"),
     [
-        (
+        pytest.param(
             PyInfoMock("CPython", 64, VersionInfo(3, 6, 8, "final", 0)),
             0,
             [
                 PyInfoMock("CPython", 64, VersionInfo(3, 6, 9, "final", 0)),
                 PyInfoMock("PyPy", 64, VersionInfo(3, 6, 8, "final", 0)),
             ],
+            id="pypy-candidate-3.6.8",
         ),
-        (
+        pytest.param(
             PyInfoMock("CPython", 64, VersionInfo(3, 6, 8, "final", 0)),
             0,
             [
                 PyInfoMock("CPython", 64, VersionInfo(3, 6, 9, "final", 0)),
                 PyInfoMock("CPython", 32, VersionInfo(3, 6, 9, "final", 0)),
             ],
+            id="cpython-32bit-candidate-3.6.9",
         ),
-        (
+        pytest.param(
             PyInfoMock("CPython", 64, VersionInfo(3, 8, 1, "final", 0)),
             0,
             [
                 PyInfoMock("CPython", 32, VersionInfo(2, 7, 12, "rc", 2)),
                 PyInfoMock("PyPy", 64, VersionInfo(3, 8, 1, "final", 0)),
             ],
+            id="pypy-candidate-3.8.1",
         ),
     ],
 )
