@@ -39,7 +39,7 @@ _SPECIFIER_RE: Final[re.Pattern[str]] = re.compile(
 )
 
 
-@dataclass(**DC_KW, frozen=True)
+@dataclass(**DC_KW)
 class SimpleVersion:
     """
     Simple PEP 440-like version parser using only standard library.
@@ -129,7 +129,7 @@ class SimpleVersion:
         return f"SimpleVersion('{self.version_str}')"
 
 
-@dataclass(**DC_KW, frozen=True)
+@dataclass(**DC_KW)
 class SimpleSpecifier:
     """
     Simple PEP 440-like version specifier using only standard library.
@@ -260,7 +260,7 @@ class SimpleSpecifier:
         return candidate.release[:prefix] == self.version.release[:prefix]
 
 
-@dataclass(**DC_KW, frozen=True)
+@dataclass(**DC_KW)
 class SimpleSpecifierSet:
     """
     Simple PEP 440-like specifier set using only standard library.
