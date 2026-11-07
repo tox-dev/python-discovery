@@ -17,27 +17,25 @@ _MODIFIERS: Final[str] = r"""
     $
 """
 _PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"""
+    rf"""
     ^
     (?P<impl>[a-zA-Z]+)?            # implementation (e.g. cpython, pypy)
     (?P<version>[0-9.]+)?           # version (e.g. 3.12, 3.12.1)
-    """
-    + _MODIFIERS,
+    {_MODIFIERS}
+    """,
     re.VERBOSE,
 )
 _SPECIFIER_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"""
+    rf"""
     ^
     (?:(?P<impl>[A-Za-z]+)\s*)?     # optional implementation prefix
     (?P<spec>(?:===|==|~=|!=|<=|>=|<|>).*?)  # PEP 440 version specifier, lazy so the modifiers can follow it
-    """
-    + _MODIFIERS,
+    {_MODIFIERS}
+    """,
     re.VERBOSE,
 )
 
-_MAX_VERSION_PARTS: Final[int] = 3
-_SINGLE_DIGIT_MAX: Final[int] = 9
-
+#: implementation names accepted as a spec prefix
 KNOWN_IMPLEMENTATIONS: Final[tuple[str, ...]] = ("python", "cpython", "pypy", "graalpy")
 
 SpecifierSet = SimpleSpecifierSet
@@ -51,19 +49,21 @@ def _int_or_none(val: str | None) -> int | None:
 
 
 def _parse_version_parts(version: str) -> tuple[int | None, int | None, int | None]:
+    max_version_parts = 3
+    single_digit_max = 9
     versions = tuple(int(i) for i in version.split(".") if i)
     if not versions:
         msg = "version must contain a numeric component"
         raise ValueError(msg)
-    if len(versions) > _MAX_VERSION_PARTS:
+    if len(versions) > max_version_parts:
         msg = "too many version parts"
         raise ValueError(msg)
-    if len(versions) == _MAX_VERSION_PARTS:
+    if len(versions) == max_version_parts:
         return versions[0], versions[1], versions[2]
     if len(versions) == 2:  # ruff:ignore[magic-value-comparison] a two-part version is major.minor
         return versions[0], versions[1], None
     version_data = versions[0]
-    return int(str(version_data)[0]), (int(str(version_data)[1:]) if version_data > _SINGLE_DIGIT_MAX else None), None
+    return int(str(version_data)[0]), (int(str(version_data)[1:]) if version_data > single_digit_max else None), None
 
 
 def _parse_spec_pattern(string_spec: str) -> PythonSpec | None:
@@ -130,11 +130,13 @@ class PythonSpec:
     Contains specification about a Python Interpreter.
 
     :param str_spec: the raw specification string as provided by the caller.
+
     :param implementation: interpreter implementation name (e.g. ``"cpython"``, ``"pypy"``), or ``None`` for any.
     :param major: required major version, or ``None`` for any.
     :param minor: required minor version, or ``None`` for any.
     :param micro: required micro (patch) version, or ``None`` for any.
     :param architecture: required pointer-size bitness (``32`` or ``64``), or ``None`` for any.
+
     :param path: filesystem path to a specific interpreter, or ``None``.
     :param free_threaded: whether a free-threaded build is required, or ``None`` for any.
     :param machine: required ISA (e.g. ``"arm64"``), or ``None`` for any.

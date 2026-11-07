@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Final
 from ._compat import fs_path_id
 from ._py_info import PythonInfo
 from ._py_spec import KNOWN_IMPLEMENTATIONS, PythonSpec
-from ._specifier import DC_KW, SimpleVersion
+from ._specifier import DC_KW, SimpleSpecifier, SimpleVersion
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
@@ -41,6 +41,7 @@ def get_interpreter(
         (``cpython3.12``), or a
         `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
         (``>=3.10``). When a sequence is given each entry is tried in order.
+
     :param try_first_with: executables to probe before the normal discovery search.
     :param cache: interpreter metadata cache; when ``None`` results are not cached.
     :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
@@ -413,25 +414,29 @@ def _uv_version_matches(key: _UvKey, spec: PythonSpec) -> bool:
     # GraalPy keys carry the GraalVM version in older uv releases, so only CPython and PyPy state a Python version
     if key.implementation not in {"cpython", "pypy"}:
         return True
-    if spec.version_specifier is not None:
-        for specifier in spec.version_specifier:
-            if specifier.version is None:
-                return False
-            # Match at the requested precision, as PythonInfo.satisfies does after probing.
-            numeric_version = specifier.version_str
-            for prefix in ("rc", "b", "a"):
-                if prefix in numeric_version:
-                    numeric_version = numeric_version.split(prefix)[0]
-                    break
-            precision = numeric_version.count(".") + 1
-            release = ".".join(str(part) for part in key.version.release[:precision])
-            if key.version.pre_type is not None and (
-                precision == 3 or specifier.version.pre_type is not None  # ruff:ignore[magic-value-comparison] 3 is the precision of a full version tuple
-            ):
-                release = f"{release}{key.version.pre_type}{key.version.pre_num}"
-            if not specifier.contains(release):
-                return False
+    if spec.version_specifier is not None and not all(
+        _uv_specifier_matches(key, specifier) for specifier in spec.version_specifier
+    ):
+        return False
     return all(req is None or our == req for our, req in zip(key.version.release, (spec.major, spec.minor, spec.micro)))
+
+
+def _uv_specifier_matches(key: _UvKey, specifier: SimpleSpecifier) -> bool:
+    if specifier.version is None:
+        return False
+    # Match at the requested precision, as PythonInfo.satisfies does after probing.
+    numeric_version = specifier.version_str
+    for prefix in ("rc", "b", "a"):
+        if prefix in numeric_version:
+            numeric_version = numeric_version.split(prefix)[0]
+            break
+    precision = numeric_version.count(".") + 1
+    release = ".".join(str(part) for part in key.version.release[:precision])
+    if key.version.pre_type is not None and (
+        precision == 3 or specifier.version.pre_type is not None  # ruff:ignore[magic-value-comparison] 3 is the precision of a full version tuple
+    ):
+        release = f"{release}{key.version.pre_type}{key.version.pre_num}"
+    return specifier.contains(release)
 
 
 def _parse_uv_install(path: Path) -> _UvInstall:

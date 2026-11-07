@@ -10,6 +10,7 @@ from ._py_info import KNOWN_ARCHITECTURES, MarkerEnvironment, PythonInfo, normal
 from ._py_spec import KNOWN_IMPLEMENTATIONS, PythonSpec
 from ._specifier import SimpleSpecifier, SimpleSpecifierSet, SimpleVersion
 
+#: the installed distribution version
 __version__ = version("python-discovery")
 
 __all__ = [

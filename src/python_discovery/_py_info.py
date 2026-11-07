@@ -59,7 +59,9 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
     :ivar os: the operating system name, as reported by ``os.name``.
     :ivar free_threaded: whether the interpreter was built free-threaded.
     :ivar debug_build: whether the interpreter was built with ``Py_DEBUG``.
+
     :ivar marker_environment: the PEP 508 marker environment of the interpreter.
+
     :ivar prefix: the ``sys.prefix`` of the interpreter.
     :ivar base_prefix: the ``sys.base_prefix`` of the interpreter.
     :ivar real_prefix: the ``sys.real_prefix`` set by legacy virtualenv, or ``None``.
@@ -69,11 +71,14 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
     :ivar original_executable: the absolute path to the executable, without resolving symlinks.
     :ivar system_executable: the system interpreter behind any virtualenv, or ``None``.
     :ivar has_venv: whether the :mod:`venv` module can be imported.
+
     :ivar path: the ``sys.path`` of the interpreter.
     :ivar file_system_encoding: the filesystem encoding, from ``sys.getfilesystemencoding()``.
     :ivar stdout_encoding: the encoding of ``sys.stdout``, or ``None``.
+
     :ivar sysconfig_scheme: the installation scheme behind ``sysconfig_paths``, or ``None``.
     :ivar sysconfig_paths: the installation paths, keyed by :mod:`sysconfig` path name.
+
     :ivar distutils_install: the distutils installation directories, empty when sysconfig supplies them.
     :ivar sysconfig: the :mod:`sysconfig` build metadata, such as the makefile filename.
     :ivar sysconfig_vars: the :mod:`sysconfig` config variables queried for this interpreter.
@@ -126,7 +131,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
     _cache_exe_discovery: ClassVar[dict[tuple[str, bool, VersionInfo], PythonInfo]] = {}
 
     def __init__(self) -> None:
-        self.__dict__.update(vars(self.from_dict(PythonInfoCollector().to_dict())))
+        self.__dict__.update(self.from_dict(PythonInfoCollector().to_dict()).__dict__)
 
     @classmethod
     def from_dict(cls, data: dict[str, InfoValue]) -> PythonInfo:
@@ -280,8 +285,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
                     _LOGGER.info("%r links back to itself via prefixes", target)
                     target.system_executable = target.executable
                     break
-                for at, (p, t) in enumerate(prefixes.items(), start=1):
-                    _LOGGER.error("%d: prefix=%s, info=%r", at, p, t)
+                for at, (prefix_path, prefix_info) in enumerate(prefixes.items(), start=1):
+                    _LOGGER.error("%d: prefix=%s, info=%r", at, prefix_path, prefix_info)
                 _LOGGER.error("%d: prefix=%s, info=%r", len(prefixes) + 1, prefix, target)
                 msg = "prefixes are causing a circle {}".format("|".join(prefixes.keys()))
                 raise RuntimeError(msg)
@@ -701,6 +706,22 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
 
 
 class MarkerEnvironment(TypedDict):
+    """
+    Environment markers of an interpreter, as defined by PEP 508.
+
+    :ivar implementation_name: the ``implementation_name`` marker.
+    :ivar implementation_version: the ``implementation_version`` marker.
+    :ivar os_name: the ``os_name`` marker.
+    :ivar platform_machine: the ``platform_machine`` marker.
+    :ivar platform_release: the ``platform_release`` marker.
+    :ivar platform_system: the ``platform_system`` marker.
+    :ivar platform_version: the ``platform_version`` marker.
+    :ivar python_full_version: the ``python_full_version`` marker.
+    :ivar platform_python_implementation: the ``platform_python_implementation`` marker.
+    :ivar python_version: the ``python_version`` marker.
+    :ivar sys_platform: the ``sys_platform`` marker.
+    """
+
     implementation_name: str
     implementation_version: str
     os_name: str

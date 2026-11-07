@@ -19,10 +19,10 @@ if TYPE_CHECKING:
 _VERSION_RE: Final[re.Pattern[str]] = re.compile(
     r"""
     ^
-    (\d+)               # major
-    (?:\.(\d+))?        # optional minor
-    (?:\.(\d+))?        # optional micro
-    (?:(a|b|rc)(\d+))?  # optional pre-release suffix
+    (?P<major>\d+)               # major
+    (?:\.(?P<minor>\d+))?        # optional minor
+    (?:\.(?P<micro>\d+))?        # optional micro
+    (?:(?P<pre_type>a|b|rc)(?P<pre_num>\d+))?  # optional pre-release suffix
     $
     """,
     re.VERBOSE,
@@ -30,9 +30,9 @@ _VERSION_RE: Final[re.Pattern[str]] = re.compile(
 _SPECIFIER_RE: Final[re.Pattern[str]] = re.compile(
     r"""
     ^
-    (===|==|~=|!=|<=|>=|<|>)  # operator
+    (?P<op>===|==|~=|!=|<=|>=|<|>)  # operator
     \s*
-    (.+)                       # version string
+    (?P<version>.+)                       # version string
     $
     """,
     re.VERBOSE,
@@ -74,16 +74,16 @@ class SimpleVersion:
         if not (match := _VERSION_RE.match(stripped)):
             msg = f"Invalid version: {version_str}"
             raise ValueError(msg)
-        major = int(match.group(1))
-        minor = int(match.group(2)) if match.group(2) else 0
-        micro = int(match.group(3)) if match.group(3) else 0
+        major = int(match["major"])
+        minor = int(match["minor"]) if match["minor"] else 0
+        micro = int(match["micro"]) if match["micro"] else 0
         return cls(
             version_str=stripped,
             major=major,
             minor=minor,
             micro=micro,
-            pre_type=match.group(4),
-            pre_num=int(match.group(5)) if match.group(5) else None,
+            pre_type=match["pre_type"],
+            pre_num=int(match["pre_num"]) if match["pre_num"] else None,
             release=(major, minor, micro),
         )
 
@@ -162,8 +162,8 @@ class SimpleSpecifier:
         if not (match := _SPECIFIER_RE.match(stripped)):
             msg = f"Invalid specifier: {spec_str}"
             raise ValueError(msg)
-        op = match.group(1)
-        version_str = match.group(2).strip()
+        op = match["op"]
+        version_str = match["version"].strip()
         is_wildcard = version_str.endswith(".*")
         wildcard_precision: int | None = None
         if is_wildcard:

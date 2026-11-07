@@ -14,7 +14,9 @@ UNSUPPORTED_EXIT_CODE = 79  # first value past the sysexits.h range, so no stdli
 UNSUPPORTED_MARKER = "unsupported Python version "
 
 if __name__ == "__main__" and sys.version_info[:2] < MIN_INTERROGATE_VERSION:  # pragma: no cover # needs <3.6
-    sys.stderr.write(UNSUPPORTED_MARKER + ".".join(str(i) for i in sys.version_info[:3]) + "\n" + sys.executable)
+    sys.stderr.write(
+        "{}{}\n{}".format(UNSUPPORTED_MARKER, ".".join(str(i) for i in sys.version_info[:3]), sys.executable)
+    )
     raise SystemExit(UNSUPPORTED_EXIT_CODE)
 
 import json
@@ -29,7 +31,6 @@ from collections import namedtuple
 # ruff:ignore[collections-named-tuple] # typing.NamedTuple class syntax needs annotations, unavailable on 3.6
 VersionInfo = namedtuple("VersionInfo", ["major", "minor", "micro", "releaselevel", "serial"])
 
-_32BIT_POINTER_SIZE = 4
 _CONF_VAR_RE = re.compile(
     r"""
     \{ \w+  }   # sysconfig variable placeholder like {base}
@@ -56,7 +57,8 @@ class PythonInfoCollector:
 
         self.version_info = VersionInfo(*sys.version_info)
         # same as stdlib platform.architecture to account for pointer size != max int
-        self.architecture = 32 if struct.calcsize("P") == _32BIT_POINTER_SIZE else 64
+        pointer_bytes = 4
+        self.architecture = 32 if struct.calcsize("P") == pointer_bytes else 64
         self.sysconfig_platform = sysconfig.get_platform()
         self.version_nodot = sysconfig.get_config_var("py_version_nodot")
         self.version = sys.version
@@ -362,7 +364,7 @@ class PythonInfoCollector:
 
     def to_dict(self):
         # Convert the collected information to a plain dictionary.
-        data = {var: (getattr(self, var) if var != "_creators" else None) for var in vars(self)}
+        data = {var: (getattr(self, var) if var != "_creators" else None) for var in self.__dict__}
         data["version_info"] = self.version_info._asdict()
         return data
 

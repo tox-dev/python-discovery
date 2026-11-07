@@ -20,9 +20,9 @@ def propose_interpreters(
 ) -> Generator[PythonInfo, None, None]:
     existing = list(discover_pythons())
     existing.sort(
-        key=lambda i: (
-            *tuple(-1 if j is None else j for j in i[1:4]),
-            1 if i[0] == "PythonCore" else 0,
+        key=lambda item: (
+            *tuple(-1 if j is None else j for j in item[1:4]),
+            1 if item[0] == "PythonCore" else 0,
         ),
         reverse=True,
     )

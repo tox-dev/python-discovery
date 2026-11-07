@@ -29,9 +29,9 @@ _ARCH_RE: Final[re.Pattern[str]] = re.compile(
 _VERSION_RE: Final[re.Pattern[str]] = re.compile(
     r"""
     ^
-    (\d+)            # major
-    (?:\.(\d+))?     # optional minor
-    (?:\.(\d+))?     # optional micro
+    (?P<major>\d+)            # major
+    (?:\.(?P<minor>\d+))?     # optional minor
+    (?:\.(?P<micro>\d+))?     # optional micro
     $
     """,
     re.VERBOSE,
@@ -187,11 +187,11 @@ def _load_version_data(
 def parse_version(version_str: Any) -> tuple[int | None, int | None, int | None]:  # ruff:ignore[any-type] winreg handles have no importable type on other platforms
     if isinstance(version_str, str):
         if match := _VERSION_RE.match(version_str):
-            g1, g2, g3 = match.groups()
+            major, minor, micro = match["major"], match["minor"], match["micro"]
             return (
-                int(g1) if g1 is not None else None,
-                int(g2) if g2 is not None else None,
-                int(g3) if g3 is not None else None,
+                int(major) if major is not None else None,
+                int(minor) if minor is not None else None,
+                int(micro) if micro is not None else None,
             )
         error = f"invalid format {version_str}"
     else:
