@@ -16,7 +16,7 @@ _MODIFIERS: Final[str] = r"""
     (?:-(?P<machine>[a-zA-Z0-9_.]+))?  # ISA (e.g. arm64, x86_64, i86pc.64bit)
     $
 """
-PATTERN = re.compile(
+_PATTERN = re.compile(
     r"""
     ^
     (?P<impl>[a-zA-Z]+)?            # implementation (e.g. cpython, pypy)
@@ -25,7 +25,7 @@ PATTERN = re.compile(
     + _MODIFIERS,
     re.VERBOSE,
 )
-SPECIFIER_PATTERN = re.compile(
+_SPECIFIER_PATTERN = re.compile(
     r"""
     ^
     (?:(?P<impl>[A-Za-z]+)\s*)?     # optional implementation prefix
@@ -63,13 +63,11 @@ def _parse_version_parts(version: str) -> tuple[int | None, int | None, int | No
     if len(versions) == 2:  # ruff:ignore[magic-value-comparison]
         return versions[0], versions[1], None
     version_data = versions[0]
-    major = int(str(version_data)[0])
-    minor = int(str(version_data)[1:]) if version_data > _SINGLE_DIGIT_MAX else None
-    return major, minor, None
+    return int(str(version_data)[0]), (int(str(version_data)[1:]) if version_data > _SINGLE_DIGIT_MAX else None), None
 
 
 def _parse_spec_pattern(string_spec: str) -> PythonSpec | None:
-    if not (match := re.match(PATTERN, string_spec)):
+    if not (match := re.match(_PATTERN, string_spec)):
         return None
     release, threaded = (None, None, None), None
     if (version := match["version"]) is not None:
@@ -108,7 +106,7 @@ def _spec_from_match(
 
 
 def _parse_specifier(string_spec: str) -> PythonSpec | None:
-    if not (match := SPECIFIER_PATTERN.match(string_spec.strip())):
+    if not (match := _SPECIFIER_PATTERN.match(string_spec.strip())):
         return None
     spec_text = match["spec"].strip()
     version_specifier = SpecifierSet.from_string(spec_text)
@@ -180,6 +178,7 @@ class PythonSpec:
 
         :param string_spec: an interpreter spec — an absolute path, a version string, an implementation prefix,
             or a `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_.
+        :returns:
         :raises ValueError: if the spec starts with a version specifier operator but does not parse as one.
         """
         if pathlib.Path(string_spec).is_absolute():
@@ -190,6 +189,22 @@ class PythonSpec:
             return result
         return cls(string_spec, None, None, None, None, None, string_spec)
 
+    def __repr__(self) -> str:
+        name = type(self).__name__
+        params = (
+            "implementation",
+            "major",
+            "minor",
+            "micro",
+            "architecture",
+            "machine",
+            "path",
+            "free_threaded",
+            "debug",
+            "version_specifier",
+        )
+        return f"{name}({', '.join(f'{k}={getattr(self, k)}' for k in params if getattr(self, k) is not None)})"
+
     def generate_re(self, *, windows: bool, all_implementations: bool = False) -> re.Pattern:
         """
         Generate a regular expression for matching interpreter filenames.
@@ -199,6 +214,7 @@ class PythonSpec:
             filename in :data:`KNOWN_IMPLEMENTATIONS` instead of only ``python``. A free-threaded or debug build the
             spec leaves open also matches its marked name, such as ``python3.13t`` or ``python3.13-dbg``. Used by
             enumeration APIs.
+        :returns:
         """
         version = r"{}(\.{}(\.{})?)?".format(
             *(r"\d+" if v is None else v for v in (self.major, self.minor, self.micro)),
@@ -219,13 +235,41 @@ class PythonSpec:
             flags=re.IGNORECASE,
         )
 
+    def satisfies(self, spec: PythonSpec) -> bool:  # ruff:ignore[too-many-return-statements]
+        """
+        Check if this spec is compatible with the given *spec* (e.g. PEP-514 on Windows).
+
+        :param spec: the requirement to check against.
+        :returns:
+        """
+        if spec.is_abs and self.is_abs and self.path != spec.path:
+            return False
+        if (
+            spec.implementation is not None
+            and self.implementation is not None
+            and spec.implementation.lower() != self.implementation.lower()
+        ):
+            return False
+        if spec.architecture is not None and spec.architecture != self.architecture:
+            return False
+        if spec.machine is not None and self.machine is not None and spec.machine != self.machine:
+            return False
+        if spec.free_threaded is not None and spec.free_threaded != self.free_threaded:
+            return False
+        if spec.version_specifier is not None and not self._check_version_specifier(spec):
+            return False
+        return all(
+            req is None or our is None or our == req
+            for our, req in zip((self.major, self.minor, self.micro), (spec.major, spec.minor, spec.micro))
+        )
+
     @property
     def is_abs(self) -> bool:
         """``True`` if the spec refers to an absolute filesystem path."""
         return self.path is not None and pathlib.Path(self.path).is_absolute()
 
     def _check_version_specifier(self, spec: PythonSpec) -> bool:
-        """Check if version specifier is satisfied."""
+        # Check if version specifier is satisfied.
         components: list[int] = []
         for part in (self.major, self.minor, self.micro):
             if part is None:
@@ -260,55 +304,8 @@ class PythonSpec:
             return item.wildcard_precision
         return re.split(r"a|b|rc", item.version_str, maxsplit=1)[0].count(".") + 1
 
-    def satisfies(self, spec: PythonSpec) -> bool:  # ruff:ignore[too-many-return-statements]
-        """
-        Check if this spec is compatible with the given *spec* (e.g. PEP-514 on Windows).
-
-        :param spec: the requirement to check against.
-        """
-        if spec.is_abs and self.is_abs and self.path != spec.path:
-            return False
-        if (
-            spec.implementation is not None
-            and self.implementation is not None
-            and spec.implementation.lower() != self.implementation.lower()
-        ):
-            return False
-        if spec.architecture is not None and spec.architecture != self.architecture:
-            return False
-        if spec.machine is not None and self.machine is not None and spec.machine != self.machine:
-            return False
-        if spec.free_threaded is not None and spec.free_threaded != self.free_threaded:
-            return False
-        if spec.version_specifier is not None and not self._check_version_specifier(spec):
-            return False
-        return all(
-            req is None or our is None or our == req
-            for our, req in zip((self.major, self.minor, self.micro), (spec.major, spec.minor, spec.micro))
-        )
-
-    def __repr__(self) -> str:
-        name = type(self).__name__
-        params = (
-            "implementation",
-            "major",
-            "minor",
-            "micro",
-            "architecture",
-            "machine",
-            "path",
-            "free_threaded",
-            "debug",
-            "version_specifier",
-        )
-        return f"{name}({', '.join(f'{k}={getattr(self, k)}' for k in params if getattr(self, k) is not None)})"
-
 
 __all__ = [
     "KNOWN_IMPLEMENTATIONS",
-    "InvalidSpecifier",
-    "InvalidVersion",
     "PythonSpec",
-    "SpecifierSet",
-    "Version",
 ]

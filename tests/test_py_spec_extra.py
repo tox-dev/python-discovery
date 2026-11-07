@@ -75,21 +75,18 @@ def test_get_required_precision_normal() -> None:
 
 
 def test_generate_re_no_threaded() -> None:
-    spec = PythonSpec.from_string_spec("python3.12")
-    pat = spec.generate_re(windows=False)
+    pat = PythonSpec.from_string_spec("python3.12").generate_re(windows=False)
     assert pat.fullmatch("python3.12") is not None
 
 
 def test_generate_re_with_threaded() -> None:
-    spec = PythonSpec.from_string_spec("python3.12t")
-    pat = spec.generate_re(windows=False)
+    pat = PythonSpec.from_string_spec("python3.12t").generate_re(windows=False)
     assert pat.fullmatch("python3.12t") is not None
 
 
 @pytest.mark.parametrize("name", ["python3.12-dbg", "python3.12d", "python3.12"])
 def test_generate_re_with_debug(name: str) -> None:
-    spec = PythonSpec.from_string_spec("python3.12-dbg")
-    pat = spec.generate_re(windows=False)
+    pat = PythonSpec.from_string_spec("python3.12-dbg").generate_re(windows=False)
     assert pat.fullmatch(name) is not None
 
 
@@ -106,8 +103,7 @@ def test_generate_re_with_debug(name: str) -> None:
 )
 @pytest.mark.parametrize("windows", [pytest.param(False, id="posix"), pytest.param(True, id="windows")])
 def test_generate_re_all_implementations_matches_variant_names(name: str, windows: bool) -> None:
-    spec = PythonSpec("", None, None, None, None, None, None)
-    pat = spec.generate_re(windows=windows, all_implementations=True)
+    pat = PythonSpec("", None, None, None, None, None, None).generate_re(windows=windows, all_implementations=True)
     assert pat.fullmatch(f"{name}.exe" if windows else name) is not None
 
 
@@ -147,8 +143,7 @@ def test_single_digit_version() -> None:
 
 def test_two_digit_version() -> None:
     spec = PythonSpec.from_string_spec("python312")
-    assert spec.major == 3
-    assert spec.minor == 12
+    assert (spec.major, spec.minor) == (3, 12)
 
 
 def test_single_digit_major_only() -> None:

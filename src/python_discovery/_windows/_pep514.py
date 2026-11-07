@@ -48,7 +48,7 @@ _THREADED_TAG_RE: Final[re.Pattern[str]] = re.compile(
 )
 
 
-def enum_keys(key: Any) -> Generator[str, None, None]:  # ruff:ignore[any-type]
+def _enum_keys(key: Any) -> Generator[str, None, None]:  # ruff:ignore[any-type]
     at = 0
     while True:
         try:
@@ -71,10 +71,10 @@ def discover_pythons() -> Generator[_RegistrySpec, None, None]:
         (winreg.HKEY_LOCAL_MACHINE, "HKEY_LOCAL_MACHINE", r"Software\Python", winreg.KEY_WOW64_64KEY, 64),  # ty: ignore[unresolved-attribute]
         (winreg.HKEY_LOCAL_MACHINE, "HKEY_LOCAL_MACHINE", r"Software\Python", winreg.KEY_WOW64_32KEY, 32),  # ty: ignore[unresolved-attribute]
     ]:
-        yield from process_set(hive, hive_name, key, flags, default_arch)
+        yield from _process_set(hive, hive_name, key, flags, default_arch)
 
 
-def process_set(
+def _process_set(
     hive: int,
     hive_name: str,
     key: str,
@@ -83,39 +83,36 @@ def process_set(
 ) -> Generator[_RegistrySpec, None, None]:
     try:
         with winreg.OpenKeyEx(hive, key, 0, winreg.KEY_READ | flags) as root_key:  # ty: ignore[unresolved-attribute]
-            for company in enum_keys(root_key):
+            for company in _enum_keys(root_key):
                 if company == "PyLauncher":  # reserved
                     continue
-                yield from process_company(hive_name, company, root_key, default_arch)
+                yield from _process_company(hive_name, company, root_key, default_arch)
     except OSError:
         pass
 
 
-def process_company(
+def _process_company(
     hive_name: str,
     company: str,
     root_key: Any,  # ruff:ignore[any-type]
     default_arch: int,
 ) -> Generator[_RegistrySpec, None, None]:
     with winreg.OpenKeyEx(root_key, company) as company_key:  # ty: ignore[unresolved-attribute]
-        for tag in enum_keys(company_key):
-            spec = process_tag(hive_name, company, company_key, tag, default_arch)
-            if spec is not None:
+        for tag in _enum_keys(company_key):
+            if (spec := _process_tag(hive_name, company, company_key, tag, default_arch)) is not None:
                 yield spec
 
 
-def process_tag(hive_name: str, company: str, company_key: Any, tag: str, default_arch: int) -> _RegistrySpec | None:  # ruff:ignore[any-type]
+def _process_tag(hive_name: str, company: str, company_key: Any, tag: str, default_arch: int) -> _RegistrySpec | None:  # ruff:ignore[any-type]
     with winreg.OpenKeyEx(company_key, tag) as tag_key:  # ty: ignore[unresolved-attribute]
-        version = load_version_data(hive_name, company, tag, tag_key)
-        if version is not None:  # if failed to get version bail
+        if (
+            version := _load_version_data(hive_name, company, tag, tag_key)
+        ) is not None:  # if failed to get version bail
             major, minor, _ = version
-            arch = load_arch_data(hive_name, company, tag, tag_key, default_arch)
-            if arch is not None:
-                exe_data = load_exe(hive_name, company, company_key, tag)
-                if exe_data is not None:
+            if (arch := _load_arch_data(hive_name, company, tag, tag_key, default_arch)) is not None:
+                if (exe_data := load_exe(hive_name, company, company_key, tag)) is not None:
                     exe, args = exe_data
-                    threaded = load_threaded(hive_name, company, tag, tag_key)
-                    return company, major, minor, arch, threaded, exe, args
+                    return company, major, minor, arch, _load_threaded(hive_name, company, tag, tag_key), exe, args
                 return None
             return None
         return None
@@ -128,35 +125,34 @@ def load_exe(hive_name: str, company: str, company_key: Any, tag: str) -> tuple[
             if (exe := _resolve_exe(ip_key, key_path)) is not None and os.path.exists(exe):
                 if (args := get_value(ip_key, "ExecutableArguments")) is None or isinstance(args, str):
                     return exe, args if args and args.strip() else None
-                msg(f"{key_path}/ExecutableArguments", f"expected a string, got {type(args).__name__}")
+                _msg(f"{key_path}/ExecutableArguments", f"expected a string, got {type(args).__name__}")
                 return None
-            msg(key_path, f"could not load exe with value {exe}")
+            _msg(key_path, f"could not load exe with value {exe}")
     except OSError:
-        msg(f"{key_path}/InstallPath", "missing")
+        _msg(f"{key_path}/InstallPath", "missing")
     return None
 
 
 def _resolve_exe(ip_key: Any, key_path: str) -> str | None:  # ruff:ignore[any-type]
     if (exe := get_value(ip_key, "ExecutablePath")) is None:
         if (exe := get_value(ip_key, None)) is None:
-            msg(key_path, "no ExecutablePath or default for it")
+            _msg(key_path, "no ExecutablePath or default for it")
             return None
         if isinstance(exe, str):
             exe = os.path.join(exe, "python.exe")
     if not isinstance(exe, str) or not PureWindowsPath(exe).is_absolute():
-        msg(key_path, f"expected an absolute executable path, got {exe!r}")
+        _msg(key_path, f"expected an absolute executable path, got {exe!r}")
         return None
     return exe
 
 
-def load_arch_data(hive_name: str, company: str, tag: str, tag_key: Any, default_arch: int) -> int | None:  # ruff:ignore[any-type]
-    arch_str = get_value(tag_key, "SysArchitecture")
-    if arch_str is not None:
+def _load_arch_data(hive_name: str, company: str, tag: str, tag_key: Any, default_arch: int) -> int | None:  # ruff:ignore[any-type]
+    if (arch_str := get_value(tag_key, "SysArchitecture")) is not None:
         key_path = f"{hive_name}/{company}/{tag}/SysArchitecture"
         try:
             return parse_arch(arch_str)
         except ValueError as sys_arch:
-            msg(key_path, sys_arch)
+            _msg(key_path, sys_arch)
     return default_arch
 
 
@@ -170,7 +166,7 @@ def parse_arch(arch_str: Any) -> int:  # ruff:ignore[any-type]
     raise ValueError(error)
 
 
-def load_version_data(
+def _load_version_data(
     hive_name: str,
     company: str,
     tag: str,
@@ -184,7 +180,7 @@ def load_version_data(
             try:
                 return parse_version(candidate)
             except ValueError as sys_version:
-                msg(key_path, sys_version)
+                _msg(key_path, sys_version)
     return None
 
 
@@ -203,27 +199,32 @@ def parse_version(version_str: Any) -> tuple[int | None, int | None, int | None]
     raise ValueError(error)
 
 
-def load_threaded(hive_name: str, company: str, tag: str, tag_key: Any) -> bool:  # ruff:ignore[any-type]
-    display_name = get_value(tag_key, "DisplayName")
-    if display_name is not None:
+def _load_threaded(hive_name: str, company: str, tag: str, tag_key: Any) -> bool:  # ruff:ignore[any-type]
+    if (display_name := get_value(tag_key, "DisplayName")) is not None:
         if isinstance(display_name, str):
             if "freethreaded" in display_name.lower():
                 return True
         else:
-            key_path = f"{hive_name}/{company}/{tag}/DisplayName"
-            msg(key_path, f"display name is not string: {display_name!r}")
+            _msg(f"{hive_name}/{company}/{tag}/DisplayName", f"display name is not string: {display_name!r}")
     return bool(_THREADED_TAG_RE.match(tag))
 
 
-def msg(path: str, what: object) -> None:
+def _msg(path: str, what: object) -> None:
     _LOGGER.warning("PEP-514 violation in Windows Registry at %s error: %s", path, what)
 
 
 def _run() -> None:
     basicConfig()
-    interpreters = [repr(spec) for spec in discover_pythons()]
-    sys.stdout.write("\n".join(sorted(interpreters)))
+    sys.stdout.write("\n".join(sorted([repr(spec) for spec in discover_pythons()])))
     sys.stdout.write("\n")
+
+
+__all__ = [
+    "discover_pythons",
+    "load_exe",
+    "parse_arch",
+    "parse_version",
+]
 
 
 if __name__ == "__main__":

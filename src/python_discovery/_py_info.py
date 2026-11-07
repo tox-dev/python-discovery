@@ -45,7 +45,44 @@ EXTENSIONS: Final[list[str]] = _get_path_extensions()
 
 
 class PythonInfo:  # ruff:ignore[too-many-public-methods]
-    """Contains information for a Python interpreter."""
+    """
+    Contains information for a Python interpreter.
+
+    :ivar platform:
+    :ivar implementation:
+    :ivar pypy_version_info:
+    :ivar version_info:
+    :ivar architecture:
+    :ivar sysconfig_platform:
+    :ivar version_nodot:
+    :ivar version:
+    :ivar os:
+    :ivar free_threaded:
+    :ivar debug_build:
+    :ivar marker_environment:
+    :ivar prefix:
+    :ivar base_prefix:
+    :ivar real_prefix:
+    :ivar base_exec_prefix:
+    :ivar exec_prefix:
+    :ivar executable:
+    :ivar original_executable:
+    :ivar system_executable:
+    :ivar has_venv:
+    :ivar path:
+    :ivar file_system_encoding:
+    :ivar stdout_encoding:
+    :ivar sysconfig_scheme:
+    :ivar sysconfig_paths:
+    :ivar distutils_install:
+    :ivar sysconfig:
+    :ivar sysconfig_vars:
+    :ivar tcl_lib:
+    :ivar tk_lib:
+    :ivar system_stdlib:
+    :ivar system_stdlib_platform:
+    :ivar max_size:
+    """
 
     platform: str
     implementation: str
@@ -82,108 +119,184 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
     system_stdlib_platform: str
     max_size: int
 
+    _current_system = None
+
+    _current = None
+
+    _cache_exe_discovery: ClassVar[dict[tuple[str, bool, VersionInfo], PythonInfo]] = {}
+
     def __init__(self) -> None:
         self.__dict__.update(vars(self.from_dict(PythonInfoCollector().to_dict())))
 
-    def install_path(self, key: str) -> str:
+    @classmethod
+    def from_dict(cls, data: dict[str, InfoValue]) -> PythonInfo:
         """
-        Return the relative installation path for a given installation scheme *key*.
+        Reconstruct a :class:`PythonInfo` from a plain dictionary.
 
-        :param key: sysconfig installation scheme key (e.g. ``"scripts"``, ``"purelib"``).
+        :param data: dictionary produced by :meth:`to_dict`.
+        :returns:
+        :raises ValueError:
         """
-        result = self.distutils_install.get(key)
-        if result is None:  # pragma: >=3.11 cover # distutils is empty when "venv" scheme is available
-            # set prefixes to empty => result is relative from cwd
-            prefixes = self.prefix, self.exec_prefix, self.base_prefix, self.base_exec_prefix
-            config_var = {k: "" if v in prefixes else v for k, v in self.sysconfig_vars.items()}
-            result = self.sysconfig_path(key, config_var=config_var).lstrip(os.sep)
+        if missing := PythonInfo.__annotations__.keys() - data.keys() - {"_cache_exe_discovery", "pypy_version_info"}:
+            msg = f"missing interpreter information: {', '.join(sorted(missing))}"
+            raise ValueError(msg)
+        data["version_info"] = VersionInfo(**data["version_info"])  # restore this to a named tuple structure
+        result = cls.__new__(cls)  # skip __init__, data replaces the full state
+        result.__dict__ = data.copy()
         return result
 
-    @property
-    def version_str(self) -> str:
-        """The full version as ``major.minor.micro`` string (e.g. ``3.13.2``)."""
-        return ".".join(str(i) for i in self.version_info[0:3])
-
-    @property
-    def version_release_str(self) -> str:
-        """The release version as ``major.minor`` string (e.g. ``3.13``)."""
-        return ".".join(str(i) for i in self.version_info[0:2])
-
-    @property
-    def python_name(self) -> str:
-        """The python executable name as ``pythonX.Y`` (e.g. ``python3.13``)."""
-        version_info = self.version_info
-        return f"python{version_info.major}.{version_info.minor}"
-
-    @property
-    def is_old_virtualenv(self) -> bool:
-        """``True`` if this interpreter runs inside an old-style virtualenv (has ``real_prefix``)."""
-        return self.real_prefix is not None
-
-    @property
-    def is_venv(self) -> bool:
-        """``True`` if this interpreter runs inside a PEP 405 venv (has ``base_prefix``)."""
-        return self.base_prefix is not None
-
-    def sysconfig_path(self, key: str, config_var: dict[str, str | int | None] | None = None, sep: str = os.sep) -> str:
+    @classmethod
+    def current(cls, cache: PyInfoCache | None = None) -> PythonInfo:
         """
-        Return the sysconfig install path for a scheme *key*, optionally substituting config variables.
+        Locate the current host interpreter information.
 
-        :param key: sysconfig path key (e.g. ``"purelib"``, ``"include"``).
-        :param config_var: replacement mapping for sysconfig variables; when ``None`` uses the interpreter's own values.
-        :param sep: path separator to use in the result.
+        :param cache: interpreter metadata cache; when ``None`` results are not cached.
+        :returns:
+        :raises RuntimeError:
         """
-        pattern = self.sysconfig_paths.get(key)
-        if pattern is None:
-            return ""
-        if any(format_spec for _, _, format_spec, _ in Formatter().parse(pattern)):
-            msg = f"sysconfig path {key!r} contains format specifiers"
-            raise ValueError(msg)
-        if config_var is None:
-            config_var = self.sysconfig_vars
-        else:
-            base = self.sysconfig_vars.copy()
-            base.update(config_var)
-            config_var = base
-        return pattern.format(**config_var).replace("/", sep)
+        if cls._current is None:
+            result = cls.from_exe(sys.executable, cache, raise_on_error=True, resolve_to_host=False)
+            if result is None:
+                msg = "failed to query current Python interpreter"
+                raise RuntimeError(msg)
+            cls._current = result
+        return cls._current
 
-    @property
-    def system_include(self) -> str:
-        """The path to the system include directory for C headers."""
-        path = self.sysconfig_path(
-            "include",
-            {
-                k: (self.system_prefix if isinstance(v, str) and v.startswith(self.prefix) else v)
-                for k, v in self.sysconfig_vars.items()
-            },
+    @classmethod
+    def from_exe(  # ruff:ignore[too-many-arguments]
+        cls,
+        exe: str,
+        cache: PyInfoCache | None = None,
+        *,
+        raise_on_error: bool = True,
+        ignore_cache: bool = False,
+        resolve_to_host: bool = True,
+        env: Mapping[str, str] | None = None,
+    ) -> PythonInfo | None:
+        """
+        Get the python information for a given executable path.
+
+        :param exe: path to the Python executable.
+        :param cache: interpreter metadata cache; when ``None`` results are not cached.
+        :param raise_on_error: raise on failure instead of returning ``None``.
+        :param ignore_cache: bypass the cache and re-query the interpreter.
+        :param resolve_to_host: resolve through virtualenv layers to the system interpreter.
+        :param env: environment mapping; defaults to :data:`os.environ`.
+        :returns:
+        """
+        return cls._from_exe_with_args(
+            exe,
+            cache,
+            executable_args=None,
+            raise_on_error=raise_on_error,
+            ignore_cache=ignore_cache,
+            resolve_to_host=resolve_to_host,
+            env=env,
         )
-        # An empty headers path would make the fallback resolve to the existing prefix.
-        if not os.path.exists(path) and (headers := os.path.dirname(self.install_path("headers"))):
-            fallback = os.path.join(self.prefix, headers)
-            if os.path.exists(fallback):
-                path = fallback
-        return path
 
-    @property
-    def system_prefix(self) -> str:
-        """The prefix of the system Python this interpreter is based on."""
-        return self.real_prefix or self.base_prefix or self.prefix
+    @classmethod
+    def _from_exe_with_args(  # ruff:ignore[too-many-arguments]
+        cls,
+        exe: str,
+        cache: PyInfoCache | None = None,
+        *,
+        executable_args: str | None,
+        raise_on_error: bool = True,
+        ignore_cache: bool = False,
+        resolve_to_host: bool = True,
+        env: Mapping[str, str] | None = None,
+    ) -> PythonInfo | None:
+        # Interrogate an executable with optional platform-specific leading arguments.
+        from ._cached_py_info import from_exe  # ruff:ignore[import-outside-top-level]
 
-    @property
-    def system_exec_prefix(self) -> str:
-        """The exec prefix of the system Python this interpreter is based on."""
-        return self.real_prefix or self.base_exec_prefix or self.exec_prefix
+        env = os.environ if env is None else env
+        proposed = from_exe(
+            cls,
+            cache,
+            exe,
+            env=env,
+            raise_on_error=raise_on_error,
+            ignore_cache=ignore_cache,
+            executable_args=executable_args,
+        )
 
-    @property
-    def system_exe(self) -> str:
+        if isinstance(proposed, PythonInfo) and resolve_to_host:
+            try:
+                proposed = proposed.resolve_to_system(cache, proposed, env=env)
+            except Exception as exception:
+                if raise_on_error:
+                    raise
+                _LOGGER.info("ignore %s due cannot resolve system due to %r", proposed.original_executable, exception)
+                proposed = None
+        return proposed
+
+    @classmethod
+    def current_system(cls, cache: PyInfoCache | None = None) -> PythonInfo:
         """
-        The executable of the system Python this interpreter is based on.
+        Locate the current system interpreter information, resolving through any virtualenv layers.
 
-        :attr:`system_executable` stays ``None`` until :meth:`resolve_to_system` walks the prefix chain, so reading it
-        forces every caller to narrow a value discovery has already settled. The fallback here matches what resolution
-        itself writes when a prefix links back to its own interpreter.
+        :param cache: interpreter metadata cache; when ``None`` results are not cached.
+        :returns:
+        :raises RuntimeError:
         """
-        return self.system_executable or self.executable
+        if cls._current_system is None:
+            result = cls.from_exe(sys.executable, cache, raise_on_error=True, resolve_to_host=True)
+            if result is None:
+                msg = "failed to query current system Python interpreter"
+                raise RuntimeError(msg)
+            cls._current_system = result
+        return cls._current_system
+
+    @classmethod
+    def from_json(cls, payload: str) -> PythonInfo:
+        """
+        Deserialize interpreter information from a JSON string.
+
+        :param payload: JSON produced by :meth:`to_json`.
+        :returns:
+        """
+        return cls.from_dict(json.loads(payload).copy())
+
+    @classmethod
+    def resolve_to_system(
+        cls, cache: PyInfoCache | None, target: PythonInfo, *, env: Mapping[str, str] | None = None
+    ) -> PythonInfo:
+        """
+        Walk virtualenv/venv prefix chains to find the underlying system interpreter.
+
+        :param cache: interpreter metadata cache; when ``None`` results are not cached.
+        :param target: the interpreter to resolve.
+        :param env: environment mapping; defaults to :data:`os.environ`.
+        :returns:
+        :raises RuntimeError:
+        """
+        start_executable = target.executable
+        prefixes = OrderedDict()
+        while target.system_executable is None:
+            prefix = target.real_prefix or target.base_prefix or target.prefix
+            prefix_key = normcase(realpath(prefix))
+            if prefix_key in prefixes:
+                if len(prefixes) == 1:
+                    _LOGGER.info("%r links back to itself via prefixes", target)
+                    target.system_executable = target.executable
+                    break
+                for at, (p, t) in enumerate(prefixes.items(), start=1):
+                    _LOGGER.error("%d: prefix=%s, info=%r", at, p, t)
+                _LOGGER.error("%d: prefix=%s, info=%r", len(prefixes) + 1, prefix, target)
+                msg = "prefixes are causing a circle {}".format("|".join(prefixes.keys()))
+                raise RuntimeError(msg)
+            prefixes[prefix_key] = target
+            target = target.discover_exe(cache, prefix=prefix, exact=False, env=env)
+        if (
+            target.executable != target.system_executable
+            and (resolved := cls.from_exe(target.system_executable, cache, env=env)) is not None
+        ):
+            target = resolved
+        if target.executable != start_executable:
+            # the cache hands every lookup of this base the same object, so point a copy at the start executable
+            target = copy.copy(target)
+            target.executable = start_executable
+        return target
 
     def __repr__(self) -> str:
         return "{}({!r})".format(
@@ -220,6 +333,18 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         )
 
     @property
+    def spec(self) -> str:
+        """A specification string identifying this interpreter (e.g. ``CPython3.13.2-64-arm64``)."""
+        return "{}{}{}{}-{}-{}".format(
+            self.implementation,
+            ".".join(str(i) for i in self.version_info),
+            "t" if self.free_threaded else "",
+            "d" if self.debug_build else "",
+            self.architecture,
+            self.machine,
+        )
+
+    @property
     def machine(self) -> str:
         """The instruction set architecture (ISA) derived from :func:`sysconfig.get_platform`."""
         plat = self.sysconfig_platform
@@ -233,16 +358,107 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         return normalize_isa(isa)
 
     @property
-    def spec(self) -> str:
-        """A specification string identifying this interpreter (e.g. ``CPython3.13.2-64-arm64``)."""
-        return "{}{}{}{}-{}-{}".format(
-            self.implementation,
-            ".".join(str(i) for i in self.version_info),
-            "t" if self.free_threaded else "",
-            "d" if self.debug_build else "",
-            self.architecture,
-            self.machine,
+    def version_str(self) -> str:
+        """The full version as ``major.minor.micro`` string (e.g. ``3.13.2``)."""
+        return ".".join(str(i) for i in self.version_info[0:3])
+
+    @property
+    def version_release_str(self) -> str:
+        """The release version as ``major.minor`` string (e.g. ``3.13``)."""
+        return ".".join(str(i) for i in self.version_info[0:2])
+
+    @property
+    def python_name(self) -> str:
+        """The python executable name as ``pythonX.Y`` (e.g. ``python3.13``)."""
+        version_info = self.version_info
+        return f"python{version_info.major}.{version_info.minor}"
+
+    @property
+    def is_old_virtualenv(self) -> bool:
+        """``True`` if this interpreter runs inside an old-style virtualenv (has ``real_prefix``)."""
+        return self.real_prefix is not None
+
+    @property
+    def is_venv(self) -> bool:
+        """``True`` if this interpreter runs inside a PEP 405 venv (has ``base_prefix``)."""
+        return self.base_prefix is not None
+
+    @property
+    def system_include(self) -> str:
+        """The path to the system include directory for C headers."""
+        path = self.sysconfig_path(
+            "include",
+            {
+                k: (self.system_prefix if isinstance(v, str) and v.startswith(self.prefix) else v)
+                for k, v in self.sysconfig_vars.items()
+            },
         )
+        # An empty headers path would make the fallback resolve to the existing prefix.
+        if not os.path.exists(path) and (headers := os.path.dirname(self.install_path("headers"))):
+            fallback = os.path.join(self.prefix, headers)
+            if os.path.exists(fallback):
+                path = fallback
+        return path
+
+    def sysconfig_path(self, key: str, config_var: dict[str, str | int | None] | None = None, sep: str = os.sep) -> str:
+        """
+        Return the sysconfig install path for a scheme *key*, optionally substituting config variables.
+
+        :param key: sysconfig path key (e.g. ``"purelib"``, ``"include"``).
+        :param config_var: replacement mapping for sysconfig variables; when ``None`` uses the interpreter's own values.
+        :param sep: path separator to use in the result.
+        :returns:
+        :raises ValueError:
+        """
+        pattern = self.sysconfig_paths.get(key)
+        if pattern is None:
+            return ""
+        if any(format_spec for _, _, format_spec, _ in Formatter().parse(pattern)):
+            msg = f"sysconfig path {key!r} contains format specifiers"
+            raise ValueError(msg)
+        if config_var is None:
+            config_var = self.sysconfig_vars
+        else:
+            base = self.sysconfig_vars.copy()
+            base.update(config_var)
+            config_var = base
+        return pattern.format(**config_var).replace("/", sep)
+
+    @property
+    def system_prefix(self) -> str:
+        """The prefix of the system Python this interpreter is based on."""
+        return self.real_prefix or self.base_prefix or self.prefix
+
+    def install_path(self, key: str) -> str:
+        """
+        Return the relative installation path for a given installation scheme *key*.
+
+        :param key: sysconfig installation scheme key (e.g. ``"scripts"``, ``"purelib"``).
+        :returns:
+        """
+        result = self.distutils_install.get(key)
+        if result is None:  # pragma: >=3.11 cover # distutils is empty when "venv" scheme is available
+            # set prefixes to empty => result is relative from cwd
+            prefixes = self.prefix, self.exec_prefix, self.base_prefix, self.base_exec_prefix
+            config_var = {k: "" if v in prefixes else v for k, v in self.sysconfig_vars.items()}
+            result = self.sysconfig_path(key, config_var=config_var).lstrip(os.sep)
+        return result
+
+    @property
+    def system_exec_prefix(self) -> str:
+        """The exec prefix of the system Python this interpreter is based on."""
+        return self.real_prefix or self.base_exec_prefix or self.exec_prefix
+
+    @property
+    def system_exe(self) -> str:
+        """
+        The executable of the system Python this interpreter is based on.
+
+        :attr:`system_executable` stays ``None`` until :meth:`resolve_to_system` walks the prefix chain, so reading it
+        forces every caller to narrow a value discovery has already settled. The fallback here matches what resolution
+        itself writes when a prefix links back to its own interpreter.
+        """
+        return self.system_executable or self.executable
 
     @classmethod
     def clear_cache(cls, cache: PyInfoCache) -> None:
@@ -262,6 +478,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
 
         :param spec: the specification to check against.
         :param impl_must_match: when ``True``, the implementation name must match exactly.
+        :returns:
         """
         if spec.path and not self._satisfies_path(spec):
             return False
@@ -321,181 +538,24 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
                 return False
         return True
 
-    _current_system = None
-    _current = None
-
-    @classmethod
-    def current(cls, cache: PyInfoCache | None = None) -> PythonInfo:
-        """
-        Locate the current host interpreter information.
-
-        :param cache: interpreter metadata cache; when ``None`` results are not cached.
-        """
-        if cls._current is None:
-            result = cls.from_exe(sys.executable, cache, raise_on_error=True, resolve_to_host=False)
-            if result is None:
-                msg = "failed to query current Python interpreter"
-                raise RuntimeError(msg)
-            cls._current = result
-        return cls._current
-
-    @classmethod
-    def current_system(cls, cache: PyInfoCache | None = None) -> PythonInfo:
-        """
-        Locate the current system interpreter information, resolving through any virtualenv layers.
-
-        :param cache: interpreter metadata cache; when ``None`` results are not cached.
-        """
-        if cls._current_system is None:
-            result = cls.from_exe(sys.executable, cache, raise_on_error=True, resolve_to_host=True)
-            if result is None:
-                msg = "failed to query current system Python interpreter"
-                raise RuntimeError(msg)
-            cls._current_system = result
-        return cls._current_system
-
     def to_json(self) -> str:
-        """Serialize this interpreter information to a JSON string."""
+        """
+        Serialize this interpreter information to a JSON string.
+
+        :returns:
+        """
         return json.dumps(self.to_dict(), indent=2)
 
     def to_dict(self) -> dict[str, InfoValue]:
-        """Convert this interpreter information to a plain dictionary."""
+        """
+        Convert this interpreter information to a plain dictionary.
+
+        :returns:
+        """
         data = {name: None if name == "_creators" else value for name, value in vars(self).items()}
         version_info = data["version_info"]
         data["version_info"] = version_info._asdict() if hasattr(version_info, "_asdict") else version_info
         return data
-
-    @classmethod
-    def from_exe(  # ruff:ignore[too-many-arguments]
-        cls,
-        exe: str,
-        cache: PyInfoCache | None = None,
-        *,
-        raise_on_error: bool = True,
-        ignore_cache: bool = False,
-        resolve_to_host: bool = True,
-        env: Mapping[str, str] | None = None,
-    ) -> PythonInfo | None:
-        """
-        Get the python information for a given executable path.
-
-        :param exe: path to the Python executable.
-        :param cache: interpreter metadata cache; when ``None`` results are not cached.
-        :param raise_on_error: raise on failure instead of returning ``None``.
-        :param ignore_cache: bypass the cache and re-query the interpreter.
-        :param resolve_to_host: resolve through virtualenv layers to the system interpreter.
-        :param env: environment mapping; defaults to :data:`os.environ`.
-        """
-        return cls._from_exe_with_args(
-            exe,
-            cache,
-            executable_args=None,
-            raise_on_error=raise_on_error,
-            ignore_cache=ignore_cache,
-            resolve_to_host=resolve_to_host,
-            env=env,
-        )
-
-    @classmethod
-    def _from_exe_with_args(  # ruff:ignore[too-many-arguments]
-        cls,
-        exe: str,
-        cache: PyInfoCache | None = None,
-        *,
-        executable_args: str | None,
-        raise_on_error: bool = True,
-        ignore_cache: bool = False,
-        resolve_to_host: bool = True,
-        env: Mapping[str, str] | None = None,
-    ) -> PythonInfo | None:
-        """Interrogate an executable with optional platform-specific leading arguments."""
-        from ._cached_py_info import from_exe  # ruff:ignore[import-outside-top-level]
-
-        env = os.environ if env is None else env
-        proposed = from_exe(
-            cls,
-            cache,
-            exe,
-            env=env,
-            raise_on_error=raise_on_error,
-            ignore_cache=ignore_cache,
-            executable_args=executable_args,
-        )
-
-        if isinstance(proposed, PythonInfo) and resolve_to_host:
-            try:
-                proposed = proposed.resolve_to_system(cache, proposed, env=env)
-            except Exception as exception:
-                if raise_on_error:
-                    raise
-                _LOGGER.info("ignore %s due cannot resolve system due to %r", proposed.original_executable, exception)
-                proposed = None
-        return proposed
-
-    @classmethod
-    def from_json(cls, payload: str) -> PythonInfo:
-        """
-        Deserialize interpreter information from a JSON string.
-
-        :param payload: JSON produced by :meth:`to_json`.
-        """
-        raw = json.loads(payload)
-        return cls.from_dict(raw.copy())
-
-    @classmethod
-    def from_dict(cls, data: dict[str, InfoValue]) -> PythonInfo:
-        """
-        Reconstruct a :class:`PythonInfo` from a plain dictionary.
-
-        :param data: dictionary produced by :meth:`to_dict`.
-        """
-        if missing := PythonInfo.__annotations__.keys() - data.keys() - {"_cache_exe_discovery", "pypy_version_info"}:
-            msg = f"missing interpreter information: {', '.join(sorted(missing))}"
-            raise ValueError(msg)
-        data["version_info"] = VersionInfo(**data["version_info"])  # restore this to a named tuple structure
-        result = cls.__new__(cls)  # skip __init__, data replaces the full state
-        result.__dict__ = data.copy()
-        return result
-
-    @classmethod
-    def resolve_to_system(
-        cls, cache: PyInfoCache | None, target: PythonInfo, *, env: Mapping[str, str] | None = None
-    ) -> PythonInfo:
-        """
-        Walk virtualenv/venv prefix chains to find the underlying system interpreter.
-
-        :param cache: interpreter metadata cache; when ``None`` results are not cached.
-        :param target: the interpreter to resolve.
-        :param env: environment mapping; defaults to :data:`os.environ`.
-        """
-        start_executable = target.executable
-        prefixes = OrderedDict()
-        while target.system_executable is None:
-            prefix = target.real_prefix or target.base_prefix or target.prefix
-            prefix_key = normcase(realpath(prefix))
-            if prefix_key in prefixes:
-                if len(prefixes) == 1:
-                    _LOGGER.info("%r links back to itself via prefixes", target)
-                    target.system_executable = target.executable
-                    break
-                for at, (p, t) in enumerate(prefixes.items(), start=1):
-                    _LOGGER.error("%d: prefix=%s, info=%r", at, p, t)
-                _LOGGER.error("%d: prefix=%s, info=%r", len(prefixes) + 1, prefix, target)
-                msg = "prefixes are causing a circle {}".format("|".join(prefixes.keys()))
-                raise RuntimeError(msg)
-            prefixes[prefix_key] = target
-            target = target.discover_exe(cache, prefix=prefix, exact=False, env=env)
-        if target.executable != target.system_executable:
-            resolved = cls.from_exe(target.system_executable, cache, env=env)
-            if resolved is not None:
-                target = resolved
-        if target.executable != start_executable:
-            # the cache hands every lookup of this base the same object, so point a copy at the start executable
-            target = copy.copy(target)
-            target.executable = start_executable
-        return target
-
-    _cache_exe_discovery: ClassVar[dict[tuple[str, bool, VersionInfo], PythonInfo]] = {}
 
     def discover_exe(
         self,
@@ -512,6 +572,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         :param prefix: directory prefix to search under.
         :param exact: when ``True``, require an exact version match.
         :param env: environment mapping; defaults to :data:`os.environ`.
+        :returns:
+        :raises RuntimeError:
         """
         key = prefix, exact, self.version_info
         if key in self._cache_exe_discovery and prefix:
@@ -520,8 +582,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         _LOGGER.debug("discover exe for %s in %s", self, prefix)
         possible_names = self._find_possible_exe_names()
         possible_folders = self._find_possible_folders(prefix)
-        discovered = []
         env = os.environ if env is None else env
+        discovered = []
         for folder in possible_folders:
             for name in possible_names:
                 info = self._check_exe(cache, folder, name, discovered, env, exact=exact)
@@ -536,6 +598,55 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             return info
         msg = "failed to detect {} in {}".format("|".join(possible_names), os.pathsep.join(possible_folders))
         raise RuntimeError(msg)
+
+    def _find_possible_exe_names(self) -> list[str]:
+        name_candidate = OrderedDict()
+        mods = ["", "t"] if self.free_threaded else [""]
+        # _d (Windows python_d.exe), -dbg (Debian's own name), d (the abiflags form used by
+        # upstream/Fedora and also shipped by Debian, so pythonX.Yd / pythonX.Ytd resolve too)
+        debug_suffixes = ["_d", "-dbg", "d", ""] if self.debug_build else [""]
+        archs = [f"-{self.architecture}", ""]
+        for name in self._possible_base():
+            for at in (3, 2, 1, 0):
+                version = ".".join(str(i) for i in self.version_info[:at])
+                for mod, debug, arch, ext in product(mods, debug_suffixes, archs, EXTENSIONS):
+                    name_candidate[f"{name}{version}{mod}{debug}{arch}{ext}"] = None
+        return list(name_candidate.keys())
+
+    def _possible_base(self) -> Generator[str, None, None]:
+        possible_base = OrderedDict()
+        possible_base[os.path.splitext(os.path.basename(self.executable))[0].rstrip(digits)] = None
+        possible_base[self.implementation] = None
+        # python is always the final option as in practice is used by multiple implementation as exe name
+        if "python" in possible_base:
+            del possible_base["python"]
+        possible_base["python"] = None
+        for base in possible_base:
+            lower = base.lower()
+            yield lower
+            from ._compat import fs_is_case_sensitive  # ruff:ignore[import-outside-top-level]
+
+            if fs_is_case_sensitive():  # pragma: no branch
+                if base != lower:
+                    yield base
+                if (upper := base.upper()) != base:
+                    yield upper
+
+    def _find_possible_folders(self, inside_folder: str) -> list[str]:
+        candidate_folder = OrderedDict()
+        executables = OrderedDict()
+        executables[os.path.realpath(self.executable)] = None
+        executables[self.executable] = None
+        executables[os.path.realpath(self.original_executable)] = None
+        executables[self.original_executable] = None
+        for exe in executables:
+            base = os.path.dirname(exe)
+            if base.startswith(self.prefix):
+                candidate_folder[f"{inside_folder}{base[len(self.prefix) :]}"] = None
+
+        # or at root level
+        candidate_folder[inside_folder] = None
+        return [i for i in candidate_folder if os.path.exists(i)]
 
     def _check_exe(  # ruff:ignore[too-many-arguments]
         self,
@@ -588,58 +699,6 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         sorted_discovered = sorted(discovered, key=sort_by, reverse=True)  # sort by priority in decreasing order
         return sorted_discovered[0]
 
-    def _find_possible_folders(self, inside_folder: str) -> list[str]:
-        candidate_folder = OrderedDict()
-        executables = OrderedDict()
-        executables[os.path.realpath(self.executable)] = None
-        executables[self.executable] = None
-        executables[os.path.realpath(self.original_executable)] = None
-        executables[self.original_executable] = None
-        for exe in executables:
-            base = os.path.dirname(exe)
-            if base.startswith(self.prefix):
-                relative = base[len(self.prefix) :]
-                candidate_folder[f"{inside_folder}{relative}"] = None
-
-        # or at root level
-        candidate_folder[inside_folder] = None
-        return [i for i in candidate_folder if os.path.exists(i)]
-
-    def _find_possible_exe_names(self) -> list[str]:
-        name_candidate = OrderedDict()
-        mods = ["", "t"] if self.free_threaded else [""]
-        # _d (Windows python_d.exe), -dbg (Debian's own name), d (the abiflags form used by
-        # upstream/Fedora and also shipped by Debian, so pythonX.Yd / pythonX.Ytd resolve too)
-        debug_suffixes = ["_d", "-dbg", "d", ""] if self.debug_build else [""]
-        archs = [f"-{self.architecture}", ""]
-        for name in self._possible_base():
-            for at in (3, 2, 1, 0):
-                version = ".".join(str(i) for i in self.version_info[:at])
-                for mod, debug, arch, ext in product(mods, debug_suffixes, archs, EXTENSIONS):
-                    name_candidate[f"{name}{version}{mod}{debug}{arch}{ext}"] = None
-        return list(name_candidate.keys())
-
-    def _possible_base(self) -> Generator[str, None, None]:
-        possible_base = OrderedDict()
-        basename = os.path.splitext(os.path.basename(self.executable))[0].rstrip(digits)
-        possible_base[basename] = None
-        possible_base[self.implementation] = None
-        # python is always the final option as in practice is used by multiple implementation as exe name
-        if "python" in possible_base:
-            del possible_base["python"]
-        possible_base["python"] = None
-        for base in possible_base:
-            lower = base.lower()
-            yield lower
-            from ._compat import fs_is_case_sensitive  # ruff:ignore[import-outside-top-level]
-
-            if fs_is_case_sensitive():  # pragma: no branch
-                if base != lower:
-                    yield base
-                upper = base.upper()
-                if upper != base:
-                    yield upper
-
 
 class MarkerEnvironment(TypedDict):
     implementation_name: str
@@ -655,7 +714,7 @@ class MarkerEnvironment(TypedDict):
     sys_platform: str
 
 
-KNOWN_ARCHITECTURES: frozenset[str] = frozenset({
+KNOWN_ARCHITECTURES: Final[frozenset[str]] = frozenset({
     "arm64",
     "loongarch64",
     "ppc",
@@ -680,6 +739,9 @@ def normalize_isa(isa: str) -> str:
 
     Known aliases are mapped (e.g. ``amd64`` → ``x86_64``, ``aarch64`` → ``arm64``).
     Unrecognized values are lowercased and returned as-is.
+
+    :param isa:
+    :returns:
     """
     low = isa.lower()
     return {
@@ -697,7 +759,9 @@ def normalize_isa(isa: str) -> str:
 
 
 __all__ = [
+    "EXTENSIONS",
     "KNOWN_ARCHITECTURES",
+    "InfoValue",
     "MarkerEnvironment",
     "PythonInfo",
     "VersionInfo",

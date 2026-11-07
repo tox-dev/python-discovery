@@ -82,8 +82,7 @@ def test_disk_content_store_remove(tmp_path: Path) -> None:
 
 
 def test_disk_content_store_remove_missing_file(tmp_path: Path) -> None:
-    store = DiskContentStore(tmp_path, "test")
-    store.remove()
+    DiskContentStore(tmp_path, "test").remove()
 
 
 def test_disk_content_store_locked(tmp_path: Path) -> None:
@@ -135,8 +134,7 @@ def test_disk_content_store_ignores_legacy_lock(tmp_path: Path) -> None:
 
 
 def test_disk_content_store_locks_legacy_path_without_posix(tmp_path: Path, mocker: MockerFixture) -> None:
-    platform_os = mocker.patch("python_discovery._cache.os", autospec=True)
-    platform_os.name = "nt"
+    mocker.patch("python_discovery._cache.os", autospec=True).name = "nt"
     with DiskContentStore(tmp_path, "test").locked(), pytest.raises(Timeout):
         FileLock(str(tmp_path / "test.lock")).acquire(timeout=0)
     assert not (tmp_path / "locks-v2").exists()
@@ -150,8 +148,7 @@ def test_disk_content_store_exists(tmp_path: Path) -> None:
 
 
 def test_disk_cache_py_info(tmp_path: Path) -> None:
-    cache = DiskCache(tmp_path)
-    store = cache.py_info(Path("/some/path"))
+    store = DiskCache(tmp_path).py_info(Path("/some/path"))
     assert isinstance(store, DiskContentStore)
 
 
@@ -178,8 +175,7 @@ def test_disk_cache_py_info_clear(tmp_path: Path) -> None:
 
 
 def test_disk_cache_py_info_clear_empty(tmp_path: Path) -> None:
-    cache = DiskCache(tmp_path)
-    cache.py_info_clear()
+    DiskCache(tmp_path).py_info_clear()
 
 
 def test_disk_cache_py_info_clear_skips_non_json(tmp_path: Path) -> None:
@@ -303,8 +299,7 @@ def test_disk_content_store_rejects_untrusted_entry(
 def test_disk_content_store_does_not_follow_entry_link(tmp_path: Path) -> None:
     target = tmp_path / "target.json"
     target.write_text('{"key": "target"}', encoding="utf-8")
-    entry = tmp_path / "entry.json"
-    entry.symlink_to(target)
+    (tmp_path / "entry.json").symlink_to(target)
     store = DiskContentStore(tmp_path, "entry")
     assert store.read() is None
 
@@ -372,8 +367,7 @@ def test_noop_content_store_locked() -> None:
 
 
 def test_noop_cache_py_info() -> None:
-    cache = NoOpCache()
-    store = cache.py_info(Path("/some/path"))
+    store = NoOpCache().py_info(Path("/some/path"))
     assert isinstance(store, NoOpContentStore)
 
 

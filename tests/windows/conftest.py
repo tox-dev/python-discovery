@@ -16,90 +16,6 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-def _create_winreg_mock() -> ModuleType:
-    """Create a mock winreg module that works on all platforms."""
-    winreg = ModuleType("winreg")
-    winreg.HKEY_CURRENT_USER = 0x80000001  # ty: ignore[unresolved-attribute]
-    winreg.HKEY_LOCAL_MACHINE = 0x80000002  # ty: ignore[unresolved-attribute]
-    winreg.KEY_READ = 0x20019  # ty: ignore[unresolved-attribute]
-    winreg.KEY_WOW64_64KEY = 0x0100  # ty: ignore[unresolved-attribute]
-    winreg.KEY_WOW64_32KEY = 0x0200  # ty: ignore[unresolved-attribute]
-    winreg.EnumKey = MagicMock()  # ty: ignore[unresolved-attribute]
-    winreg.QueryValueEx = MagicMock()  # ty: ignore[unresolved-attribute]
-    winreg.OpenKeyEx = MagicMock()  # ty: ignore[unresolved-attribute]
-    return winreg
-
-
-def _load_registry_data(
-    winreg: ModuleType,
-) -> tuple[
-    dict[object, dict[int, object]],
-    dict[object, dict[str, object]],
-    dict[object, dict[str, object]],
-    dict[tuple[object, ...], object],
-]:
-    """Load winreg mock values using the given (possibly mock) winreg module."""
-    loc: dict[str, object] = {}
-    glob: dict[str, object] = {"winreg": winreg}
-    mock_value_str = (Path(__file__).parent / "winreg_mock_values.py").read_text(encoding="utf-8")
-    exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin]
-    return loc["enum_collect"], loc["value_collect"], loc["key_open"], loc["hive_open"]  # ty: ignore[invalid-return-type]
-
-
-class _Key:
-    def __init__(self, value: object) -> None:
-        self.value = value
-
-    def __enter__(self) -> Self:
-        return self
-
-    def __exit__(
-        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
-    ) -> None:
-        return None
-
-
-def _make_enum_key(enum_collect: dict[object, dict[int, object]]) -> object:
-    def _enum_key(key: object, at: int) -> str:
-        key_id = key.value if isinstance(key, _Key) else key
-        result = enum_collect[key_id][at]
-        if isinstance(result, OSError):
-            raise result
-        return result  # ty: ignore[invalid-return-type]
-
-    return _enum_key
-
-
-def _make_query_value_ex(value_collect: dict[object, dict[str, object]]) -> object:
-    def _query_value_ex(key: object, value_name: str) -> object:
-        key_id = key.value if isinstance(key, _Key) else key
-        result = value_collect[key_id][value_name]
-        if isinstance(result, OSError):
-            raise result
-        return result
-
-    return _query_value_ex
-
-
-def _make_open_key_ex(key_open: dict[object, dict[str, object]], hive_open: dict[tuple[object, ...], object]) -> object:
-    @contextmanager
-    def _open_key_ex(*args: object) -> Generator[_Key | object]:
-        if len(args) == 2:
-            key, value = args
-            key_id = key.value if isinstance(key, _Key) else key
-            result = _Key(key_open[key_id][value])
-        elif len(args) == 4:
-            result = hive_open[args]
-        else:
-            raise RuntimeError
-        value = result.value if isinstance(result, _Key) else result
-        if isinstance(value, OSError):
-            raise value
-        yield result
-
-    return _open_key_ex
-
-
 @pytest.fixture
 def _mock_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     if sys.platform != "win32":
@@ -123,32 +39,85 @@ def _mock_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("os.path.exists", _mock_exists)
 
 
-def _mock_pyinfo(major: int, minor: int, arch: int, exe: str, threaded: bool = False) -> MagicMock:
-    from python_discovery._py_info import VersionInfo
+def _create_winreg_mock() -> ModuleType:
+    # Create a mock winreg module that works on all platforms.
+    winreg = ModuleType("winreg")
+    winreg.HKEY_CURRENT_USER = 0x80000001  # ty: ignore[unresolved-attribute]
+    winreg.HKEY_LOCAL_MACHINE = 0x80000002  # ty: ignore[unresolved-attribute]
+    winreg.KEY_READ = 0x20019  # ty: ignore[unresolved-attribute]
+    winreg.KEY_WOW64_64KEY = 0x0100  # ty: ignore[unresolved-attribute]
+    winreg.KEY_WOW64_32KEY = 0x0200  # ty: ignore[unresolved-attribute]
+    winreg.EnumKey = MagicMock()  # ty: ignore[unresolved-attribute]
+    winreg.QueryValueEx = MagicMock()  # ty: ignore[unresolved-attribute]
+    winreg.OpenKeyEx = MagicMock()  # ty: ignore[unresolved-attribute]
+    return winreg
 
-    info = MagicMock()
-    info.base_prefix = str(Path(exe).parent)
-    info.executable = info.original_executable = info.system_executable = exe
-    info.implementation = "CPython"
-    info.architecture = arch
-    info.version_info = VersionInfo(major, minor, 0, "final", 0)
-    info.free_threaded = threaded
-    info.sysconfig_platform = "win-amd64" if arch == 64 else "win32"
-    info.machine = "x86_64" if arch == 64 else "x86"
 
-    def satisfies(spec: object, _impl_must_match: bool = False) -> bool:
-        if spec.implementation is not None and spec.implementation.lower() != "cpython":
-            return False
-        if spec.architecture is not None and spec.architecture != arch:
-            return False
-        if spec.free_threaded is not None and spec.free_threaded != threaded:
-            return False
-        if spec.major is not None and spec.major != major:
-            return False
-        return not (spec.minor is not None and spec.minor != minor)
+def _load_registry_data(
+    winreg: ModuleType,
+) -> tuple[
+    dict[object, dict[int, object]],
+    dict[object, dict[str, object]],
+    dict[object, dict[str, object]],
+    dict[tuple[object, ...], object],
+]:
+    # Load winreg mock values using the given (possibly mock) winreg module.
+    loc: dict[str, object] = {}
+    glob: dict[str, object] = {"winreg": winreg}
+    mock_value_str = (Path(__file__).parent / "winreg_mock_values.py").read_text(encoding="utf-8")
+    exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin]
+    return loc["enum_collect"], loc["value_collect"], loc["key_open"], loc["hive_open"]  # ty: ignore[invalid-return-type]
 
-    info.satisfies = satisfies
-    return info
+
+def _make_enum_key(enum_collect: dict[object, dict[int, object]]) -> object:
+    def _enum_key(key: object, at: int) -> str:
+        result = enum_collect[(key.value if isinstance(key, _Key) else key)][at]
+        if isinstance(result, OSError):
+            raise result
+        return result  # ty: ignore[invalid-return-type]
+
+    return _enum_key
+
+
+class _Key:
+    def __init__(self, value: object) -> None:
+        self.value = value
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+    ) -> None:
+        return None
+
+
+def _make_query_value_ex(value_collect: dict[object, dict[str, object]]) -> object:
+    def _query_value_ex(key: object, value_name: str) -> object:
+        result = value_collect[(key.value if isinstance(key, _Key) else key)][value_name]
+        if isinstance(result, OSError):
+            raise result
+        return result
+
+    return _query_value_ex
+
+
+def _make_open_key_ex(key_open: dict[object, dict[str, object]], hive_open: dict[tuple[object, ...], object]) -> object:
+    @contextmanager
+    def _open_key_ex(*args: object) -> Generator[_Key | object]:
+        if len(args) == 2:
+            key, value = args
+            result = _Key(key_open[(key.value if isinstance(key, _Key) else key)][value])
+        elif len(args) == 4:
+            result = hive_open[args]
+        else:
+            raise RuntimeError
+        value = result.value if isinstance(result, _Key) else result
+        if isinstance(value, OSError):
+            raise value
+        yield result
+
+    return _open_key_ex
 
 
 @pytest.fixture
@@ -173,3 +142,30 @@ def _populate_pyinfo_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     for _, major, minor, arch, threaded, exe in interpreters:
         info = _mock_pyinfo(major, minor, arch, exe, threaded)
         monkeypatch.setitem(_CACHE, (Path(info.executable), None), info)
+
+
+def _mock_pyinfo(major: int, minor: int, arch: int, exe: str, threaded: bool) -> MagicMock:
+    from python_discovery._py_info import VersionInfo
+
+    info = MagicMock(base_prefix=str(Path(exe).parent))
+    info.executable = info.original_executable = info.system_executable = exe
+    info.implementation = "CPython"
+    info.architecture = arch
+    info.version_info = VersionInfo(major, minor, 0, "final", 0)
+    info.free_threaded = threaded
+    info.sysconfig_platform = "win-amd64" if arch == 64 else "win32"
+    info.machine = "x86_64" if arch == 64 else "x86"
+
+    def satisfies(spec: object, _impl_must_match: bool = False) -> bool:
+        if spec.implementation is not None and spec.implementation.lower() != "cpython":
+            return False
+        if spec.architecture is not None and spec.architecture != arch:
+            return False
+        if spec.free_threaded is not None and spec.free_threaded != threaded:
+            return False
+        if spec.major is not None and spec.major != major:
+            return False
+        return not (spec.minor is not None and spec.minor != minor)
+
+    info.satisfies = satisfies
+    return info

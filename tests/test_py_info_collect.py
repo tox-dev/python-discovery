@@ -23,11 +23,11 @@ if TYPE_CHECKING:
 
     from pytest_mock import MockerFixture
 
-SCRIPT = Path(python_discovery.__file__).parent / "_py_info_collect.py"
+_SCRIPT = Path(python_discovery.__file__).parent / "_py_info_collect.py"
 
 
 def test_script_parses_down_to_python27() -> None:
-    py2, py3 = vermin.detect(SCRIPT.read_text(encoding="utf-8"))
+    py2, py3 = vermin.detect(_SCRIPT.read_text(encoding="utf-8"))
     assert py2 is not None, "script no longer parses on Python 2.7, the version gate cannot run there"
     assert py2 <= (2, 7)
     assert py3 is not None
@@ -35,16 +35,12 @@ def test_script_parses_down_to_python27() -> None:
 
 
 def test_script_version_gate_precedes_imports() -> None:
-    body = ast.parse(SCRIPT.read_text(encoding="utf-8")).body
+    body = ast.parse(_SCRIPT.read_text(encoding="utf-8")).body
     before_gate = takewhile(lambda node: not isinstance(node, ast.If), body)
     imported = [
         alias.name for node in before_gate if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names
     ]
     assert imported == ["sys"], "only sys may load before the version gate; Python 3.0/3.1 lack sysconfig"
-
-
-def _run_script(*args: str) -> str:
-    return run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, check=True).stdout
 
 
 def test_script_version_gate_reports_executable() -> None:
@@ -56,14 +52,13 @@ def test_script_version_gate_reports_executable() -> None:
                 "from runpy import run_path; import sys; sys.version_info = (3, 5, 10, 'final', 0); "
                 "run_path(sys.argv[1], run_name='__main__')"
             ),
-            str(SCRIPT),
+            str(_SCRIPT),
         ],
         capture_output=True,
         text=True,
         check=False,
     )
-    assert result.returncode == 79
-    assert result.stderr == f"unsupported Python version 3.5.10\n{sys.executable}"
+    assert (result.returncode, result.stderr) == (79, f"unsupported Python version 3.5.10\n{sys.executable}")
 
 
 @pytest.mark.parametrize(
@@ -81,6 +76,10 @@ def test_script_wraps_payload_in_reversed_cookies(args: tuple[str, ...], start: 
     assert out.endswith(suffix)
     payload = json.loads(out[len(prefix) : len(out) - len(suffix)])
     assert payload["version_info"]["major"] == sys.version_info.major
+
+
+def _run_script(*args: str) -> str:
+    return run([sys.executable, str(_SCRIPT), *args], capture_output=True, text=True, check=True).stdout
 
 
 def test_script_payload_matches_in_process_collection() -> None:
@@ -320,8 +319,13 @@ def test_tcl_tk_libs_none_without_env(mocker: MockerFixture) -> None:
     assert (info.tcl_lib, info.tk_lib) == (None, None)
 
 
-class _TclError(Exception):
-    """Stands in for tkinter.TclError; an except clause needs a real exception type."""
+def test_tcl_tk_libs_queried_with_env(tmp_path: Path, mocker: MockerFixture) -> None:
+    tk_dir = tmp_path / "tk8.6"
+    tk_dir.mkdir()
+    _fake_tkinter(mocker, {"info library": "/tcl-lib", "set tk_library": str(tk_dir)}.__getitem__)
+    mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tmp_path)})
+    info = PythonInfo()
+    assert (info.tcl_lib, info.tk_lib) == ("/tcl-lib", str(tk_dir))
 
 
 def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] | Exception) -> Mock:
@@ -336,14 +340,9 @@ def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] 
     return profile
 
 
-def test_tcl_tk_libs_queried_with_env(tmp_path: Path, mocker: MockerFixture) -> None:
-    tk_dir = tmp_path / "tk8.6"
-    tk_dir.mkdir()
-    responses = {"info library": "/tcl-lib", "set tk_library": str(tk_dir)}
-    _fake_tkinter(mocker, responses.__getitem__)
-    mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tmp_path)})
-    info = PythonInfo()
-    assert (info.tcl_lib, info.tk_lib) == ("/tcl-lib", str(tk_dir))
+class _TclError(Exception):
+    # Stands in for tkinter.TclError; an except clause needs a real exception type.
+    ...
 
 
 @pytest.mark.parametrize("folder", [pytest.param("tk8.6", id="minor"), pytest.param("tk8", id="major")])

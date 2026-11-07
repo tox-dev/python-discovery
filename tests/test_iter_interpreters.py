@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def uv_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Empty uv install root with environment variables pointing at it."""
+    # Empty uv install root with environment variables pointing at it.
     monkeypatch.delenv("XDG_DATA_HOME", raising=False)
     root = tmp_path / "uv-python"
     root.mkdir()
@@ -42,7 +42,7 @@ def uv_install(uv_dir: Path) -> Callable[..., None]:
 def uv_probed(
     uv_dir: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> Callable[[str | None], list[str]]:
-    """Stub out the interrogation subprocess, so a run reports the executables discovery reached for."""
+    # Stub out the interrogation subprocess, so a run reports the executables discovery reached for.
     monkeypatch.setenv("PATH", "")
     from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
 
@@ -216,9 +216,7 @@ def test_iter_interpreters_skips_when_no_executable(
     session_cache: DiskCache,
     mocker: MockerFixture,
 ) -> None:
-    bogus = mocker.MagicMock(spec=PythonInfo)
-    bogus.system_executable = None
-    bogus.executable = None
+    bogus = mocker.MagicMock(spec=PythonInfo, system_executable=None, executable=None)
     mocker.patch(
         "python_discovery._discovery.propose_interpreters",
         return_value=iter([(bogus, True)]),
@@ -237,8 +235,7 @@ def test_iter_interpreters_uv_yields_when_interrogation_succeeds(
     bin_path.mkdir(parents=True)
     (bin_path / "python").touch()
 
-    fake_info = mocker.MagicMock(spec=PythonInfo)
-    fake_info.system_executable = str(uv_dir / "fake-unique" / "python")
+    fake_info = mocker.MagicMock(spec=PythonInfo, system_executable=str(uv_dir / "fake-unique" / "python"))
     fake_info.executable = fake_info.system_executable
     fake_info.satisfies.return_value = True
     mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=fake_info)
@@ -471,7 +468,7 @@ def test_iter_interpreters_uv_probe_order(
 def test_iter_interpreters_uv_minor_version_link_loses_to_its_target(
     uv_dir: Path, uv_install: Callable[..., None], uv_probed: Callable[[str | None], list[str]]
 ) -> None:
-    """uv links `cpython-3.15` at the concrete install, and repoints it on the next patch release."""
+    # uv links `cpython-3.15` at the concrete install, and repoints it on the next patch release.
     uv_install("cpython-3.15.0b3-macos-aarch64-none/bin/python")
     Path(uv_dir / "cpython-3.15-macos-aarch64-none").symlink_to(uv_dir / "cpython-3.15.0b3-macos-aarch64-none")
 
@@ -517,7 +514,7 @@ def uv_junction(uv_dir: Path, mocker: MockerFixture) -> Callable[[str, str], Non
 def test_iter_interpreters_uv_probes_one_executable_per_install(
     uv_dir: Path, uv_install: Callable[..., None], monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    """GraalPy ships bin/python as a copy of bin/graalpy, so the realpath dedup alone would spawn it twice."""
+    # GraalPy ships bin/python as a copy of bin/graalpy, so the realpath dedup alone would spawn it twice.
     monkeypatch.setenv("PATH", "")
     uv_install("graalpy-3.11.0-macos-aarch64-none/bin/python", "graalpy-3.11.0-macos-aarch64-none/bin/graalpy")
     executable = str(uv_dir / "graalpy-3.11.0-macos-aarch64-none" / "bin" / "python")

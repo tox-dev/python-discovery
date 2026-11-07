@@ -37,10 +37,9 @@ _SPECIFIER_RE: Final[re.Pattern[str]] = re.compile(
     """,
     re.VERBOSE,
 )
-_PRE_ORDER: Final[dict[str, int]] = {"a": 1, "b": 2, "rc": 3}
 
 
-@dataclass(**DC_KW)
+@dataclass(**DC_KW, frozen=True)
 class SimpleVersion:
     """
     Simple PEP 440-like version parser using only standard library.
@@ -68,6 +67,8 @@ class SimpleVersion:
         Parse a PEP 440 version string (e.g. ``3.12.1``).
 
         :param version_str: the version string to parse.
+        :returns:
+        :raises ValueError:
         """
         stripped = version_str.strip()
         if not (match := _VERSION_RE.match(stripped)):
@@ -105,8 +106,9 @@ class SimpleVersion:
             return False
         if other.pre_type is None:
             return True
-        if _PRE_ORDER[self.pre_type] != _PRE_ORDER[other.pre_type]:
-            return _PRE_ORDER[self.pre_type] < _PRE_ORDER[other.pre_type]
+        pre_order: dict[str, int] = {"a": 1, "b": 2, "rc": 3}
+        if pre_order[self.pre_type] != pre_order[other.pre_type]:
+            return pre_order[self.pre_type] < pre_order[other.pre_type]
         return (self.pre_num or 0) < (other.pre_num or 0)
 
     def __le__(self, other: object) -> bool:
@@ -127,7 +129,7 @@ class SimpleVersion:
         return f"SimpleVersion('{self.version_str}')"
 
 
-@dataclass(**DC_KW)
+@dataclass(**DC_KW, frozen=True)
 class SimpleSpecifier:
     """
     Simple PEP 440-like version specifier using only standard library.
@@ -153,6 +155,8 @@ class SimpleSpecifier:
         Parse a single PEP 440 specifier (e.g. ``>=3.10``).
 
         :param spec_str: the specifier string to parse.
+        :returns:
+        :raises ValueError:
         """
         stripped = spec_str.strip()
         if not (match := _SPECIFIER_RE.match(stripped)):
@@ -178,11 +182,26 @@ class SimpleSpecifier:
             version=version,
         )
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SimpleSpecifier):
+            return NotImplemented
+        return self.spec_str == other.spec_str
+
+    def __hash__(self) -> int:
+        return hash(self.spec_str)
+
+    def __str__(self) -> str:
+        return self.spec_str
+
+    def __repr__(self) -> str:
+        return f"SimpleSpecifier('{self.spec_str}')"
+
     def contains(self, version_str: str) -> bool:
         """
         Check if a version string satisfies this specifier.
 
         :param version_str: the version string to test.
+        :returns:
         """
         try:
             candidate = SimpleVersion.from_string(version_str) if isinstance(version_str, str) else version_str
@@ -240,22 +259,8 @@ class SimpleSpecifier:
         prefix = max(self.version_str.count("."), 1)
         return candidate.release[:prefix] == self.version.release[:prefix]
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SimpleSpecifier):
-            return NotImplemented
-        return self.spec_str == other.spec_str
 
-    def __hash__(self) -> int:
-        return hash(self.spec_str)
-
-    def __str__(self) -> str:
-        return self.spec_str
-
-    def __repr__(self) -> str:
-        return f"SimpleSpecifier('{self.spec_str}')"
-
-
-@dataclass(**DC_KW)
+@dataclass(**DC_KW, frozen=True)
 class SimpleSpecifierSet:
     """
     Simple PEP 440-like specifier set using only standard library.
@@ -273,26 +278,16 @@ class SimpleSpecifierSet:
         Parse a comma-separated PEP 440 specifier string (e.g. ``>=3.10,<4``).
 
         :param specifiers_str: the specifier string to parse.
+        :returns:
         """
         stripped = specifiers_str.strip()
         specs: list[SimpleSpecifier] = []
         if stripped:
             for spec_item in stripped.split(","):
-                item = spec_item.strip()
-                if item:
+                if item := spec_item.strip():
                     with contextlib.suppress(ValueError):
                         specs.append(SimpleSpecifier.from_string(item))
         return cls(specifiers_str=stripped, specifiers=tuple(specs))
-
-    def contains(self, version_str: str) -> bool:
-        """
-        Check if a version satisfies all specifiers in the set.
-
-        :param version_str: the version string to test.
-        """
-        if not self.specifiers:
-            return True
-        return all(spec.contains(version_str) for spec in self.specifiers)
 
     def __iter__(self) -> Iterator[SimpleSpecifier]:
         return iter(self.specifiers)
@@ -310,6 +305,17 @@ class SimpleSpecifierSet:
 
     def __repr__(self) -> str:
         return f"SimpleSpecifierSet('{self.specifiers_str}')"
+
+    def contains(self, version_str: str) -> bool:
+        """
+        Check if a version satisfies all specifiers in the set.
+
+        :param version_str: the version string to test.
+        :returns:
+        """
+        if not self.specifiers:
+            return True
+        return all(spec.contains(version_str) for spec in self.specifiers)
 
 
 __all__ = [

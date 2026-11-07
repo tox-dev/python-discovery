@@ -23,15 +23,14 @@ if TYPE_CHECKING:
     from packaging.markers import Environment
     from pytest_mock import MockerFixture
 
-IS_PYPY = PythonInfo.current_system().implementation == "PyPy"
+_IS_PYPY = PythonInfo.current_system().implementation == "PyPy"
 
-CURRENT = PythonInfo.current_system()
+_CURRENT = PythonInfo.current_system()
 
 
 @pytest.mark.graalpy
 def test_current_as_json() -> None:
-    result = CURRENT.to_json()
-    parsed = json.loads(result)
+    parsed = json.loads(_CURRENT.to_json())
     major, minor, micro, releaselevel, serial = sys.version_info
     free_threaded = sysconfig.get_config_var("Py_GIL_DISABLED") == 1
     assert parsed["version_info"] == {
@@ -79,37 +78,40 @@ def test_bad_exe_py_info_no_raise(
     "spec",
     [sys.executable]
     + [
-        f"{impl}{'.'.join(str(i) for i in ver)}{'t' if CURRENT.free_threaded else ''}{arch}"
+        f"{impl}{'.'.join(str(i) for i in ver)}{'t' if _CURRENT.free_threaded else ''}{arch}"
         for impl, ver, arch in itertools.product(
             (
-                [CURRENT.implementation]
-                + (["python"] if CURRENT.implementation == "CPython" else [])
-                + ([CURRENT.implementation.lower()] if CURRENT.implementation != CURRENT.implementation.lower() else [])
+                [_CURRENT.implementation]
+                + (["python"] if _CURRENT.implementation == "CPython" else [])
+                + (
+                    [_CURRENT.implementation.lower()]
+                    if _CURRENT.implementation != _CURRENT.implementation.lower()
+                    else []
+                )
             ),
             [sys.version_info[0 : i + 1] for i in range(3)],
-            ["", f"-{CURRENT.architecture}"],
+            ["", f"-{_CURRENT.architecture}"],
         )
     ],
 )
 def test_satisfy_py_info(spec: str) -> None:
-    parsed_spec = PythonSpec.from_string_spec(spec)
-    matches = CURRENT.satisfies(parsed_spec, impl_must_match=True)
+    matches = _CURRENT.satisfies(PythonSpec.from_string_spec(spec), impl_must_match=True)
     assert matches is True
 
 
 def test_satisfy_not_arch() -> None:
     parsed_spec = PythonSpec.from_string_spec(
-        f"{CURRENT.implementation}-{64 if CURRENT.architecture == 32 else 32}",
+        f"{_CURRENT.implementation}-{64 if _CURRENT.architecture == 32 else 32}",
     )
-    matches = CURRENT.satisfies(parsed_spec, impl_must_match=True)
+    matches = _CURRENT.satisfies(parsed_spec, impl_must_match=True)
     assert matches is False
 
 
 def test_satisfy_not_threaded() -> None:
     parsed_spec = PythonSpec.from_string_spec(
-        f"{CURRENT.implementation}{CURRENT.version_info.major}{'' if CURRENT.free_threaded else 't'}",
+        f"{_CURRENT.implementation}{_CURRENT.version_info.major}{'' if _CURRENT.free_threaded else 't'}",
     )
-    matches = CURRENT.satisfies(parsed_spec, impl_must_match=True)
+    matches = _CURRENT.satisfies(parsed_spec, impl_must_match=True)
     assert matches is False
 
 
@@ -130,8 +132,7 @@ _NON_MATCH_VER = _generate_not_match_current_interpreter_version()
 
 @pytest.mark.parametrize("spec", _NON_MATCH_VER)
 def test_satisfy_not_version(spec: str) -> None:
-    parsed_spec = PythonSpec.from_string_spec(f"{CURRENT.implementation}{spec}")
-    matches = CURRENT.satisfies(parsed_spec, impl_must_match=True)
+    matches = _CURRENT.satisfies(PythonSpec.from_string_spec(f"{_CURRENT.implementation}{spec}"), impl_must_match=True)
     assert matches is False
 
 
@@ -207,7 +208,7 @@ def test_system_executable_no_exact_match(
     caplog.set_level(logging.DEBUG)
 
     def _make_py_info(of: PyInfoMock) -> PythonInfo:
-        base = copy.deepcopy(CURRENT)
+        base = copy.deepcopy(_CURRENT)
         base.implementation = of.implementation
         base.version_info = of.version_info
         base.architecture = of.architecture
@@ -220,7 +221,7 @@ def test_system_executable_no_exact_match(
         path = tmp_path / str(pos)
         path.write_text("", encoding="utf-8")
         py_info = _make_py_info(i)
-        system_executable = CURRENT.system_executable
+        system_executable = _CURRENT.system_executable
         assert system_executable is not None
         py_info.system_executable = system_executable
         py_info.executable = system_executable
@@ -243,7 +244,7 @@ def test_system_executable_no_exact_match(
     target_py_info.system_executable = None
     target_py_info.executable = str(tmp_path)
     mapped = target_py_info.resolve_to_system(session_cache, target_py_info)
-    assert mapped.system_executable == CURRENT.system_executable
+    assert mapped.system_executable == _CURRENT.system_executable
     found = discovered_with_path[mapped.base_executable]
     assert found is selected
 
@@ -262,7 +263,7 @@ def test_discover_exe_validates_abi_flag(
     attr: str, tmp_path: Path, mocker: MockerFixture, session_cache: DiskCache
 ) -> None:
     def candidate(*, flag: bool, name: str) -> PythonInfo:
-        info = copy.deepcopy(CURRENT)
+        info = copy.deepcopy(_CURRENT)
         setattr(info, attr, flag)
         exe = tmp_path / name
         exe.write_text("", encoding="utf-8")
@@ -302,40 +303,40 @@ def test_py_info_ignores_distutils_config(monkeypatch: pytest.MonkeyPatch, tmp_p
 
 
 def test_discover_exe_on_path_non_spec_name_match(mocker: MockerFixture) -> None:
-    suffixed_name = f"python{CURRENT.version_info.major}.{CURRENT.version_info.minor}m"
+    suffixed_name = f"python{_CURRENT.version_info.major}.{_CURRENT.version_info.minor}m"
     if sys.platform == "win32":  # pragma: win32 cover
-        suffixed_name += Path(CURRENT.executable).suffix
+        suffixed_name += Path(_CURRENT.executable).suffix
     spec = PythonSpec.from_string_spec(suffixed_name)
-    mocker.patch.object(CURRENT, "executable", str(Path(CURRENT.executable).parent / suffixed_name))
-    assert CURRENT.satisfies(spec, impl_must_match=True) is True
+    mocker.patch.object(_CURRENT, "executable", str(Path(_CURRENT.executable).parent / suffixed_name))
+    assert _CURRENT.satisfies(spec, impl_must_match=True) is True
 
 
 def test_satisfies_debug_spec_requires_debug_build(mocker: MockerFixture) -> None:
-    spec = PythonSpec.from_string_spec(f"python{CURRENT.version_info.major}.{CURRENT.version_info.minor}-dbg")
+    spec = PythonSpec.from_string_spec(f"python{_CURRENT.version_info.major}.{_CURRENT.version_info.minor}-dbg")
     assert spec.debug is True
-    mocker.patch.object(CURRENT, "free_threaded", spec.free_threaded)
+    mocker.patch.object(_CURRENT, "free_threaded", spec.free_threaded)
 
-    mocker.patch.object(CURRENT, "debug_build", False)
-    assert CURRENT.satisfies(spec, impl_must_match=True) is False
+    mocker.patch.object(_CURRENT, "debug_build", False)
+    assert _CURRENT.satisfies(spec, impl_must_match=True) is False
 
-    mocker.patch.object(CURRENT, "debug_build", True)
-    assert CURRENT.satisfies(spec, impl_must_match=True) is True
+    mocker.patch.object(_CURRENT, "debug_build", True)
+    assert _CURRENT.satisfies(spec, impl_must_match=True) is True
 
 
 def test_discover_exe_on_path_non_spec_name_not_match(mocker: MockerFixture) -> None:
-    suffixed_name = f"python{CURRENT.version_info.major}.{CURRENT.version_info.minor}m"
+    suffixed_name = f"python{_CURRENT.version_info.major}.{_CURRENT.version_info.minor}m"
     if sys.platform == "win32":  # pragma: win32 cover
-        suffixed_name += Path(CURRENT.original_executable).suffix
+        suffixed_name += Path(_CURRENT.original_executable).suffix
     spec = PythonSpec.from_string_spec(suffixed_name)
     mocker.patch.object(
-        CURRENT,
+        _CURRENT,
         "original_executable",
-        str(Path(CURRENT.executable).parent / f"e{suffixed_name}"),
+        str(Path(_CURRENT.executable).parent / f"e{suffixed_name}"),
     )
-    assert CURRENT.satisfies(spec, impl_must_match=True) is False
+    assert _CURRENT.satisfies(spec, impl_must_match=True) is False
 
 
-@pytest.mark.skipif(IS_PYPY, reason="setuptools distutils patching does not work")
+@pytest.mark.skipif(_IS_PYPY, reason="setuptools distutils patching does not work")
 def test_py_info_setuptools() -> None:
     assert Distribution
     PythonInfo()
@@ -359,18 +360,18 @@ def test_py_info_to_system_raises(  # pragma: no cover # skipped in venv environ
 
 def test_sysconfig_vars_include_shared_lib_keys() -> None:
     for key in ("Py_ENABLE_SHARED", "INSTSONAME", "LIBDIR"):
-        assert key in CURRENT.sysconfig_vars
+        assert key in _CURRENT.sysconfig_vars
 
 
 def test_py_info_has_sysconfig_platform() -> None:
-    assert hasattr(CURRENT, "sysconfig_platform")
-    assert CURRENT.sysconfig_platform is not None
-    assert isinstance(CURRENT.sysconfig_platform, str)
-    assert len(CURRENT.sysconfig_platform) > 0
+    assert hasattr(_CURRENT, "sysconfig_platform")
+    assert _CURRENT.sysconfig_platform is not None
+    assert isinstance(_CURRENT.sysconfig_platform, str)
+    assert len(_CURRENT.sysconfig_platform) > 0
 
 
 def test_py_info_machine_property() -> None:
-    machine = CURRENT.machine
+    machine = _CURRENT.machine
     assert machine is not None
     assert isinstance(machine, str)
     assert len(machine) > 0
@@ -378,13 +379,13 @@ def test_py_info_machine_property() -> None:
 
 
 def test_py_info_machine_in_spec() -> None:
-    spec = CURRENT.spec
-    assert CURRENT.machine in spec
-    assert f"-{CURRENT.architecture}-{CURRENT.machine}" in spec
+    spec = _CURRENT.spec
+    assert _CURRENT.machine in spec
+    assert f"-{_CURRENT.architecture}-{_CURRENT.machine}" in spec
 
 
 def test_py_info_sysconfig_platform_matches_sysconfig() -> None:
-    assert CURRENT.sysconfig_platform == sysconfig.get_platform()
+    assert _CURRENT.sysconfig_platform == sysconfig.get_platform()
 
 
 @pytest.mark.parametrize(
@@ -403,41 +404,40 @@ def test_py_info_sysconfig_platform_matches_sysconfig() -> None:
     ],
 )
 def test_py_info_machine_derivation(platform: str, expected: str) -> None:
-    info = copy.deepcopy(CURRENT)
+    info = copy.deepcopy(_CURRENT)
     info.sysconfig_platform = platform
     assert info.machine == expected
 
 
 @pytest.mark.parametrize("runtime_isa", ["arm64", "x86_64"])
 def test_py_info_machine_derivation_universal2(mocker: MockerFixture, runtime_isa: str) -> None:
-    info = copy.deepcopy(CURRENT)
+    info = copy.deepcopy(_CURRENT)
     info.sysconfig_platform = "macosx-11.0-universal2"
     mocker.patch("python_discovery._py_info.platform.machine", return_value=runtime_isa)
     assert info.machine == runtime_isa
 
 
 def test_py_info_satisfies_with_machine() -> None:
-    threaded = "t" if CURRENT.free_threaded else ""
+    threaded = "t" if _CURRENT.free_threaded else ""
     spec_str = (
-        f"{CURRENT.implementation}{CURRENT.version_info.major}{threaded}-{CURRENT.architecture}-{CURRENT.machine}"
+        f"{_CURRENT.implementation}{_CURRENT.version_info.major}{threaded}-{_CURRENT.architecture}-{_CURRENT.machine}"
     )
     parsed_spec = PythonSpec.from_string_spec(spec_str)
-    assert CURRENT.satisfies(parsed_spec, impl_must_match=True) is True
+    assert _CURRENT.satisfies(parsed_spec, impl_must_match=True) is True
 
 
 def test_py_info_satisfies_not_machine() -> None:
-    other_machine = "arm64" if CURRENT.machine != "arm64" else "x86_64"
-    spec_str = f"{CURRENT.implementation}-{CURRENT.architecture}-{other_machine}"
-    parsed_spec = PythonSpec.from_string_spec(spec_str)
-    assert CURRENT.satisfies(parsed_spec, impl_must_match=True) is False
+    other_machine = "arm64" if _CURRENT.machine != "arm64" else "x86_64"
+    parsed_spec = PythonSpec.from_string_spec(f"{_CURRENT.implementation}-{_CURRENT.architecture}-{other_machine}")
+    assert _CURRENT.satisfies(parsed_spec, impl_must_match=True) is False
 
 
 def test_py_info_satisfies_no_machine_in_spec() -> None:
-    threaded = "t" if CURRENT.free_threaded else ""
-    spec_str = f"{CURRENT.implementation}{CURRENT.version_info.major}{threaded}-{CURRENT.architecture}"
+    threaded = "t" if _CURRENT.free_threaded else ""
+    spec_str = f"{_CURRENT.implementation}{_CURRENT.version_info.major}{threaded}-{_CURRENT.architecture}"
     parsed_spec = PythonSpec.from_string_spec(spec_str)
     assert parsed_spec.machine is None
-    assert CURRENT.satisfies(parsed_spec, impl_must_match=True) is True
+    assert _CURRENT.satisfies(parsed_spec, impl_must_match=True) is True
 
 
 @pytest.mark.parametrize(
@@ -448,7 +448,7 @@ def test_py_info_satisfies_no_machine_in_spec() -> None:
     ],
 )
 def test_py_info_satisfies_machine_cross_os_normalization(platform: str, spec_machine: str) -> None:
-    info = copy.deepcopy(CURRENT)
+    info = copy.deepcopy(_CURRENT)
     info.sysconfig_platform = platform
     spec = PythonSpec.from_string_spec(f"{info.implementation}-{info.architecture}-{spec_machine}")
     assert info.satisfies(spec, impl_must_match=True) is True
@@ -456,14 +456,14 @@ def test_py_info_satisfies_machine_cross_os_normalization(platform: str, spec_ma
 
 @pytest.mark.parametrize("debug", [True, False], ids=["debug", "release"])
 def test_py_info_debug_build_in_spec(*, debug: bool) -> None:
-    info = copy.deepcopy(CURRENT)
+    info = copy.deepcopy(_CURRENT)
     info.debug_build = debug
     assert ("d-" in info.spec) is debug
 
 
 @pytest.mark.parametrize("debug", [True, False], ids=["debug", "release"])
 def test_py_info_debug_build_exe_names(*, debug: bool) -> None:
-    info = copy.deepcopy(CURRENT)
+    info = copy.deepcopy(_CURRENT)
     info.debug_build = debug
     names = info._find_possible_exe_names()
     abiflag_name = f"python{info.version_info.major}.{info.version_info.minor}d"
@@ -473,31 +473,30 @@ def test_py_info_debug_build_exe_names(*, debug: bool) -> None:
 
 
 def test_py_info_debug_build_json_round_trip() -> None:
-    info = copy.deepcopy(CURRENT)
+    info = copy.deepcopy(_CURRENT)
     info.debug_build = True
     restored = PythonInfo.from_json(info.to_json())
     assert restored.debug_build is True
 
 
 def test_py_info_to_dict_includes_sysconfig_platform() -> None:
-    data = CURRENT.to_dict()
+    data = _CURRENT.to_dict()
     assert "sysconfig_platform" in data
     assert data["sysconfig_platform"] == sysconfig.get_platform()
 
 
 def test_py_info_to_dict_preserves_property_named_answer_key() -> None:
-    data = CURRENT.to_dict()
+    data = _CURRENT.to_dict()
     data["system_include"] = "supplied path"
     assert PythonInfo.from_dict(data).to_dict()["system_include"] == "supplied path"
 
 
 def test_py_info_json_round_trip() -> None:
-    json_str = CURRENT.to_json()
+    json_str = _CURRENT.to_json()
     parsed = json.loads(json_str)
     assert "sysconfig_platform" in parsed
     restored = PythonInfo.from_json(json_str)
-    assert restored.sysconfig_platform == CURRENT.sysconfig_platform
-    assert restored.machine == CURRENT.machine
+    assert (restored.sysconfig_platform, restored.machine) == (_CURRENT.sysconfig_platform, _CURRENT.machine)
 
 
 def test_marker_environment_matches_target_interpreter() -> None:
@@ -533,7 +532,7 @@ def test_marker_environment_uses_target_platform(tmp_path: Path) -> None:
 
 
 def test_marker_environment_survives_json_round_trip() -> None:
-    assert PythonInfo.from_json(CURRENT.to_json()).marker_environment == CURRENT.marker_environment
+    assert PythonInfo.from_json(_CURRENT.to_json()).marker_environment == _CURRENT.marker_environment
 
 
 def test_marker_environment_formats_prerelease(mocker: MockerFixture) -> None:
@@ -557,9 +556,9 @@ def test_select_most_likely_prefers_machine_match(
     discovered_platforms: list[str],
     expected_idx: int,
 ) -> None:
-    target = copy.deepcopy(CURRENT)
+    target = copy.deepcopy(_CURRENT)
     target.sysconfig_platform = target_platform
-    discovered = [copy.deepcopy(CURRENT) for _ in discovered_platforms]
+    discovered = [copy.deepcopy(_CURRENT) for _ in discovered_platforms]
     for d, plat in zip(discovered, discovered_platforms):
         d.sysconfig_platform = plat
     result = PythonInfo._select_most_likely(discovered, target)
@@ -574,7 +573,7 @@ def test_select_most_likely_prefers_machine_match(
     ],
 )
 def test_py_info_system_exe(system_executable: str | None, expected: str) -> None:
-    info = copy.deepcopy(CURRENT)
+    info = copy.deepcopy(_CURRENT)
     info.executable = "/venv/bin/python"
     info.system_executable = system_executable
     assert info.system_exe == expected

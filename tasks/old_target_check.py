@@ -16,8 +16,7 @@ def main(version: str, mode: str) -> None:
         if info is None:
             msg = f"failed to discover Python {version}"
             raise SystemExit(msg)
-        found = f"{info.version_info.major}.{info.version_info.minor}"
-        if found != version:
+        if (found := f"{info.version_info.major}.{info.version_info.minor}") != version:
             msg = f"discovered {found} at {info.executable} instead of {version}"
             raise SystemExit(msg)
         sys.stdout.write(f"discovered Python {version} at {info.executable}\n")

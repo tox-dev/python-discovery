@@ -12,15 +12,6 @@ if TYPE_CHECKING:
 
     from python_discovery._cache import PyInfoCache
 
-_IMPLEMENTATION_BY_ORG: dict[str, str] = {
-    "ContinuumAnalytics": "CPython",
-    "PythonCore": "CPython",
-}
-
-
-class Pep514PythonInfo(PythonInfo):
-    """A Python information acquired from PEP-514."""
-
 
 def propose_interpreters(
     spec: PythonSpec,
@@ -36,8 +27,12 @@ def propose_interpreters(
         reverse=True,
     )
 
+    implementation_by_org: dict[str, str] = {
+        "ContinuumAnalytics": "CPython",
+        "PythonCore": "CPython",
+    }
     for name, major, minor, arch, threaded, exe, executable_args in existing:
-        implementation = _IMPLEMENTATION_BY_ORG.get(name, name)
+        implementation = implementation_by_org.get(name, name)
 
         skip_pre_filter = implementation.lower() != "cpython"
         registry_spec = PythonSpec("", implementation, major, minor, None, arch, exe, free_threaded=threaded)
@@ -51,6 +46,11 @@ def propose_interpreters(
             )
             if interpreter is not None and interpreter.satisfies(spec, impl_must_match=True):
                 yield interpreter
+
+
+class Pep514PythonInfo(PythonInfo):
+    # A Python information acquired from PEP-514.
+    ...
 
 
 __all__ = [

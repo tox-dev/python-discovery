@@ -24,11 +24,19 @@ class ContentStore(Protocol):
     """A store for reading and writing cached content."""
 
     def exists(self) -> bool:
-        """Return whether the cached content exists."""
+        """
+        Return whether the cached content exists.
+
+        :returns:
+        """
         ...
 
     def read(self) -> dict | None:
-        """Read the cached content, or ``None`` if unavailable or corrupt."""
+        """
+        Read the cached content, or ``None`` if unavailable or corrupt.
+
+        :returns:
+        """
         ...
 
     def write(self, content: dict) -> None:
@@ -45,7 +53,11 @@ class ContentStore(Protocol):
 
     @contextmanager
     def locked(self) -> Generator[None]:
-        """Context manager that acquires an exclusive lock on this store."""
+        """
+        Context manager that acquires an exclusive lock on this store.
+
+        :returns:
+        """
         ...
 
 
@@ -58,6 +70,7 @@ class PyInfoCache(Protocol):
         Return the content store for the interpreter at *path*.
 
         :param path: absolute path to a Python executable.
+        :returns:
         """
         ...
 
@@ -66,19 +79,78 @@ class PyInfoCache(Protocol):
         ...
 
 
-class DiskContentStore:
-    """JSON file-based content store with file locking."""
+class DiskCache:
+    """
+    File-system based Python interpreter info cache (``<root>/py_info/4/<sha256>.json``).
 
+    :param root: root directory for the on-disk cache.
+    """
+
+    def __init__(self, root: Path) -> None:
+        self._root = Path(os.path.abspath(root))  # ruff:ignore[os-path-abspath]  # resolve() follows untrusted links
+
+    def py_info(self, path: Path) -> ContentStore:
+        """
+        Return the content store for the interpreter at *path*.
+
+        :param path: absolute path to a Python executable.
+        :returns:
+        """
+        if not self._trusted_folder():
+            return NoOpContentStore()
+        return DiskContentStore(self._py_info_dir, sha256(fsencode(path)).hexdigest())
+
+    def _trusted_folder(self) -> bool:
+        if not hasattr(os, "geteuid"):
+            return True
+        user_id = os.geteuid()
+        folder = self._py_info_dir
+        private = {self._root, folder.parent, folder}
+        for candidate in (*reversed(folder.parents), folder):
+            try:
+                try:
+                    status = candidate.lstat()
+                except FileNotFoundError:
+                    candidate.mkdir(exist_ok=True)
+                    status = candidate.lstat()
+            except OSError:
+                _LOGGER.warning("not caching in %s", candidate, exc_info=True)
+                return False
+            if (
+                not stat.S_ISDIR(status.st_mode)
+                or status.st_uid not in {user_id, 0}
+                or (status.st_mode & 0o022 and (candidate in private or not status.st_mode & stat.S_ISVTX))
+            ):
+                _LOGGER.warning("not caching in untrusted directory %s", candidate)
+                return False
+        return True
+
+    @property
+    def _py_info_dir(self) -> Path:
+        return self._root / "py_info" / "4"
+
+    def py_info_clear(self) -> None:
+        """Remove all cached interpreter information."""
+        folder = self._py_info_dir
+        if folder.exists() and self._trusted_folder():
+            for entry in folder.iterdir():
+                if entry.suffix == ".json":
+                    with suppress(OSError):
+                        entry.unlink()
+
+
+class DiskContentStore:
+    # JSON file-based content store with file locking.
     def __init__(self, folder: Path, key: str) -> None:
         self._folder = folder
         self._key = key
 
+    def exists(self) -> bool:
+        return self._file.exists()
+
     @property
     def _file(self) -> Path:
         return self._folder / f"{self._key}.json"
-
-    def exists(self) -> bool:
-        return self._file.exists()
 
     def read(self) -> dict | None:
         data, bad_format = None, False
@@ -116,6 +188,11 @@ class DiskContentStore:
     def _open_entry(path: str, flags: int) -> int:
         return os.open(path, flags | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
 
+    def remove(self) -> None:
+        with suppress(OSError):
+            self._file.unlink()
+        _LOGGER.debug("removed python info at %s", self._file)
+
     def write(self, content: dict) -> None:
         self._folder.mkdir(parents=True, exist_ok=True)
         temporary: Path | None = None
@@ -136,11 +213,6 @@ class DiskContentStore:
                 with suppress(OSError):
                     temporary.unlink(missing_ok=True)
 
-    def remove(self) -> None:
-        with suppress(OSError):
-            self._file.unlink()
-        _LOGGER.debug("removed python info at %s", self._file)
-
     @contextmanager
     def locked(self) -> Generator[None]:
         from filelock import FileLock  # ruff:ignore[import-outside-top-level]
@@ -157,69 +229,8 @@ class DiskContentStore:
             yield
 
 
-class DiskCache:
-    """
-    File-system based Python interpreter info cache (``<root>/py_info/4/<sha256>.json``).
-
-    :param root: root directory for the on-disk cache.
-    """
-
-    def __init__(self, root: Path) -> None:
-        self._root = Path(os.path.abspath(root))  # ruff:ignore[os-path-abspath]  # resolve() follows untrusted links
-
-    @property
-    def _py_info_dir(self) -> Path:
-        return self._root / "py_info" / "4"
-
-    def py_info(self, path: Path) -> ContentStore:
-        """
-        Return the content store for the interpreter at *path*.
-
-        :param path: absolute path to a Python executable.
-        """
-        if not self._trusted_folder():
-            return NoOpContentStore()
-        key = sha256(fsencode(path)).hexdigest()
-        return DiskContentStore(self._py_info_dir, key)
-
-    def _trusted_folder(self) -> bool:
-        if not hasattr(os, "geteuid"):
-            return True
-        user_id = os.geteuid()
-        folder = self._py_info_dir
-        private = {self._root, folder.parent, folder}
-        for candidate in (*reversed(folder.parents), folder):
-            try:
-                try:
-                    status = candidate.lstat()
-                except FileNotFoundError:
-                    candidate.mkdir(exist_ok=True)
-                    status = candidate.lstat()
-            except OSError:
-                _LOGGER.warning("not caching in %s", candidate, exc_info=True)
-                return False
-            if (
-                not stat.S_ISDIR(status.st_mode)
-                or status.st_uid not in {user_id, 0}
-                or (status.st_mode & 0o022 and (candidate in private or not status.st_mode & stat.S_ISVTX))
-            ):
-                _LOGGER.warning("not caching in untrusted directory %s", candidate)
-                return False
-        return True
-
-    def py_info_clear(self) -> None:
-        """Remove all cached interpreter information."""
-        folder = self._py_info_dir
-        if folder.exists() and self._trusted_folder():
-            for entry in folder.iterdir():
-                if entry.suffix == ".json":
-                    with suppress(OSError):
-                        entry.unlink()
-
-
 class NoOpContentStore(ContentStore):
-    """Content store that does nothing -- implements ContentStore protocol."""
-
+    # Content store that does nothing -- implements ContentStore protocol.
     def exists(self) -> bool:  # ruff:ignore[no-self-use]
         return False
 
@@ -238,8 +249,7 @@ class NoOpContentStore(ContentStore):
 
 
 class NoOpCache(PyInfoCache):
-    """Cache that does nothing -- implements PyInfoCache protocol."""
-
+    # Cache that does nothing -- implements PyInfoCache protocol.
     def py_info(self, path: Path) -> NoOpContentStore:  # ruff:ignore[unused-method-argument, no-self-use]
         return NoOpContentStore()
 

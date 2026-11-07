@@ -48,8 +48,7 @@ def test_log_cmd_repr() -> None:
 
 
 def test_log_cmd_repr_with_env() -> None:
-    cmd = LogCmd(["python", "-c", "print('hello')"], env={"FOO": "bar"})
-    result = repr(cmd)
+    result = repr(LogCmd(["python", "-c", "print('hello')"], env={"FOO": "bar"}))
     assert "python" in result
     assert "env of" in result
     assert "FOO" in result
@@ -101,6 +100,16 @@ def test_run_subprocess_invalid_json(mocker: MockerFixture) -> None:
     assert result is None
 
 
+def _mock_process(out: str, err: str, code: int) -> MagicMock:
+    streams: list[IO[str]] = []
+    for value in (out, err):
+        read_fd, write_fd = os.pipe()
+        with os.fdopen(write_fd, "wb") as writer:
+            writer.write(value.encode())
+        streams.append(os.fdopen(read_fd, "r", encoding="utf-8"))
+    return MagicMock(stdout=streams[0], stderr=streams[1], returncode=code, **{"wait.return_value": code})
+
+
 @pytest.mark.parametrize(
     "output",
     [
@@ -132,21 +141,10 @@ def test_from_exe_rejects_json_without_cookies(tmp_path: Path, mocker: MockerFix
     assert PythonInfo.from_exe(str(tmp_path / "python"), raise_on_error=False, ignore_cache=True) is None
 
 
-def _mock_process(out: str, err: str, code: int) -> MagicMock:
-    streams: list[IO[str]] = []
-    for value in (out, err):
-        read_fd, write_fd = os.pipe()
-        with os.fdopen(write_fd, "wb") as writer:
-            writer.write(value.encode())
-        streams.append(os.fdopen(read_fd, "r", encoding="utf-8"))
-    return MagicMock(stdout=streams[0], stderr=streams[1], returncode=code, **{"wait.return_value": code})
-
-
 def test_run_subprocess_with_cookies(mocker: MockerFixture) -> None:
     start_cookie = "a" * 32
     end_cookie = "b" * 32
-    payload = json.dumps(PythonInfo().to_dict())
-    out = f"pre{start_cookie[::-1]}{payload}{end_cookie[::-1]}post"
+    out = f"pre{start_cookie[::-1]}{json.dumps(PythonInfo().to_dict())}{end_cookie[::-1]}post"
 
     mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process(out, "", 0))
     mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start_cookie, end_cookie])
@@ -276,9 +274,7 @@ def test_collect_query_output_requires_pipes(stdout: StringIO | None, stderr: St
 
 
 def test_load_cached_py_info_valid() -> None:
-    store = MagicMock()
-    content = PythonInfo().to_dict()
-    result = _load_cached_py_info(PythonInfo, store, content)
+    result = _load_cached_py_info(PythonInfo, MagicMock(), PythonInfo().to_dict())
     assert result is not None
     assert isinstance(result, PythonInfo)
 
@@ -333,8 +329,7 @@ def test_get_via_file_cache_stale_hash(tmp_path: Path) -> None:
 def test_get_via_file_cache_nonexistent_path(tmp_path: Path) -> None:
     cache = DiskCache(tmp_path)
     path = Path(tmp_path / "nonexistent")
-    env = dict(os.environ)
-    result = _get_via_file_cache(PythonInfo, cache, path, str(path), env)
+    result = _get_via_file_cache(PythonInfo, cache, path, str(path), dict(os.environ))
     assert isinstance(result, (PythonInfo, Exception))
 
 
@@ -371,18 +366,6 @@ def test_get_via_file_cache_py_info_none(tmp_path: Path, mocker: MockerFixture) 
     assert isinstance(result, RuntimeError)
 
 
-def _write_fake_python(tmp_path: Path, stderr: str, code: int = 79) -> Path:
-    """A stand-in interpreter: logs every invocation, then fails interrogation with the given stderr and exit code."""
-    exe = tmp_path / "python"
-    exe.write_text(f'#!/bin/sh\necho "$@" >> "$0.log"\necho "{stderr}" >&2\nexit {code}\n')
-    exe.chmod(0o755)
-    return exe
-
-
-def _interrogations(exe: Path) -> list[str]:
-    return Path(f"{exe}.log").read_text(encoding="utf-8").splitlines()
-
-
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
 def test_from_exe_too_old_python_warns(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO)
@@ -393,11 +376,23 @@ def test_from_exe_too_old_python_warns(tmp_path: Path, caplog: pytest.LogCapture
     assert record.getMessage() == f"{exe} is Python 3.5.10, older than the minimum 3.6 python-discovery can query"
 
 
+def _write_fake_python(tmp_path: Path, stderr: str, code: int = 79) -> Path:
+    # A stand-in interpreter: logs every invocation, then fails interrogation with the given stderr and exit code.
+    exe = tmp_path / "python"
+    exe.write_text(f'#!/bin/sh\necho "$@" >> "$0.log"\necho "{stderr}" >&2\nexit {code}\n')
+    exe.chmod(0o755)
+    return exe
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
 def test_from_exe_too_old_python_skips_retry(tmp_path: Path) -> None:
     exe = _write_fake_python(tmp_path, stderr="unsupported Python version 3.5.10")
     PythonInfo.from_exe(str(exe), raise_on_error=False, ignore_cache=True)
     assert len(_interrogations(exe)) == 1
+
+
+def _interrogations(exe: Path) -> list[str]:
+    return Path(f"{exe}.log").read_text(encoding="utf-8").splitlines()
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell fake interpreter")
@@ -538,8 +533,7 @@ def popen(mocker: MockerFixture) -> MagicMock:
     mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start, end])
     info = PythonInfo()
     info.executable = _SELECTED
-    out = f"{start[::-1]}{info.to_json()}{end[::-1]}"
-    process = _mock_process(out, "", 0)
+    process = _mock_process(f"{start[::-1]}{info.to_json()}{end[::-1]}", "", 0)
     return mocker.patch("python_discovery._cached_py_info.Popen", return_value=process)
 
 
