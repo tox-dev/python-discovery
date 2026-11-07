@@ -21,6 +21,14 @@ if TYPE_CHECKING:
 
     from pytest_mock import MockerFixture
 
+_EXE_SUFFIX = ".exe" if IS_WIN else ""
+_SCRIPTS_DIR = "Scripts" if IS_WIN else "bin"
+_PYTHON_NAME = "python.exe" if IS_WIN else "python"
+_PYTHON27_NAME = "python2.7.exe" if IS_WIN else "python2.7"
+_VENV_PYTHON = "Scripts/python.exe" if IS_WIN else "bin/python"
+_A_FILE_NAME = "a_file.exe" if IS_WIN else "a_file"
+_UV_DATA_DIR = "AppData/Roaming/uv/data" if IS_WIN else ".local/share/uv"
+
 
 @pytest.mark.graalpy
 @pytest.mark.skipif(not Path(sys.executable).is_symlink() and not Path(sys.executable).is_file(), reason="no symlink")
@@ -95,7 +103,7 @@ def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
 def test_pypy_spec_rejects_cpython_alias(name: str, tmp_path: Path, session_cache: DiskCache) -> None:
     threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
     version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
-    (tmp_path / f"{name}{version}{'.exe' if IS_WIN else ''}").symlink_to(sys.executable)
+    (tmp_path / f"{name}{version}{_EXE_SUFFIX}").symlink_to(sys.executable)
     env = {"PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")}
 
     selected = get_interpreter(f"pypy{version}", [], cache=session_cache, env=env)
@@ -109,7 +117,7 @@ def test_pypy_spec_rejects_cpython_alias(name: str, tmp_path: Path, session_cach
 def test_generic_python_spec_accepts_mixed_case_alias(tmp_path: Path, session_cache: DiskCache) -> None:
     threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
     version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
-    alias = tmp_path / f"Python{version}{'.exe' if IS_WIN else ''}"
+    alias = tmp_path / f"Python{version}{_EXE_SUFFIX}"
     alias.symlink_to(sys.executable)
 
     selected = get_interpreter(
@@ -240,7 +248,7 @@ def test_discovery_invalid_specifier_raises(session_cache: DiskCache) -> None:
 def test_discovery_fallback_reuses_preferred_paths(
     tmp_path: Path, session_cache: DiskCache, mocker: MockerFixture, *, use_iterator: bool
 ) -> None:
-    executable = tmp_path / "preferred" / ("Scripts/python.exe" if IS_WIN else "bin/python")
+    executable = tmp_path / "preferred" / _VENV_PYTHON
     executable.parent.mkdir(parents=True)
     executable.touch()
     preferred_info = deepcopy(PythonInfo.current_system(session_cache))
@@ -289,8 +297,8 @@ def test_discovery_absolute_path_with_try_first(
     check_call([sys.executable, "-m", "venv", str(good_env)])
     check_call([sys.executable, "-m", "venv", str(bad_env)])
 
-    scripts_dir = "Scripts" if IS_WIN else "bin"
-    exe_name = "python.exe" if IS_WIN else "python"
+    scripts_dir = _SCRIPTS_DIR
+    exe_name = _PYTHON_NAME
     good_exe = good_env / scripts_dir / exe_name
     bad_exe = bad_env / scripts_dir / exe_name
 
@@ -305,8 +313,8 @@ def test_discovery_absolute_path_with_try_first(
 
 
 def test_discovery_venvs_on_one_base_keep_their_executable(tmp_path: Path, session_cache: DiskCache) -> None:
-    scripts_dir = "Scripts" if IS_WIN else "bin"
-    exe_name = "python.exe" if IS_WIN else "python"
+    scripts_dir = _SCRIPTS_DIR
+    exe_name = _PYTHON_NAME
     exes = [tmp_path / name / scripts_dir / exe_name for name in ("a", "b")]
     for exe in exes:
         check_call([sys.executable, "-m", "venv", "--without-pip", str(exe.parents[1])])
@@ -319,7 +327,7 @@ def test_discovery_venvs_on_one_base_keep_their_executable(tmp_path: Path, sessi
 def test_discovery_try_first_with_keeps_venv(tmp_path: Path, session_cache: DiskCache) -> None:
     venv = tmp_path / "preferred"
     check_call([sys.executable, "-m", "venv", "--without-pip", str(venv)])
-    exe = venv / ("Scripts/python.exe" if IS_WIN else "bin/python")
+    exe = venv / _VENV_PYTHON
 
     info = get_interpreter(
         ">=3",
@@ -424,7 +432,7 @@ def test_get_paths_empty_entry_does_not_yield_cwd(tmp_path: Path, monkeypatch: p
 def test_lazy_path_dump_debug(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("_VIRTUALENV_DEBUG", "1")
     a_dir = tmp_path
-    executable_file = "a_file.exe" if IS_WIN else "a_file"
+    executable_file = _A_FILE_NAME
     (a_dir / executable_file).touch(mode=0o755)
     (a_dir / "b_file").touch(mode=0o644)
     output = repr(LazyPathDump(0, a_dir, os.environ))
@@ -476,7 +484,7 @@ def test_shim_resolved_to_real_binary(
 ) -> None:
     root = _create_version_manager(tmp_path, env_var)
     real_binary = _create_versioned_binary(root, versions_path, "2.7.18", "python2.7")
-    (root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")).touch(mode=0o755)
+    (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
 
     monkeypatch.setenv("PATH", str(root / "shims"))
     monkeypatch.setenv(env_var, str(root))
@@ -501,7 +509,7 @@ def _create_version_manager(tmp_path: Path, env_var: str) -> Path:
 def _create_versioned_binary(root: Path, versions_path: tuple[str, ...], version: str, exe_name: str) -> Path:
     bin_dir = root.joinpath(*versions_path, version, "bin")
     bin_dir.mkdir(parents=True, exist_ok=True)
-    exe = bin_dir / (f"{exe_name}.exe" if IS_WIN else exe_name)
+    exe = bin_dir / f"{exe_name}{_EXE_SUFFIX}"
     exe.touch()
     exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
     return exe
@@ -510,7 +518,7 @@ def _create_versioned_binary(root: Path, versions_path: tuple[str, ...], version
 def test_shim_not_resolved_without_version_manager_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     shims_dir = tmp_path / "shims"
     shims_dir.mkdir()
-    shim = shims_dir / ("python2.7.exe" if IS_WIN else "python2.7")
+    shim = shims_dir / _PYTHON27_NAME
     shim.touch(mode=0o755)
 
     monkeypatch.setenv("PATH", str(shims_dir))
@@ -526,7 +534,7 @@ def test_shim_not_resolved_without_version_manager_env(tmp_path: Path, monkeypat
 
 def test_shim_falls_through_when_binary_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
-    shim = root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")
+    shim = root / "shims" / _PYTHON27_NAME
     shim.touch(mode=0o755)
 
     monkeypatch.setenv("PATH", str(root / "shims"))
@@ -542,7 +550,7 @@ def test_shim_falls_through_when_binary_missing(tmp_path: Path, monkeypatch: pyt
 def test_shim_uses_python_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
-    (root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")).touch(mode=0o755)
+    (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
     (tmp_path / ".python-version").write_text(encoding="utf-8", data="2.7.18\n")
 
     monkeypatch.setenv("PATH", str(root / "shims"))
@@ -579,7 +587,7 @@ def test_shim_skips_path_like_version(
         "nested": root / "versions" / "2.7.18" / "subdir",
     }[target]
     _create_versioned_binary(attack_root, (), "", "python2.7")
-    (root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")).touch(mode=0o755)
+    (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
     (tmp_path / ".python-version").write_text(f"{version.format(outside=outside)}\n2.7.18\n", encoding="utf-8")
 
     monkeypatch.setenv("PATH", str(root / "shims"))
@@ -597,7 +605,7 @@ def test_shim_skips_empty_environment_version(tmp_path: Path, monkeypatch: pytes
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
     _create_versioned_binary(root / "versions", (), "", "python2.7")
-    (root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")).touch(mode=0o755)
+    (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
 
     monkeypatch.setenv("PATH", str(root / "shims"))
     monkeypatch.setenv("PYENV_ROOT", str(root))
@@ -635,7 +643,7 @@ def test_shim_python_version_file_keeps_unicode_separator_in_version(
     (tmp_path / ".python-version").write_text("2.7.18\u2028ignored\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
 
-    assert pyenv_probed() == ("shims", "python2.7.exe" if IS_WIN else "python2.7")
+    assert pyenv_probed() == ("shims", _PYTHON27_NAME)
 
 
 def test_shim_python_version_file_not_utf8(
@@ -680,7 +688,7 @@ def pyenv_probed(
 ) -> Callable[[], tuple[str, ...]]:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
-    (root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")).touch(mode=0o755)
+    (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
     monkeypatch.setenv("PATH", str(root / "shims"))
     monkeypatch.setenv("PYENV_ROOT", str(root))
     monkeypatch.delenv("PYENV_VERSION", raising=False)
@@ -697,7 +705,7 @@ def test_shim_pyenv_version_env_takes_priority_over_file(tmp_path: Path, monkeyp
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
     env_binary = _create_versioned_binary(root, ("versions",), "2.7.15", "python2.7")
-    (root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")).touch(mode=0o755)
+    (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
     (tmp_path / ".python-version").write_text(encoding="utf-8", data="2.7.18\n")
 
     monkeypatch.setenv("PATH", str(root / "shims"))
@@ -714,7 +722,7 @@ def test_shim_pyenv_version_env_takes_priority_over_file(tmp_path: Path, monkeyp
 def test_shim_uses_global_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
-    (root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")).touch(mode=0o755)
+    (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
     (root / "version").write_text(encoding="utf-8", data="2.7.18\n")
     workdir = tmp_path / "workdir"
     workdir.mkdir()
@@ -737,7 +745,7 @@ def test_shim_colon_separated_pyenv_version_picks_first_match(
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
     second_binary = _create_versioned_binary(root, ("versions",), "2.7.15", "python2.7")
-    (root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")).touch(mode=0o755)
+    (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
 
     monkeypatch.setenv("PATH", str(root / "shims"))
     monkeypatch.setenv("PYENV_ROOT", str(root))
@@ -1005,9 +1013,9 @@ def test_discovery_uv_store_is_searched_after_path(
     uv_plant: Callable[[Path], str],
     uv_probed: UvProbe,
 ) -> None:
-    store_executable = uv_plant(uv_home / ("AppData/Roaming/uv/data" if IS_WIN else ".local/share/uv") / "python")
+    store_executable = uv_plant(uv_home / _UV_DATA_DIR / "python")
     (path_dir := uv_home / "path-bin").mkdir()
-    (path_executable := path_dir / f"python{_NO_UV_MATCH}{'.exe' if IS_WIN else ''}").touch()
+    (path_executable := path_dir / f"python{_NO_UV_MATCH}{_EXE_SUFFIX}").touch()
     monkeypatch.setenv("PATH", str(path_dir))
 
     assert uv_probed() == [str(path_executable), store_executable]
