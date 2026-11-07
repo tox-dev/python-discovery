@@ -4,13 +4,15 @@ import contextlib
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Final, Protocol
 from uuid import uuid4
 
 import pytest
 
 from python_discovery import DiskCache, PythonInfo, iter_interpreters
 from python_discovery._discovery import IS_WIN
+
+_EXE_SUFFIX: Final[str] = ".exe" if IS_WIN else ""
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -137,7 +139,7 @@ def test_iter_interpreters_no_key_includes_running_interpreter(session_cache: Di
 def test_iter_interpreters_no_key_probes_variant_builds_on_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, name: str
 ) -> None:
-    exe = tmp_path / "bin" / f"{name}{'.exe' if IS_WIN else ''}"
+    exe = tmp_path / "bin" / f"{name}{_EXE_SUFFIX}"
     exe.parent.mkdir()
     exe.touch()
     monkeypatch.setenv("PATH", str(exe.parent))
@@ -153,7 +155,7 @@ def test_iter_interpreters_no_key_probes_variant_builds_on_path(
     "directory_name",
     [
         pytest.param(".", id="path-directory"),
-        pytest.param(f"python3.99{'.exe' if IS_WIN else ''}", id="named-directory"),
+        pytest.param(f"python3.99{_EXE_SUFFIX}", id="named-directory"),
     ],
 )
 def test_iter_interpreters_skips_path_directories(
@@ -162,7 +164,7 @@ def test_iter_interpreters_skips_path_directories(
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     (bin_dir / directory_name).mkdir(exist_ok=True)
-    executable = bin_dir / f"python3.98{'.exe' if IS_WIN else ''}"
+    executable = bin_dir / f"python3.98{_EXE_SUFFIX}"
     executable.touch()
     monkeypatch.setenv("PATH", str(bin_dir))
     from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
@@ -178,9 +180,8 @@ def test_iter_interpreters_dedups_symlinks(
     monkeypatch: pytest.MonkeyPatch,
     session_cache: DiskCache,
 ) -> None:
-    suffix = ".exe" if IS_WIN else ""
     for name in ("python3", "python3.99"):
-        Path(str(tmp_path / f"{name}{suffix}")).symlink_to(sys.executable)
+        Path(str(tmp_path / f"{name}{_EXE_SUFFIX}")).symlink_to(sys.executable)
     pyvenv_cfg = Path(sys.executable).parents[1] / "pyvenv.cfg"
     with contextlib.suppress(FileNotFoundError):
         (tmp_path / pyvenv_cfg.name).write_bytes(pyvenv_cfg.read_bytes())

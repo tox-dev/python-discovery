@@ -26,6 +26,11 @@ if TYPE_CHECKING:
 _IS_PYPY: Final[bool] = PythonInfo.current_system().implementation == "PyPy"
 
 _CURRENT: Final[PythonInfo] = PythonInfo.current_system()
+_EXECUTABLE_SUFFIX: Final[str] = Path(_CURRENT.executable).suffix if sys.platform == "win32" else ""
+_ORIGINAL_SUFFIX: Final[str] = Path(_CURRENT.original_executable).suffix if sys.platform == "win32" else ""
+_THREADED: Final[str] = "t" if _CURRENT.free_threaded else ""
+_UNTHREADED: Final[str] = "" if _CURRENT.free_threaded else "t"
+_OTHER_ARCHITECTURE: Final[int] = {32: 64, 64: 32}[_CURRENT.architecture]
 
 
 @pytest.mark.graalpy
@@ -101,7 +106,7 @@ def test_satisfy_py_info(spec: str) -> None:
 
 def test_satisfy_not_arch() -> None:
     parsed_spec = PythonSpec.from_string_spec(
-        f"{_CURRENT.implementation}-{64 if _CURRENT.architecture == 32 else 32}",
+        f"{_CURRENT.implementation}-{_OTHER_ARCHITECTURE}",
     )
     matches = _CURRENT.satisfies(parsed_spec, impl_must_match=True)
     assert matches is False
@@ -109,7 +114,7 @@ def test_satisfy_not_arch() -> None:
 
 def test_satisfy_not_threaded() -> None:
     parsed_spec = PythonSpec.from_string_spec(
-        f"{_CURRENT.implementation}{_CURRENT.version_info.major}{'' if _CURRENT.free_threaded else 't'}",
+        f"{_CURRENT.implementation}{_CURRENT.version_info.major}{_UNTHREADED}",
     )
     matches = _CURRENT.satisfies(parsed_spec, impl_must_match=True)
     assert matches is False
@@ -156,7 +161,7 @@ def test_py_info_cache_clear(mocker: MockerFixture, session_cache: DiskCache) ->
     info = PythonInfo.from_exe(sys.executable, session_cache)
     assert info is not None
 
-    native_difference = 1 if info.system_executable == info.executable else 0
+    native_difference = int(info.system_executable == info.executable)
     assert spy.call_count + native_difference >= 1
 
 
@@ -219,7 +224,6 @@ def test_system_executable_no_exact_match(
 
     discovered_with_path: dict[str, PythonInfo] = {}
     names: list[str] = []
-    selected = None
     for pos, info in enumerate(discovered):
         path = tmp_path / str(pos)
         path.write_text("", encoding="utf-8")
@@ -229,8 +233,6 @@ def test_system_executable_no_exact_match(
         py_info.system_executable = system_executable
         py_info.executable = system_executable
         py_info.base_executable = str(path)  # ty: ignore[unresolved-attribute] the test stub is a plain object, not a PythonInfo
-        if pos == position:
-            selected = py_info
         discovered_with_path[str(path)] = py_info
         names.append(path.name)
 
@@ -249,7 +251,7 @@ def test_system_executable_no_exact_match(
     mapped = target_py_info.resolve_to_system(session_cache, target_py_info)
     assert mapped.system_executable == _CURRENT.system_executable
     found = discovered_with_path[mapped.base_executable]
-    assert found is selected
+    assert found is discovered_with_path[str(tmp_path / str(position))]
 
     assert caplog.records[0].msg == "discover exe for %s in %s"
     for record in caplog.records[1:-1]:
@@ -306,9 +308,7 @@ def test_py_info_ignores_distutils_config(monkeypatch: pytest.MonkeyPatch, tmp_p
 
 
 def test_discover_exe_on_path_non_spec_name_match(mocker: MockerFixture) -> None:
-    suffixed_name = f"python{_CURRENT.version_info.major}.{_CURRENT.version_info.minor}m"
-    if sys.platform == "win32":  # pragma: win32 cover
-        suffixed_name += Path(_CURRENT.executable).suffix
+    suffixed_name = f"python{_CURRENT.version_info.major}.{_CURRENT.version_info.minor}m{_EXECUTABLE_SUFFIX}"
     spec = PythonSpec.from_string_spec(suffixed_name)
     mocker.patch.object(_CURRENT, "executable", str(Path(_CURRENT.executable).parent / suffixed_name))
     assert _CURRENT.satisfies(spec, impl_must_match=True) is True
@@ -327,9 +327,7 @@ def test_satisfies_debug_spec_requires_debug_build(mocker: MockerFixture) -> Non
 
 
 def test_discover_exe_on_path_non_spec_name_not_match(mocker: MockerFixture) -> None:
-    suffixed_name = f"python{_CURRENT.version_info.major}.{_CURRENT.version_info.minor}m"
-    if sys.platform == "win32":  # pragma: win32 cover
-        suffixed_name += Path(_CURRENT.original_executable).suffix
+    suffixed_name = f"python{_CURRENT.version_info.major}.{_CURRENT.version_info.minor}m{_ORIGINAL_SUFFIX}"
     spec = PythonSpec.from_string_spec(suffixed_name)
     mocker.patch.object(
         _CURRENT,
@@ -421,7 +419,7 @@ def test_py_info_machine_derivation_universal2(mocker: MockerFixture, runtime_is
 
 
 def test_py_info_satisfies_with_machine() -> None:
-    threaded = "t" if _CURRENT.free_threaded else ""
+    threaded = _THREADED
     spec_str = (
         f"{_CURRENT.implementation}{_CURRENT.version_info.major}{threaded}-{_CURRENT.architecture}-{_CURRENT.machine}"
     )
@@ -430,13 +428,13 @@ def test_py_info_satisfies_with_machine() -> None:
 
 
 def test_py_info_satisfies_not_machine() -> None:
-    other_machine = "arm64" if _CURRENT.machine != "arm64" else "x86_64"
+    other_machine = {"arm64": "x86_64"}.get(_CURRENT.machine, "arm64")
     parsed_spec = PythonSpec.from_string_spec(f"{_CURRENT.implementation}-{_CURRENT.architecture}-{other_machine}")
     assert _CURRENT.satisfies(parsed_spec, impl_must_match=True) is False
 
 
 def test_py_info_satisfies_no_machine_in_spec() -> None:
-    threaded = "t" if _CURRENT.free_threaded else ""
+    threaded = _THREADED
     spec_str = f"{_CURRENT.implementation}{_CURRENT.version_info.major}{threaded}-{_CURRENT.architecture}"
     parsed_spec = PythonSpec.from_string_spec(spec_str)
     assert parsed_spec.machine is None

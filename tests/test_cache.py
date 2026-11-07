@@ -7,7 +7,7 @@ import sys
 from os import fsdecode
 from pathlib import Path
 from threading import Event, Thread
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from filelock import FileLock, Timeout
@@ -67,9 +67,11 @@ def test_disk_content_store_write_size_tracks_input(tmp_path: Path, source: str)
     assert (tmp_path / "test.json").stat().st_size < 2 * len(json.dumps(content))
 
 
+_DEEP_JSON_DEPTH: Final[int] = 2_000 if sys.version_info >= (3, 15) else 900
+
+
 def test_disk_content_store_write_deep_json(tmp_path: Path) -> None:
-    depth = 2_000 if sys.version_info >= (3, 15) else 900
-    DiskContentStore(tmp_path, "test").write({"padding": json.loads("[" * depth + "]" * depth)})
+    DiskContentStore(tmp_path, "test").write({"padding": json.loads("[" * _DEEP_JSON_DEPTH + "]" * _DEEP_JSON_DEPTH)})
     assert (tmp_path / "test.json").stat().st_size < 10_000
 
 

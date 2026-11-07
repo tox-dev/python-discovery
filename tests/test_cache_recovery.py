@@ -36,7 +36,6 @@ def test_from_exe_recovers_non_object_cache(cached_interpreter: tuple[DiskCache,
 @pytest.mark.parametrize(
     "payload",
     [
-        pytest.param(None, id="missing"),
         pytest.param("5", id="int"),
         pytest.param('["python"]', id="list"),
         pytest.param("{}", id="dict"),
@@ -53,10 +52,20 @@ def test_from_exe_recovers_invalid_system_executable(
 ) -> None:
     cache, cache_file, expected = cached_interpreter
     data = json.loads(cache_file.read_text(encoding="utf-8"))
-    if payload is None:
-        del data["content"]["system_executable"]
-    else:
-        data["content"]["system_executable"] = json.loads(payload)
+    data["content"]["system_executable"] = json.loads(payload)
+    cache_file.write_text(json.dumps(data), encoding="utf-8")
+    result = PythonInfo.from_exe(sys.executable, cache, ignore_cache=True, resolve_to_host=False)
+    assert result is not None
+    assert (json.loads(result.to_json()), json.loads(cache_file.read_text(encoding="utf-8"))) == (
+        expected["content"],
+        expected,
+    )
+
+
+def test_from_exe_recovers_missing_system_executable(cached_interpreter: _CachedInterpreter) -> None:
+    cache, cache_file, expected = cached_interpreter
+    data = json.loads(cache_file.read_text(encoding="utf-8"))
+    del data["content"]["system_executable"]
     cache_file.write_text(json.dumps(data), encoding="utf-8")
     result = PythonInfo.from_exe(sys.executable, cache, ignore_cache=True, resolve_to_host=False)
     assert result is not None

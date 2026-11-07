@@ -21,13 +21,13 @@ if TYPE_CHECKING:
 
     from pytest_mock import MockerFixture
 
-_EXE_SUFFIX = ".exe" if IS_WIN else ""
-_SCRIPTS_DIR = "Scripts" if IS_WIN else "bin"
-_PYTHON_NAME = "python.exe" if IS_WIN else "python"
-_PYTHON27_NAME = "python2.7.exe" if IS_WIN else "python2.7"
-_VENV_PYTHON = "Scripts/python.exe" if IS_WIN else "bin/python"
-_A_FILE_NAME = "a_file.exe" if IS_WIN else "a_file"
-_UV_DATA_DIR = "AppData/Roaming/uv/data" if IS_WIN else ".local/share/uv"
+_EXE_SUFFIX: Final[str] = ".exe" if IS_WIN else ""
+_SCRIPTS_DIR: Final[str] = "Scripts" if IS_WIN else "bin"
+_PYTHON_NAME: Final[str] = "python.exe" if IS_WIN else "python"
+_PYTHON27_NAME: Final[str] = "python2.7.exe" if IS_WIN else "python2.7"
+_VENV_PYTHON: Final[str] = "Scripts/python.exe" if IS_WIN else "bin/python"
+_A_FILE_NAME: Final[str] = "a_file.exe" if IS_WIN else "a_file"
+_UV_DATA_DIR: Final[str] = "AppData/Roaming/uv/data" if IS_WIN else ".local/share/uv"
 
 
 @pytest.mark.graalpy

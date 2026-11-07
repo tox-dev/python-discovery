@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
@@ -17,6 +17,8 @@ from python_discovery._discovery import (
     propose_interpreters,
 )
 from python_discovery._py_spec import PythonSpec
+
+_PYTHON_NAME: Final[str] = "python.exe" if IS_WIN else "python"
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -53,7 +55,7 @@ def test_propose_interpreters_relative_path(
     session_cache: DiskCache,
 ) -> None:
     Path(sys.executable)
-    link = tmp_path / ("python.exe" if IS_WIN else "python")
+    link = tmp_path / _PYTHON_NAME
     Path(str(link)).symlink_to(sys.executable)
     spec = PythonSpec.from_string_spec(link.name)
     spec.path = link.name
@@ -174,7 +176,7 @@ def test_propose_interpreters_abs_path_exists(session_cache: DiskCache) -> None:
 
 
 def test_propose_interpreters_relative_spec_is_abs(tmp_path: Path, session_cache: DiskCache) -> None:
-    link = tmp_path / ("python.exe" if IS_WIN else "python")
+    link = tmp_path / _PYTHON_NAME
     Path(str(link)).symlink_to(sys.executable)
     spec = PythonSpec.from_string_spec(str(link))
     spec.path = str(link)

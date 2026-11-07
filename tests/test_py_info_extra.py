@@ -419,7 +419,7 @@ def test_check_exe_mismatch_not_exact(tmp_path: Path, mocker: MockerFixture) -> 
     info = copy.deepcopy(_CURRENT)
     (tmp_path / "python").touch()
     other = copy.deepcopy(_CURRENT)
-    other.architecture = 32 if info.architecture == 64 else 64
+    other.architecture = {32: 64, 64: 32}[info.architecture]
     mocker.patch.object(PythonInfo, "from_exe", return_value=other, autospec=True)
     discovered: list[PythonInfo] = []
     result = info._check_exe(
@@ -433,7 +433,7 @@ def test_check_exe_mismatch_exact(tmp_path: Path, mocker: MockerFixture) -> None
     info = copy.deepcopy(_CURRENT)
     (tmp_path / "python").touch()
     other = copy.deepcopy(_CURRENT)
-    other.architecture = 32 if info.architecture == 64 else 64
+    other.architecture = {32: 64, 64: 32}[info.architecture]
     mocker.patch.object(PythonInfo, "from_exe", return_value=other, autospec=True)
     discovered: list[PythonInfo] = []
     result = info._check_exe(

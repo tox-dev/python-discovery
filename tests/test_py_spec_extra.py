@@ -104,7 +104,7 @@ def test_generate_re_with_debug(name: str) -> None:
 @pytest.mark.parametrize("windows", [pytest.param(False, id="posix"), pytest.param(True, id="windows")])
 def test_generate_re_all_implementations_matches_variant_names(name: str, windows: bool) -> None:
     pat = PythonSpec("", None, None, None, None, None, None).generate_re(windows=windows, all_implementations=True)
-    assert pat.fullmatch(f"{name}.exe" if windows else name) is not None
+    assert pat.fullmatch(f"{name}{'.exe' * windows}") is not None
 
 
 @pytest.mark.parametrize(

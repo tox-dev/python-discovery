@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from pathlib import Path
 from typing import Final
@@ -12,6 +13,8 @@ from python_discovery._discovery import IS_WIN
 from python_discovery._py_info import EXTENSIONS
 
 _CURRENT: Final[PythonInfo] = PythonInfo.current()
+_THREADED: Final[str] = "t" if _CURRENT.free_threaded else ""
+_CASE_FOLD: Final = str.lower if not fs_is_case_sensitive() else str
 
 
 def _fs_supports_symlink() -> bool:
@@ -66,22 +69,16 @@ def test_discover_ok(
     caplog.set_level(logging.DEBUG)
     folder = tmp_path / into
     folder.mkdir(parents=True, exist_ok=True)
-    name = f"{impl}{version}{'t' if _CURRENT.free_threaded else ''}"
-    if arch:
-        name += f"-{arch}"
-    name += suffix
+    name = f"{impl}{version}{_THREADED}{f'-{arch}' * bool(arch)}{suffix}"
     dest = folder / name
     Path(str(dest)).symlink_to(_CURRENT.executable)
     pyvenv = Path(_CURRENT.executable).parents[1] / "pyvenv.cfg"
-    if pyvenv.exists():  # pragma: no branch, the branch depends on the host interpreter layout
+    with contextlib.suppress(FileNotFoundError):
         (folder / pyvenv.name).write_text(pyvenv.read_text(encoding="utf-8"), encoding="utf-8")
     inside_folder = str(tmp_path)
     found = _CURRENT.discover_exe(session_cache, inside_folder).executable
     dest_str = str(dest)
-    if not fs_is_case_sensitive():  # pragma: win32 cover
-        found = found.lower()
-        dest_str = dest_str.lower()
-    assert found == dest_str
+    assert _CASE_FOLD(found) == _CASE_FOLD(dest_str)
     assert len(caplog.messages) >= 1, caplog.text
     assert "get interpreter info via cmd: " in caplog.text
 
