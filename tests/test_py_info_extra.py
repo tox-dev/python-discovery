@@ -6,7 +6,6 @@ import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -179,12 +178,12 @@ def test_resolve_to_system_repeated_prefix_with_parent_segments(tmp_path: Path, 
     assert result.system_executable == repeated.executable
 
 
-def test_discover_exe_cache_hit() -> None:
+def test_discover_exe_cache_hit(mocker: MockerFixture) -> None:
     info = copy.deepcopy(_CURRENT)
     cached = copy.deepcopy(_CURRENT)
     PythonInfo._cache_exe_discovery["/some/prefix", True, info.version_info] = cached
     try:
-        result = info.discover_exe(MagicMock(spec=PyInfoCache), prefix="/some/prefix", exact=True)
+        result = info.discover_exe(mocker.MagicMock(spec=PyInfoCache), prefix="/some/prefix", exact=True)
         assert result is cached
     finally:
         del PythonInfo._cache_exe_discovery["/some/prefix", True, info.version_info]
@@ -206,10 +205,10 @@ def test_discover_exe_cache_keeps_requested_version(tmp_path: Path) -> None:
         PythonInfo.clear_cache(cache)
 
 
-def test_check_exe_none_path(tmp_path: Path) -> None:
+def test_check_exe_none_path(tmp_path: Path, mocker: MockerFixture) -> None:
     info = copy.deepcopy(_CURRENT)
     result = info._check_exe(
-        MagicMock(spec=PyInfoCache), str(tmp_path), "nonexistent", [], dict(os.environ), exact=True
+        mocker.MagicMock(spec=PyInfoCache), str(tmp_path), "nonexistent", [], dict(os.environ), exact=True
     )
     assert result is None
 
@@ -411,7 +410,9 @@ def test_check_exe_from_exe_returns_none(tmp_path: Path, mocker: MockerFixture) 
     info = copy.deepcopy(_CURRENT)
     (tmp_path / "python").touch()
     mocker.patch.object(PythonInfo, "from_exe", return_value=None, autospec=True)
-    result = info._check_exe(MagicMock(spec=PyInfoCache), str(tmp_path), "python", [], dict(os.environ), exact=True)
+    result = info._check_exe(
+        mocker.MagicMock(spec=PyInfoCache), str(tmp_path), "python", [], dict(os.environ), exact=True
+    )
     assert result is None
 
 
@@ -423,7 +424,7 @@ def test_check_exe_mismatch_not_exact(tmp_path: Path, mocker: MockerFixture) -> 
     mocker.patch.object(PythonInfo, "from_exe", return_value=other, autospec=True)
     discovered: list[PythonInfo] = []
     result = info._check_exe(
-        MagicMock(spec=PyInfoCache), str(tmp_path), "python", discovered, dict(os.environ), exact=False
+        mocker.MagicMock(spec=PyInfoCache), str(tmp_path), "python", discovered, dict(os.environ), exact=False
     )
     assert result is None
     assert len(discovered) == 1
@@ -437,7 +438,7 @@ def test_check_exe_mismatch_exact(tmp_path: Path, mocker: MockerFixture) -> None
     mocker.patch.object(PythonInfo, "from_exe", return_value=other, autospec=True)
     discovered: list[PythonInfo] = []
     result = info._check_exe(
-        MagicMock(spec=PyInfoCache), str(tmp_path), "python", discovered, dict(os.environ), exact=True
+        mocker.MagicMock(spec=PyInfoCache), str(tmp_path), "python", discovered, dict(os.environ), exact=True
     )
     assert result is None
     assert len(discovered) == 0

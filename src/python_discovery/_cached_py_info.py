@@ -28,7 +28,7 @@ from ._py_info import PythonInfo
 from ._py_info_collect import MIN_INTERROGATE_VERSION, UNSUPPORTED_EXIT_CODE, UNSUPPORTED_MARKER
 
 if sys.platform == "win32":  # pragma: win32 cover
-    from ._windows._cancel_io import stop_query_reader
+    from ._windows._cancel_io import _stop_query_reader
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -320,7 +320,11 @@ def _collect_query_output(process: Popen[str], timeout: float | None) -> _QueryO
             process.kill()
         # A descendant may keep the pipes open after the candidate exits.
         process.wait()
-        _stop_query_readers(readers)
+        for reader in readers:
+            if sys.platform == "win32":  # pragma: win32 cover
+                _stop_query_reader(reader)
+            else:
+                reader.join()
         return _QueryOutput("", "timed out", -1)
     if state.read_errors:
         raise state.read_errors[0]
@@ -377,14 +381,6 @@ def _query_completed(process: Popen[str], readers: tuple[Thread, Thread], timeou
     except TimeoutExpired:
         return False
     return True
-
-
-def _stop_query_readers(readers: tuple[Thread, Thread]) -> None:
-    for reader in readers:
-        if sys.platform == "win32":  # pragma: win32 cover
-            stop_query_reader(reader)
-        else:
-            reader.join()
 
 
 class _QueryOutput(NamedTuple):

@@ -9,7 +9,6 @@ from copy import deepcopy
 from pathlib import Path
 from subprocess import check_call, check_output
 from typing import TYPE_CHECKING, Final, Protocol
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -379,18 +378,18 @@ def test_get_paths_skips_relative_entries(tmp_path: Path, monkeypatch: pytest.Mo
     assert list(get_paths({"PATH": f"{relative}{os.pathsep}{absolute_dir}"})) == [absolute_dir]
 
 
-def test_get_paths_skips_relative_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_paths_skips_relative_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "python3").touch()
     absolute_dir = tmp_path / "absolute"
     absolute_dir.mkdir()
     (absolute_dir / "python3").touch()
 
-    with (
-        patch("python_discovery._discovery.os.confstr", side_effect=AttributeError, create=True, autospec=True),
-        patch("python_discovery._discovery.os.defpath", f".{os.pathsep}{absolute_dir}"),
-    ):
-        assert list(get_paths({})) == [absolute_dir]
+    mocker.patch("python_discovery._discovery.os.confstr", side_effect=AttributeError, create=True, autospec=True)
+    mocker.patch("python_discovery._discovery.os.defpath", f".{os.pathsep}{absolute_dir}")
+    assert list(get_paths({})) == [absolute_dir]
 
 
 @pytest.mark.parametrize(
@@ -476,6 +475,7 @@ def test_shim_resolved_to_real_binary(
     monkeypatch: pytest.MonkeyPatch,
     env_var: str,
     versions_path: tuple[str, ...],
+    mocker: MockerFixture,
 ) -> None:
     root = _create_version_manager(tmp_path, env_var)
     real_binary = _create_versioned_binary(root, versions_path, "2.7.18", "python2.7")
@@ -487,10 +487,10 @@ def test_shim_resolved_to_real_binary(
     for name in {"MISE_DATA_DIR", "ASDF_DATA_DIR", "PYENV_ROOT"} - {env_var}:
         monkeypatch.delenv(name, raising=False)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
-        mock_from_exe.return_value = None
-        get_interpreter("python2.7", [])
-        assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True)
+    mock_from_exe.return_value = None
+    get_interpreter("python2.7", [])
+    assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
 
 
 def _create_version_manager(tmp_path: Path, env_var: str) -> Path:
@@ -509,7 +509,9 @@ def _create_versioned_binary(root: Path, versions_path: tuple[str, ...], version
     return exe
 
 
-def test_shim_not_resolved_without_version_manager_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_shim_not_resolved_without_version_manager_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
     shims_dir = tmp_path / "shims"
     shims_dir.mkdir()
     shim = shims_dir / _PYTHON27_NAME
@@ -520,13 +522,15 @@ def test_shim_not_resolved_without_version_manager_env(tmp_path: Path, monkeypat
     monkeypatch.delenv("MISE_DATA_DIR", raising=False)
     monkeypatch.delenv("ASDF_DATA_DIR", raising=False)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
-        mock_from_exe.return_value = None
-        get_interpreter("python2.7", [])
-        assert mock_from_exe.call_args_list[0][0][0] == str(shim)
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True)
+    mock_from_exe.return_value = None
+    get_interpreter("python2.7", [])
+    assert mock_from_exe.call_args_list[0][0][0] == str(shim)
 
 
-def test_shim_falls_through_when_binary_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_shim_falls_through_when_binary_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     shim = root / "shims" / _PYTHON27_NAME
     shim.touch(mode=0o755)
@@ -535,13 +539,13 @@ def test_shim_falls_through_when_binary_missing(tmp_path: Path, monkeypatch: pyt
     monkeypatch.setenv("PYENV_ROOT", str(root))
     monkeypatch.setenv("PYENV_VERSION", "2.7.18")
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
-        mock_from_exe.return_value = None
-        get_interpreter("python2.7", [])
-        assert mock_from_exe.call_args_list[0][0][0] == str(shim)
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True)
+    mock_from_exe.return_value = None
+    get_interpreter("python2.7", [])
+    assert mock_from_exe.call_args_list[0][0][0] == str(shim)
 
 
-def test_shim_uses_python_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_shim_uses_python_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
     (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
@@ -552,10 +556,10 @@ def test_shim_uses_python_version_file(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.delenv("PYENV_VERSION", raising=False)
     monkeypatch.chdir(tmp_path)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
-        mock_from_exe.return_value = None
-        get_interpreter("python2.7", [])
-        assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True)
+    mock_from_exe.return_value = None
+    get_interpreter("python2.7", [])
+    assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
 
 
 @pytest.mark.parametrize(
@@ -569,7 +573,11 @@ def test_shim_uses_python_version_file(tmp_path: Path, monkeypatch: pytest.Monke
     ],
 )
 def test_shim_skips_path_like_version(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: str, target: str
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    version: str,
+    target: str,
+    mocker: MockerFixture,
 ) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
@@ -589,13 +597,15 @@ def test_shim_skips_path_like_version(
     monkeypatch.delenv("PYENV_VERSION", raising=False)
     monkeypatch.chdir(tmp_path)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
-        mock_from_exe.return_value = None
-        get_interpreter("python2.7", [])
-        assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True)
+    mock_from_exe.return_value = None
+    get_interpreter("python2.7", [])
+    assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
 
 
-def test_shim_skips_empty_environment_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_shim_skips_empty_environment_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
     _create_versioned_binary(root / "versions", (), "", "python2.7")
@@ -605,10 +615,10 @@ def test_shim_skips_empty_environment_version(tmp_path: Path, monkeypatch: pytes
     monkeypatch.setenv("PYENV_ROOT", str(root))
     monkeypatch.setenv("PYENV_VERSION", ":2.7.18")
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
-        mock_from_exe.return_value = None
-        get_interpreter("python2.7", [])
-        assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True)
+    mock_from_exe.return_value = None
+    get_interpreter("python2.7", [])
+    assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
 
 
 @pytest.mark.parametrize(
@@ -695,7 +705,9 @@ def pyenv_probed(
     return _probed
 
 
-def test_shim_pyenv_version_env_takes_priority_over_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_shim_pyenv_version_env_takes_priority_over_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
     env_binary = _create_versioned_binary(root, ("versions",), "2.7.15", "python2.7")
@@ -707,13 +719,13 @@ def test_shim_pyenv_version_env_takes_priority_over_file(tmp_path: Path, monkeyp
     monkeypatch.setenv("PYENV_VERSION", "2.7.15")
     monkeypatch.chdir(tmp_path)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
-        mock_from_exe.return_value = None
-        get_interpreter("python2.7", [])
-        assert mock_from_exe.call_args_list[0][0][0] == str(env_binary)
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True)
+    mock_from_exe.return_value = None
+    get_interpreter("python2.7", [])
+    assert mock_from_exe.call_args_list[0][0][0] == str(env_binary)
 
 
-def test_shim_uses_global_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_shim_uses_global_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
     (root / "shims" / _PYTHON27_NAME).touch(mode=0o755)
@@ -726,15 +738,16 @@ def test_shim_uses_global_version_file(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.delenv("PYENV_VERSION", raising=False)
     monkeypatch.chdir(workdir)
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
-        mock_from_exe.return_value = None
-        get_interpreter("python2.7", [])
-        assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True)
+    mock_from_exe.return_value = None
+    get_interpreter("python2.7", [])
+    assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
 
 
 def test_shim_colon_separated_pyenv_version_picks_first_match(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ) -> None:
     root = _create_version_manager(tmp_path, "PYENV_ROOT")
     _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
@@ -745,10 +758,10 @@ def test_shim_colon_separated_pyenv_version_picks_first_match(
     monkeypatch.setenv("PYENV_ROOT", str(root))
     monkeypatch.setenv("PYENV_VERSION", "3.9.1:2.7.15")
 
-    with patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True) as mock_from_exe:
-        mock_from_exe.return_value = None
-        get_interpreter("python2.7", [])
-        assert mock_from_exe.call_args_list[0][0][0] == str(second_binary)
+    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", autospec=True)
+    mock_from_exe.return_value = None
+    get_interpreter("python2.7", [])
+    assert mock_from_exe.call_args_list[0][0][0] == str(second_binary)
 
 
 def test_predicate_filters_interpreters(session_cache: DiskCache) -> None:

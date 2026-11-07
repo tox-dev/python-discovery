@@ -271,30 +271,34 @@ def test_system_executable_from_existing_base(mocker: MockerFixture, tmp_path: P
 
 
 @pytest.mark.usefixtures("no_framework")
-@pytest.mark.parametrize(
-    "same_file",
-    [
-        pytest.param(False, id="distinct"),
-        pytest.param(True, id="alias"),
-    ],
-)
-def test_system_executable_prefers_exact_version(mocker: MockerFixture, tmp_path: Path, *, same_file: bool) -> None:
+def test_system_executable_prefers_exact_version_for_distinct_file(mocker: MockerFixture, tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     versioned = bin_dir / "python3.13"
     versioned.touch()
     generic = bin_dir / "python3"
-    if same_file:
-        generic.symlink_to(versioned.name)
-        landmark = tmp_path / "lib" / Path(os.__file__).parent.name / "os.py"
-        landmark.parent.mkdir(parents=True)
-        landmark.touch()
-    else:
-        generic.touch()
+    generic.touch()
     _venv(mocker)
     mocker.patch.object(sys, "_base_executable", str(generic), create=True)
     mocker.patch.object(sys, "version_info", VersionInfo(3, 13, 0, "final", 0))
-    assert PythonInfo().system_executable == str(generic if same_file else versioned)
+    assert PythonInfo().system_executable == str(versioned)
+
+
+@pytest.mark.usefixtures("no_framework")
+def test_system_executable_prefers_generic_alias_of_exact_version(mocker: MockerFixture, tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    versioned = bin_dir / "python3.13"
+    versioned.touch()
+    generic = bin_dir / "python3"
+    generic.symlink_to(versioned.name)
+    landmark = tmp_path / "lib" / Path(os.__file__).parent.name / "os.py"
+    landmark.parent.mkdir(parents=True)
+    landmark.touch()
+    _venv(mocker)
+    mocker.patch.object(sys, "_base_executable", str(generic), create=True)
+    mocker.patch.object(sys, "version_info", VersionInfo(3, 13, 0, "final", 0))
+    assert PythonInfo().system_executable == str(generic)
 
 
 def test_system_executable_versioned_fallback(mocker: MockerFixture, tmp_path: Path) -> None:

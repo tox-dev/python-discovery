@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from threading import Thread
 
 
-def stop_query_reader(reader: Thread) -> None:
+def _stop_query_reader(reader: Thread) -> None:
     deadline = monotonic() + 1
     while reader.is_alive() and monotonic() < deadline:
         if (thread_id := reader.native_id) is not None:
@@ -46,8 +46,3 @@ def _cancel_synchronous_io(thread_id: int) -> None:
     finally:
         if not close(handle):
             raise WinError(get_last_error())
-
-
-__all__ = [
-    "stop_query_reader",
-]

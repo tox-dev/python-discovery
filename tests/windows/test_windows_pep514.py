@@ -20,9 +20,9 @@ if TYPE_CHECKING:
 
 @pytest.mark.usefixtures("_mock_registry")
 def test_pep514_discovers_interpreters() -> None:
-    from python_discovery._windows._pep514 import discover_pythons
+    from python_discovery._windows._pep514 import _discover_pythons
 
-    interpreters = list(discover_pythons())
+    interpreters = list(_discover_pythons())
     assert len(interpreters) == 12
     companies = {i[0] for i in interpreters}
     assert "ContinuumAnalytics" in companies
@@ -32,30 +32,30 @@ def test_pep514_discovers_interpreters() -> None:
 
 @pytest.mark.usefixtures("_mock_registry")
 def test_pep514_parse_functions() -> None:
-    from python_discovery._windows._pep514 import parse_arch, parse_version
+    from python_discovery._windows._pep514 import _parse_arch, _parse_version
 
-    assert parse_arch("64bit") == 64
-    assert parse_arch("32bit") == 32
+    assert _parse_arch("64bit") == 64
+    assert _parse_arch("32bit") == 32
     with pytest.raises(ValueError, match="invalid format"):
-        parse_arch("magic")
+        _parse_arch("magic")
     with pytest.raises(ValueError, match="arch is not string"):
-        parse_arch(100)
+        _parse_arch(100)
 
-    assert parse_version("3.12") == (3, 12, None)
-    assert parse_version("3.12.1") == (3, 12, 1)
-    assert parse_version("3") == (3, None, None)
+    assert _parse_version("3.12") == (3, 12, None)
+    assert _parse_version("3.12.1") == (3, 12, 1)
+    assert _parse_version("3") == (3, None, None)
     with pytest.raises(ValueError, match="invalid format"):
-        parse_version("3.X")
+        _parse_version("3.X")
     with pytest.raises(ValueError, match="version is not string"):
-        parse_version(2778)
+        _parse_version(2778)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="path joining differs on POSIX")
 @pytest.mark.usefixtures("_mock_registry")
 def test_pep514() -> None:
-    from python_discovery._windows._pep514 import discover_pythons
+    from python_discovery._windows._pep514 import _discover_pythons
 
-    interpreters = list(discover_pythons())
+    interpreters = list(_discover_pythons())
     assert interpreters == [
         ("ContinuumAnalytics", 3, 10, 32, False, "C:\\Users\\user\\Miniconda3\\python.exe", None),
         ("ContinuumAnalytics", 3, 10, 64, False, "C:\\Users\\user\\Miniconda3-64\\python.exe", None),
@@ -195,10 +195,10 @@ def test_pep514_rejects_non_absolute_executable(
 
     registered = {"ExecutablePath": executable_path, None: install_path}
     mocker.patch.object(pep514.winreg, "OpenKeyEx", return_value=MagicMock())
-    mocker.patch.object(pep514, "get_value", side_effect=lambda _key, name: registered.get(name))
-    mocker.patch.object(pep514.os.path, "exists", return_value=True)
+    mocker.patch.object(pep514, "_get_value", side_effect=lambda _key, name: registered.get(name), autospec=True)
+    mocker.patch.object(pep514.os.path, "exists", return_value=True, autospec=True)
 
-    assert pep514.load_exe("HKCU", "PythonCore", MagicMock(), "3.11") is None
+    assert pep514._load_exe("HKCU", "PythonCore", MagicMock(), "3.11") is None
     assert "expected an absolute executable path" in caplog.text
 
 
@@ -207,12 +207,12 @@ def load_exe_with_args(mocker: MockerFixture) -> Callable[[object], tuple[str, s
     from python_discovery._windows import _pep514 as pep514
 
     mocker.patch.object(pep514.winreg, "OpenKeyEx", return_value=MagicMock())
-    mocker.patch.object(pep514, "_resolve_exe", return_value=r"C:\py.exe")
-    mocker.patch.object(pep514.os.path, "exists", return_value=True)
+    mocker.patch.object(pep514, "_resolve_exe", return_value=r"C:\py.exe", autospec=True)
+    mocker.patch.object(pep514.os.path, "exists", return_value=True, autospec=True)
 
     def load(registered: object) -> tuple[str, str | None] | None:
-        mocker.patch.object(pep514, "get_value", return_value=registered)
-        return pep514.load_exe("HKCU", "PythonCore", MagicMock(), "3.11")
+        mocker.patch.object(pep514, "_get_value", return_value=registered, autospec=True)
+        return pep514._load_exe("HKCU", "PythonCore", MagicMock(), "3.11")
 
     return load
 
@@ -255,7 +255,10 @@ def test_pep514_launcher_arguments_select_interpreter(mocker: MockerFixture, tmp
         pytest.skip("the launcher cannot select 3.11")  # ty: ignore[too-many-positional-arguments]  # ty ships a stale pytest stub for 3.9
     selected, major, minor, arch = json.loads(probe.stdout)
     mocker.patch.object(
-        _propose, "discover_pythons", return_value=[("PythonCore", major, minor, arch, False, launcher, "-3.11")]
+        _propose,
+        "_discover_pythons",
+        return_value=[("PythonCore", major, minor, arch, False, launcher, "-3.11")],
+        autospec=True,
     )
 
     info = next(
