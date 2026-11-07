@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from packaging.markers import Environment
     from pytest_mock import MockerFixture
 
+    from python_discovery import PyInfoCache
+
 _IS_PYPY: Final[bool] = PythonInfo.current_system().implementation == "PyPy"
 
 _CURRENT: Final[PythonInfo] = PythonInfo.current_system()
@@ -240,7 +242,7 @@ def test_system_executable_no_exact_match(
     mocker.patch.object(target_py_info, "_find_possible_exe_names", return_value=names, autospec=True)
     mocker.patch.object(target_py_info, "_find_possible_folders", return_value=[str(tmp_path)], autospec=True)
 
-    def func(exe_path: str, _cache: object = None, **_kwargs: object) -> PythonInfo:
+    def func(exe_path: str, _cache: PyInfoCache | None = None, **_kwargs: object) -> PythonInfo:
         return discovered_with_path[exe_path]
 
     mocker.patch.object(target_py_info, "from_exe", side_effect=func, autospec=True)

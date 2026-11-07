@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
+    from python_discovery import PythonSpec
+
 
 @pytest.fixture
 def _mock_registry(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -69,8 +71,8 @@ class _RegistryData(NamedTuple):
     hive_open: dict[tuple[int, str, int, int], int | OSError]
 
 
-def _make_enum_key(enum_collect: dict[int, list[str | OSError]]) -> Callable[[object, int], str]:
-    def _enum_key(key: object, at: int) -> str:
+def _make_enum_key(enum_collect: dict[int, list[str | OSError]]) -> Callable[[_Key | int, int], str]:
+    def _enum_key(key: _Key | int, at: int) -> str:
         result = enum_collect[(key.value if isinstance(key, _Key) else key)][at]
         if isinstance(result, OSError):
             raise result
@@ -94,8 +96,8 @@ class _Key:
 
 def _make_query_value_ex(
     value_collect: dict[int, dict[str, tuple[str, int] | OSError]],
-) -> Callable[[object, str], tuple[str, int]]:
-    def _query_value_ex(key: object, value_name: str) -> tuple[str, int]:
+) -> Callable[[_Key | int, str], tuple[str, int]]:
+    def _query_value_ex(key: _Key | int, value_name: str) -> tuple[str, int]:
         result = value_collect[(key.value if isinstance(key, _Key) else key)][value_name]
         if isinstance(result, OSError):
             raise result
@@ -164,7 +166,7 @@ def _mock_pyinfo(major: int, minor: int, arch: int, exe: str, threaded: bool) ->
     info.sysconfig_platform = "win-amd64" if arch == 64 else "win32"
     info.machine = "x86_64" if arch == 64 else "x86"
 
-    def satisfies(spec: object, _impl_must_match: bool = False) -> bool:
+    def satisfies(spec: PythonSpec, **_kwargs: object) -> bool:
         if spec.implementation is not None and spec.implementation.lower() != "cpython":
             return False
         if spec.architecture is not None and spec.architecture != arch:
