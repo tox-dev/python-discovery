@@ -130,6 +130,12 @@ lint.ignore = [
   "missing-trailing-comma",                    # Conflict with formatter
   "multi-line-summary-first-line",             # `multi-line-summary-first-line` and `multi-line-summary-second-line` are incompatible
   "single-line-implicit-string-concatenation", # Conflict with formatter
+  "undocumented-magic-method",                 # undocumented-public-api (simplint SMP903) covers the public API instead
+  "undocumented-public-class",                 # undocumented-public-api (simplint SMP903) covers the public API instead
+  "undocumented-public-function",              # undocumented-public-api (simplint SMP903) covers the public API instead
+  "undocumented-public-init",                  # undocumented-public-api (simplint SMP903) covers the public API instead
+  "undocumented-public-method",                # undocumented-public-api (simplint SMP903) covers the public API instead
+  "undocumented-public-nested-class",          # undocumented-public-api (simplint SMP903) covers the public API instead
 ]
 lint.per-file-ignores."docs/**/*.py" = [
   "implicit-namespace-package", # no __init__.py in docs directory
@@ -274,3 +280,6 @@ matrix.platforms = [ "linux_x86_64" ]
 # release-creator 4.4.0 needs a seven-day cutoff exception.
 # expires 2026-11-09
 packages.release-creator.uploaded-prior-to = 2026-11-02T21:45:00Z
+
+[tool.simplint]
+docstring-style = "rst"
