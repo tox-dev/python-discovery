@@ -30,10 +30,17 @@ def test_bad_py_spec(text: str) -> None:
     spec = PythonSpec.from_string_spec(text)
     assert text in repr(spec)
     assert (spec.str_spec, spec.path) == (text, text)
-    content = vars(spec)
-    del content["str_spec"]
-    del content["path"]
-    assert all(v is None for v in content.values())
+    assert (
+        spec.implementation,
+        spec.major,
+        spec.minor,
+        spec.micro,
+        spec.architecture,
+        spec.free_threaded,
+        spec.machine,
+        spec.debug,
+        spec.version_specifier,
+    ) == (None,) * 9
 
 
 @pytest.mark.parametrize(

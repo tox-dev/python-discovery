@@ -26,10 +26,13 @@ def test_discover_empty_folder(tmp_path: Path, session_cache: DiskCache) -> None
 def _discover_base_folders() -> tuple[str, ...]:
     exe_dir = str(Path(_CURRENT.executable).parent)
     folders: dict[str, None] = {}
-    if exe_dir.startswith(_CURRENT.prefix):  # pragma: no branch, the branch depends on the host interpreter layout
-        relative = exe_dir[len(_CURRENT.prefix) :].lstrip("/\\")
-        if relative:  # pragma: no branch, the branch depends on the host interpreter layout
-            folders[relative] = None
+    if (
+        exe_dir.startswith(_CURRENT.prefix)
+        and (  # pragma: no branch, the branch depends on the host interpreter layout
+            relative := exe_dir[len(_CURRENT.prefix) :].lstrip("/\\")
+        )
+    ):
+        folders[relative] = None
     folders["."] = None
     return tuple(folders)
 

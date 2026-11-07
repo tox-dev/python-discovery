@@ -220,10 +220,10 @@ def test_system_executable_no_exact_match(
     discovered_with_path: dict[str, PythonInfo] = {}
     names: list[str] = []
     selected = None
-    for pos, i in enumerate(discovered):
+    for pos, info in enumerate(discovered):
         path = tmp_path / str(pos)
         path.write_text("", encoding="utf-8")
-        py_info = _make_py_info(i)
+        py_info = _make_py_info(info)
         system_executable = _CURRENT.system_executable
         assert system_executable is not None
         py_info.system_executable = system_executable
@@ -562,8 +562,8 @@ def test_select_most_likely_prefers_machine_match(
     target = copy.deepcopy(_CURRENT)
     target.sysconfig_platform = target_platform
     discovered = [copy.deepcopy(_CURRENT) for _ in discovered_platforms]
-    for d, plat in zip(discovered, discovered_platforms):
-        d.sysconfig_platform = plat
+    for info, plat in zip(discovered, discovered_platforms):
+        info.sysconfig_platform = plat
     result = PythonInfo._select_most_likely(discovered, target)
     assert result.sysconfig_platform == discovered_platforms[expected_idx]
 

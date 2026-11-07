@@ -66,7 +66,7 @@ def _load_registry_data(
     glob: dict[str, object] = {"winreg": winreg}
     mock_value_str = (Path(__file__).parent / "winreg_mock_values.py").read_text(encoding="utf-8")
     exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin] the mock values are Python source kept in a separate file
-    return loc["enum_collect"], loc["value_collect"], loc["key_open"], loc["hive_open"]  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
+    return loc["_ENUM_COLLECT"], loc["_VALUE_COLLECT"], loc["_KEY_OPEN"], loc["_HIVE_OPEN"]  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
 
 
 def _make_enum_key(enum_collect: dict[object, dict[int, object]]) -> object:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Final
 
-hive_open: Final[dict[tuple[object, ...], object]] = {
+_HIVE_OPEN: Final[dict[tuple[int, str, int, int], int | OSError]] = {
     (winreg.HKEY_CURRENT_USER, "Software\\Python", 0, winreg.KEY_READ): 78701856,
     (winreg.HKEY_LOCAL_MACHINE, "Software\\Python", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY): 78701840,
     (winreg.HKEY_LOCAL_MACHINE, "Software\\Python", 0, winreg.KEY_READ | winreg.KEY_WOW64_32KEY): OSError(
@@ -10,7 +10,7 @@ hive_open: Final[dict[tuple[object, ...], object]] = {
         "The system cannot find the file specified",
     ),
 }
-key_open: Final[dict[object, dict[str, object]]] = {
+_KEY_OPEN: Final[dict[int, dict[str, int]]] = {
     78701152: {
         "Anaconda310-32\\InstallPath": 78703200,
         "Anaconda310-32": 78703568,
@@ -46,7 +46,7 @@ key_open: Final[dict[object, dict[str, object]]] = {
         "3.6": 88820000,
     },
 }
-value_collect: Final[dict[object, dict[str, object]]] = {
+_VALUE_COLLECT: Final[dict[int, dict[str, tuple[str, int] | OSError]]] = {
     78703568: {"SysVersion": ("3.10", 1), "SysArchitecture": ("32bit", 1), "DisplayName": ("Python 3.10 (32-bit)", 1)},
     78703200: {
         "ExecutablePath": ("C:\\Users\\user\\Miniconda3\\python.exe", 1),
@@ -145,7 +145,7 @@ value_collect: Final[dict[object, dict[str, object]]] = {
         "DisplayName": OSError(2, "The system cannot find the file specified"),
     },
 }
-enum_collect: Final[dict[object, dict[int, object]]] = {
+_ENUM_COLLECT: Final[dict[int, list[str | OSError]]] = {
     78701856: [
         "ContinuumAnalytics",
         "PythonCore",
