@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,7 +16,7 @@ from python_discovery._py_info import VersionInfo
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
-_CURRENT = PythonInfo.current_system()
+_CURRENT: Final[PythonInfo] = PythonInfo.current_system()
 
 
 def test_py_info_pypy_version(mocker: MockerFixture) -> None:

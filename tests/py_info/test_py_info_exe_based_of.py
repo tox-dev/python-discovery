@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -10,7 +11,7 @@ from python_discovery._compat import fs_is_case_sensitive
 from python_discovery._discovery import IS_WIN
 from python_discovery._py_info import EXTENSIONS
 
-_CURRENT = PythonInfo.current()
+_CURRENT: Final[PythonInfo] = PythonInfo.current()
 
 
 def _fs_supports_symlink() -> bool:
@@ -33,7 +34,7 @@ def _discover_base_folders() -> tuple[str, ...]:
     return tuple(folders)
 
 
-_BASE = _discover_base_folders()
+_BASE: Final[tuple[str, ...]] = _discover_base_folders()
 
 
 @pytest.mark.skipif(not _fs_supports_symlink(), reason="symlink is not supported")

@@ -23,9 +23,9 @@ if TYPE_CHECKING:
     from packaging.markers import Environment
     from pytest_mock import MockerFixture
 
-_IS_PYPY = PythonInfo.current_system().implementation == "PyPy"
+_IS_PYPY: Final[bool] = PythonInfo.current_system().implementation == "PyPy"
 
-_CURRENT = PythonInfo.current_system()
+_CURRENT: Final[PythonInfo] = PythonInfo.current_system()
 
 
 @pytest.mark.graalpy
@@ -127,7 +127,7 @@ def _generate_not_match_current_interpreter_version() -> list[str]:
     return result
 
 
-_NON_MATCH_VER = _generate_not_match_current_interpreter_version()
+_NON_MATCH_VER: Final[list[str]] = _generate_not_match_current_interpreter_version()
 
 
 @pytest.mark.parametrize("spec", _NON_MATCH_VER)

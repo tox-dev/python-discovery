@@ -16,7 +16,7 @@ _MODIFIERS: Final[str] = r"""
     (?:-(?P<machine>[a-zA-Z0-9_.]+))?  # ISA (e.g. arm64, x86_64, i86pc.64bit)
     $
 """
-_PATTERN = re.compile(
+_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"""
     ^
     (?P<impl>[a-zA-Z]+)?            # implementation (e.g. cpython, pypy)
@@ -25,7 +25,7 @@ _PATTERN = re.compile(
     + _MODIFIERS,
     re.VERBOSE,
 )
-_SPECIFIER_PATTERN = re.compile(
+_SPECIFIER_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"""
     ^
     (?:(?P<impl>[A-Za-z]+)\s*)?     # optional implementation prefix

@@ -8,7 +8,7 @@ import sysconfig
 from itertools import takewhile
 from pathlib import Path
 from subprocess import run
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 import vermin
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from pytest_mock import MockerFixture
 
-_SCRIPT = Path(python_discovery.__file__).parent / "_py_info_collect.py"
+_SCRIPT: Final[Path] = Path(python_discovery.__file__).parent / "_py_info_collect.py"
 
 
 def test_script_parses_down_to_python27() -> None:
