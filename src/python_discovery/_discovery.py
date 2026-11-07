@@ -509,7 +509,7 @@ def iter_interpreters(
         enumeration, which interrogates every candidate as a subprocess on a cold cache.
     :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
     :param predicate: optional filter applied after the spec match; return ``True`` to include the interpreter.
-    :yields:
+    :yields: each matching interpreter, in discovery order.
     """
     if key is None:
         keys: tuple[str | None, ...] = (None,)

@@ -27,7 +27,7 @@ class ContentStore(Protocol):
         """
         Return whether the cached content exists.
 
-        :returns:
+        :returns: ``True`` if the content is cached, ``False`` otherwise.
         """
         ...
 
@@ -35,7 +35,7 @@ class ContentStore(Protocol):
         """
         Read the cached content, or ``None`` if unavailable or corrupt.
 
-        :returns:
+        :returns: the cached content, or ``None``.
         """
         ...
 
@@ -56,7 +56,7 @@ class ContentStore(Protocol):
         """
         Context manager that acquires an exclusive lock on this store.
 
-        :returns:
+        :returns: a context manager; the lock is held inside its ``with`` block.
         """
         ...
 
@@ -70,7 +70,7 @@ class PyInfoCache(Protocol):
         Return the content store for the interpreter at *path*.
 
         :param path: absolute path to a Python executable.
-        :returns:
+        :returns: the content store for *path*.
         """
         ...
 
@@ -94,7 +94,7 @@ class DiskCache:
         Return the content store for the interpreter at *path*.
 
         :param path: absolute path to a Python executable.
-        :returns:
+        :returns: the content store for *path*.
         """
         if not self._trusted_folder():
             return NoOpContentStore()

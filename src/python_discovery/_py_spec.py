@@ -178,7 +178,7 @@ class PythonSpec:
 
         :param string_spec: an interpreter spec — an absolute path, a version string, an implementation prefix,
             or a `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_.
-        :returns:
+        :returns: the parsed specification.
         :raises ValueError: if the spec starts with a version specifier operator but does not parse as one.
         """
         if pathlib.Path(string_spec).is_absolute():
@@ -214,7 +214,7 @@ class PythonSpec:
             filename in :data:`KNOWN_IMPLEMENTATIONS` instead of only ``python``. A free-threaded or debug build the
             spec leaves open also matches its marked name, such as ``python3.13t`` or ``python3.13-dbg``. Used by
             enumeration APIs.
-        :returns:
+        :returns: a compiled pattern matching the filenames the spec accepts.
         """
         version = r"{}(\.{}(\.{})?)?".format(
             *(r"\d+" if v is None else v for v in (self.major, self.minor, self.micro)),
@@ -240,7 +240,7 @@ class PythonSpec:
         Check if this spec is compatible with the given *spec* (e.g. PEP-514 on Windows).
 
         :param spec: the requirement to check against.
-        :returns:
+        :returns: ``True`` if this spec is compatible with *spec*.
         """
         if spec.is_abs and self.is_abs and self.path != spec.path:
             return False

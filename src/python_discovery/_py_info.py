@@ -48,40 +48,40 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
     """
     Contains information for a Python interpreter.
 
-    :ivar platform:
-    :ivar implementation:
-    :ivar pypy_version_info:
-    :ivar version_info:
-    :ivar architecture:
-    :ivar sysconfig_platform:
-    :ivar version_nodot:
-    :ivar version:
-    :ivar os:
-    :ivar free_threaded:
-    :ivar debug_build:
-    :ivar marker_environment:
-    :ivar prefix:
-    :ivar base_prefix:
-    :ivar real_prefix:
-    :ivar base_exec_prefix:
-    :ivar exec_prefix:
-    :ivar executable:
-    :ivar original_executable:
-    :ivar system_executable:
-    :ivar has_venv:
-    :ivar path:
-    :ivar file_system_encoding:
-    :ivar stdout_encoding:
-    :ivar sysconfig_scheme:
-    :ivar sysconfig_paths:
-    :ivar distutils_install:
-    :ivar sysconfig:
-    :ivar sysconfig_vars:
-    :ivar tcl_lib:
-    :ivar tk_lib:
-    :ivar system_stdlib:
-    :ivar system_stdlib_platform:
-    :ivar max_size:
+    :ivar platform: the platform name, as reported by ``sys.platform``.
+    :ivar implementation: the implementation name, such as ``CPython``.
+    :ivar pypy_version_info: the PyPy version tuple, empty for other implementations.
+    :ivar version_info: the interpreter version as a named tuple.
+    :ivar architecture: the pointer width in bits, ``32`` or ``64``.
+    :ivar sysconfig_platform: the platform string from :mod:`sysconfig`, or ``None``.
+    :ivar version_nodot: the ``major.minor`` version without the dot.
+    :ivar version: the full version string from ``sys.version``.
+    :ivar os: the operating system name, as reported by ``os.name``.
+    :ivar free_threaded: whether the interpreter was built free-threaded.
+    :ivar debug_build: whether the interpreter was built with ``Py_DEBUG``.
+    :ivar marker_environment: the PEP 508 marker environment of the interpreter.
+    :ivar prefix: the ``sys.prefix`` of the interpreter.
+    :ivar base_prefix: the ``sys.base_prefix`` of the interpreter.
+    :ivar real_prefix: the ``sys.real_prefix`` set by legacy virtualenv, or ``None``.
+    :ivar base_exec_prefix: the ``sys.base_exec_prefix`` of the interpreter.
+    :ivar exec_prefix: the ``sys.exec_prefix`` of the interpreter.
+    :ivar executable: the ``sys.executable`` of the interpreter.
+    :ivar original_executable: the absolute path to the executable, without resolving symlinks.
+    :ivar system_executable: the system interpreter behind any virtualenv, or ``None``.
+    :ivar has_venv: whether the :mod:`venv` module can be imported.
+    :ivar path: the ``sys.path`` of the interpreter.
+    :ivar file_system_encoding: the filesystem encoding, from ``sys.getfilesystemencoding()``.
+    :ivar stdout_encoding: the encoding of ``sys.stdout``, or ``None``.
+    :ivar sysconfig_scheme: the installation scheme behind ``sysconfig_paths``, or ``None``.
+    :ivar sysconfig_paths: the installation paths, keyed by :mod:`sysconfig` path name.
+    :ivar distutils_install: the distutils installation directories, empty when sysconfig supplies them.
+    :ivar sysconfig: the :mod:`sysconfig` build metadata, such as the makefile filename.
+    :ivar sysconfig_vars: the :mod:`sysconfig` config variables queried for this interpreter.
+    :ivar tcl_lib: the Tcl library path, or ``None``.
+    :ivar tk_lib: the Tk library path, or ``None``.
+    :ivar system_stdlib: the standard library path of the system interpreter.
+    :ivar system_stdlib_platform: the platform standard library path of the system interpreter.
+    :ivar max_size: the ``sys.maxsize`` of the interpreter.
     """
 
     platform: str
@@ -134,8 +134,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         Reconstruct a :class:`PythonInfo` from a plain dictionary.
 
         :param data: dictionary produced by :meth:`to_dict`.
-        :returns:
-        :raises ValueError:
+        :returns: the interpreter information rebuilt from *data*.
+        :raises ValueError: if *data* lacks an annotated field.
         """
         if missing := PythonInfo.__annotations__.keys() - data.keys() - {"_cache_exe_discovery", "pypy_version_info"}:
             msg = f"missing interpreter information: {', '.join(sorted(missing))}"
@@ -151,8 +151,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         Locate the current host interpreter information.
 
         :param cache: interpreter metadata cache; when ``None`` results are not cached.
-        :returns:
-        :raises RuntimeError:
+        :returns: the information about the running interpreter.
+        :raises RuntimeError: if the running interpreter cannot be queried.
         """
         if cls._current is None:
             result = cls.from_exe(sys.executable, cache, raise_on_error=True, resolve_to_host=False)
@@ -182,7 +182,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         :param ignore_cache: bypass the cache and re-query the interpreter.
         :param resolve_to_host: resolve through virtualenv layers to the system interpreter.
         :param env: environment mapping; defaults to :data:`os.environ`.
-        :returns:
+        :returns: the interpreter information, or ``None`` when it cannot be queried.
         """
         return cls._from_exe_with_args(
             exe,
@@ -236,8 +236,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         Locate the current system interpreter information, resolving through any virtualenv layers.
 
         :param cache: interpreter metadata cache; when ``None`` results are not cached.
-        :returns:
-        :raises RuntimeError:
+        :returns: the system interpreter behind any virtualenv layers.
+        :raises RuntimeError: if the system interpreter cannot be queried.
         """
         if cls._current_system is None:
             result = cls.from_exe(sys.executable, cache, raise_on_error=True, resolve_to_host=True)
@@ -253,7 +253,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         Deserialize interpreter information from a JSON string.
 
         :param payload: JSON produced by :meth:`to_json`.
-        :returns:
+        :returns: the interpreter information decoded from *payload*.
         """
         return cls.from_dict(json.loads(payload).copy())
 
@@ -267,8 +267,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         :param cache: interpreter metadata cache; when ``None`` results are not cached.
         :param target: the interpreter to resolve.
         :param env: environment mapping; defaults to :data:`os.environ`.
-        :returns:
-        :raises RuntimeError:
+        :returns: the system interpreter that *target* resolves to.
+        :raises RuntimeError: if the prefixes form a cycle.
         """
         start_executable = target.executable
         prefixes = OrderedDict()
@@ -407,8 +407,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         :param key: sysconfig path key (e.g. ``"purelib"``, ``"include"``).
         :param config_var: replacement mapping for sysconfig variables; when ``None`` uses the interpreter's own values.
         :param sep: path separator to use in the result.
-        :returns:
-        :raises ValueError:
+        :returns: the path, or an empty string if *key* is unknown.
+        :raises ValueError: if the sysconfig pattern contains format specifiers.
         """
         pattern = self.sysconfig_paths.get(key)
         if pattern is None:
@@ -434,7 +434,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         Return the relative installation path for a given installation scheme *key*.
 
         :param key: sysconfig installation scheme key (e.g. ``"scripts"``, ``"purelib"``).
-        :returns:
+        :returns: the installation path relative to the prefix.
         """
         result = self.distutils_install.get(key)
         if result is None:  # pragma: >=3.11 cover # distutils is empty when "venv" scheme is available
@@ -478,7 +478,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
 
         :param spec: the specification to check against.
         :param impl_must_match: when ``True``, the implementation name must match exactly.
-        :returns:
+        :returns: ``True`` if this interpreter satisfies *spec*.
         """
         if spec.path and not self._satisfies_path(spec):
             return False
@@ -542,7 +542,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         """
         Serialize this interpreter information to a JSON string.
 
-        :returns:
+        :returns: the JSON document.
         """
         return json.dumps(self.to_dict(), indent=2)
 
@@ -550,7 +550,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         """
         Convert this interpreter information to a plain dictionary.
 
-        :returns:
+        :returns: the interpreter information as a dictionary.
         """
         data = {name: None if name == "_creators" else value for name, value in vars(self).items()}
         version_info = data["version_info"]
@@ -572,8 +572,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         :param prefix: directory prefix to search under.
         :param exact: when ``True``, require an exact version match.
         :param env: environment mapping; defaults to :data:`os.environ`.
-        :returns:
-        :raises RuntimeError:
+        :returns: the matching interpreter information.
+        :raises RuntimeError: if no matching interpreter is found.
         """
         key = prefix, exact, self.version_info
         if key in self._cache_exe_discovery and prefix:
@@ -740,8 +740,8 @@ def normalize_isa(isa: str) -> str:
     Known aliases are mapped (e.g. ``amd64`` → ``x86_64``, ``aarch64`` → ``arm64``).
     Unrecognized values are lowercased and returned as-is.
 
-    :param isa:
-    :returns:
+    :param isa: the architecture string as the platform reports it.
+    :returns: the normalized architecture name.
     """
     low = isa.lower()
     return {

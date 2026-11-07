@@ -67,8 +67,8 @@ class SimpleVersion:
         Parse a PEP 440 version string (e.g. ``3.12.1``).
 
         :param version_str: the version string to parse.
-        :returns:
-        :raises ValueError:
+        :returns: the parsed version.
+        :raises ValueError: if *version_str* is not a valid version.
         """
         stripped = version_str.strip()
         if not (match := _VERSION_RE.match(stripped)):
@@ -155,8 +155,8 @@ class SimpleSpecifier:
         Parse a single PEP 440 specifier (e.g. ``>=3.10``).
 
         :param spec_str: the specifier string to parse.
-        :returns:
-        :raises ValueError:
+        :returns: the parsed specifier.
+        :raises ValueError: if *spec_str* is not a valid specifier.
         """
         stripped = spec_str.strip()
         if not (match := _SPECIFIER_RE.match(stripped)):
@@ -201,7 +201,7 @@ class SimpleSpecifier:
         Check if a version string satisfies this specifier.
 
         :param version_str: the version string to test.
-        :returns:
+        :returns: ``True`` if *version_str* satisfies this specifier.
         """
         try:
             candidate = SimpleVersion.from_string(version_str) if isinstance(version_str, str) else version_str
@@ -278,7 +278,7 @@ class SimpleSpecifierSet:
         Parse a comma-separated PEP 440 specifier string (e.g. ``>=3.10,<4``).
 
         :param specifiers_str: the specifier string to parse.
-        :returns:
+        :returns: the parsed specifier set.
         """
         stripped = specifiers_str.strip()
         specs: list[SimpleSpecifier] = []
@@ -311,7 +311,7 @@ class SimpleSpecifierSet:
         Check if a version satisfies all specifiers in the set.
 
         :param version_str: the version string to test.
-        :returns:
+        :returns: ``True`` if *version_str* satisfies every specifier.
         """
         if not self.specifiers:
             return True
