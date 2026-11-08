@@ -78,12 +78,22 @@ def test_from_exe_timeout_warning_cache_is_bounded(caplog: pytest.LogCaptureFixt
         assert result is not None
         assert result.version_info == sys.version_info
     caplog.clear()
-    for raw in ("invalid-timeout-128", "invalid-timeout-0"):
-        result = PythonInfo.from_exe(
-            sys.executable, env={**os.environ, "PY_DISCOVERY_TIMEOUT": raw}, ignore_cache=True, resolve_to_host=False
-        )
-        assert result is not None
-        assert result.version_info == sys.version_info
+    result = PythonInfo.from_exe(
+        sys.executable,
+        env={**os.environ, "PY_DISCOVERY_TIMEOUT": "invalid-timeout-128"},
+        ignore_cache=True,
+        resolve_to_host=False,
+    )
+    assert result is not None
+    assert result.version_info == sys.version_info
+    result = PythonInfo.from_exe(
+        sys.executable,
+        env={**os.environ, "PY_DISCOVERY_TIMEOUT": "invalid-timeout-0"},
+        ignore_cache=True,
+        resolve_to_host=False,
+    )
+    assert result is not None
+    assert result.version_info == sys.version_info
     assert [record.getMessage() for record in caplog.records] == [
         "ignoring PY_DISCOVERY_TIMEOUT='invalid-timeout-0', not a positive number of seconds; using 15.0"
     ]

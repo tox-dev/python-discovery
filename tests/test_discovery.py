@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import platform
 import stat
 import sys
 from copy import deepcopy
@@ -450,11 +451,16 @@ def test_discovery_via_version_specifier(session_cache: DiskCache) -> None:
     assert interpreter.version_info.major == major
     assert minor <= interpreter.version_info.minor < minor + 10
 
-    spec = f"cpython>={major}.{minor}"
-    interpreter = get_interpreter(spec, [], session_cache)
-    if current.implementation == "CPython":  # pragma: no branch, the branch depends on the host interpreter
-        assert interpreter is not None
-        assert interpreter.implementation == "CPython"
+
+@pytest.mark.skipif(platform.python_implementation() != "CPython", reason="the spec asserts a CPython host")
+def test_discovery_via_cpython_specifier(session_cache: DiskCache) -> None:
+    current = PythonInfo.current_system(session_cache)
+
+    interpreter = get_interpreter(
+        f"cpython>={current.version_info.major}.{current.version_info.minor}", [], session_cache
+    )
+    assert interpreter is not None
+    assert interpreter.implementation == "CPython"
 
 
 _POSIX_PERMISSIONS: Final[pytest.MarkDecorator] = pytest.mark.skipif(

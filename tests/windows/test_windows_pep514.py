@@ -246,7 +246,14 @@ def test_pep514_rejects_non_string_executable_arguments(
     assert load_exe_with_args(42) is None
 
 
-@pytest.mark.skipif(sys.platform != "win32" or shutil.which("py") is None, reason="requires the Windows launcher")
+def _launcher_selects_311() -> bool:
+    launcher = shutil.which("py")
+    return launcher is not None and subprocess.run([launcher, "-3.11", "-c", "pass"], check=False).returncode == 0
+
+
+@pytest.mark.skipif(
+    sys.platform != "win32" or not _launcher_selects_311(), reason="requires the Windows launcher with Python 3.11"
+)
 def test_pep514_launcher_arguments_select_interpreter(mocker: MockerFixture, tmp_path: Path) -> None:
     from python_discovery import DiskCache, PythonSpec
     from python_discovery._windows import _propose
@@ -256,9 +263,7 @@ def test_pep514_launcher_arguments_select_interpreter(mocker: MockerFixture, tmp
     script = (
         "import json, struct, sys; print(json.dumps([sys.executable, *sys.version_info[:2], struct.calcsize('P') * 8]))"
     )
-    probe = subprocess.run([launcher, "-3.11", "-c", script], capture_output=True, text=True, check=False)
-    if probe.returncode:
-        pytest.skip("the launcher cannot select 3.11")  # ty: ignore[too-many-positional-arguments]  # ty ships a stale pytest stub for 3.9
+    probe = subprocess.run([launcher, "-3.11", "-c", script], capture_output=True, text=True, check=True)
     selected, major, minor, arch = json.loads(probe.stdout)
     mocker.patch.object(
         _propose,
