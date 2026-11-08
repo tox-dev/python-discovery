@@ -7,7 +7,7 @@ import sys
 from os import fsdecode
 from pathlib import Path
 from threading import Event, Thread
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from filelock import FileLock, Timeout
@@ -67,9 +67,11 @@ def test_disk_content_store_write_size_tracks_input(tmp_path: Path, source: str)
     assert (tmp_path / "test.json").stat().st_size < 2 * len(json.dumps(content))
 
 
+_DEEP_JSON_DEPTH: Final[int] = 2_000 if sys.version_info >= (3, 15) else 900
+
+
 def test_disk_content_store_write_deep_json(tmp_path: Path) -> None:
-    depth = 2_000 if sys.version_info >= (3, 15) else 900
-    DiskContentStore(tmp_path, "test").write({"padding": json.loads("[" * depth + "]" * depth)})
+    DiskContentStore(tmp_path, "test").write({"padding": json.loads("[" * _DEEP_JSON_DEPTH + "]" * _DEEP_JSON_DEPTH)})
     assert (tmp_path / "test.json").stat().st_size < 10_000
 
 
@@ -82,8 +84,7 @@ def test_disk_content_store_remove(tmp_path: Path) -> None:
 
 
 def test_disk_content_store_remove_missing_file(tmp_path: Path) -> None:
-    store = DiskContentStore(tmp_path, "test")
-    store.remove()
+    DiskContentStore(tmp_path, "test").remove()
 
 
 def test_disk_content_store_locked(tmp_path: Path) -> None:
@@ -135,8 +136,7 @@ def test_disk_content_store_ignores_legacy_lock(tmp_path: Path) -> None:
 
 
 def test_disk_content_store_locks_legacy_path_without_posix(tmp_path: Path, mocker: MockerFixture) -> None:
-    platform_os = mocker.patch("python_discovery._cache.os", autospec=True)
-    platform_os.name = "nt"
+    mocker.patch("python_discovery._cache.os", autospec=True).name = "nt"
     with DiskContentStore(tmp_path, "test").locked(), pytest.raises(Timeout):
         FileLock(str(tmp_path / "test.lock")).acquire(timeout=0)
     assert not (tmp_path / "locks-v2").exists()
@@ -150,8 +150,7 @@ def test_disk_content_store_exists(tmp_path: Path) -> None:
 
 
 def test_disk_cache_py_info(tmp_path: Path) -> None:
-    cache = DiskCache(tmp_path)
-    store = cache.py_info(Path("/some/path"))
+    store = DiskCache(tmp_path).py_info(Path("/some/path"))
     assert isinstance(store, DiskContentStore)
 
 
@@ -178,8 +177,7 @@ def test_disk_cache_py_info_clear(tmp_path: Path) -> None:
 
 
 def test_disk_cache_py_info_clear_empty(tmp_path: Path) -> None:
-    cache = DiskCache(tmp_path)
-    cache.py_info_clear()
+    DiskCache(tmp_path).py_info_clear()
 
 
 def test_disk_cache_py_info_clear_skips_non_json(tmp_path: Path) -> None:
@@ -229,7 +227,7 @@ def test_disk_cache_skips_file_as_root(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX ownership and modes")
 def test_disk_cache_skips_uncreatable_directory(tmp_path: Path, mocker: MockerFixture) -> None:
-    mocker.patch.object(Path, "mkdir", side_effect=PermissionError)
+    mocker.patch.object(Path, "mkdir", side_effect=PermissionError, autospec=True)
     assert isinstance(DiskCache(tmp_path / "cache").py_info(Path("/some/path")), NoOpContentStore)
 
 
@@ -237,7 +235,7 @@ def test_disk_cache_skips_uncreatable_directory(tmp_path: Path, mocker: MockerFi
 def test_disk_cache_skips_foreign_directory(tmp_path: Path, mocker: MockerFixture) -> None:
     status = list(tmp_path.stat())
     status[4] = os.geteuid() + 1
-    mocker.patch.object(Path, "lstat", return_value=os.stat_result(status))
+    mocker.patch.object(Path, "lstat", return_value=os.stat_result(status), autospec=True)
     assert isinstance(DiskCache(tmp_path).py_info(Path("/some/path")), NoOpContentStore)
 
 
@@ -294,7 +292,7 @@ def test_disk_content_store_rejects_untrusted_entry(
     store.write({"key": "value"})
     status = list((tmp_path / "entry.json").stat())
     status[0], status[4] = stat.S_IFREG | mode, os.geteuid() + owner_offset
-    mocker.patch("python_discovery._cache.os.fstat", return_value=os.stat_result(status))
+    mocker.patch("python_discovery._cache.os.fstat", return_value=os.stat_result(status), autospec=True)
     assert store.read() is None
     assert not store.exists()
 
@@ -303,8 +301,7 @@ def test_disk_content_store_rejects_untrusted_entry(
 def test_disk_content_store_does_not_follow_entry_link(tmp_path: Path) -> None:
     target = tmp_path / "target.json"
     target.write_text('{"key": "target"}', encoding="utf-8")
-    entry = tmp_path / "entry.json"
-    entry.symlink_to(target)
+    (tmp_path / "entry.json").symlink_to(target)
     store = DiskContentStore(tmp_path, "entry")
     assert store.read() is None
 
@@ -345,7 +342,7 @@ def test_disk_content_store_write_is_private_with_lax_umask(tmp_path: Path) -> N
     ],
 )
 def test_disk_content_store_write_skips_io_failure(tmp_path: Path, mocker: MockerFixture, target: str) -> None:
-    mocker.patch(target, side_effect=PermissionError)
+    mocker.patch(target, side_effect=PermissionError, autospec=True)
     DiskContentStore(tmp_path, "entry").write({"key": "value"})
     assert list(tmp_path.iterdir()) == []
 
@@ -372,8 +369,7 @@ def test_noop_content_store_locked() -> None:
 
 
 def test_noop_cache_py_info() -> None:
-    cache = NoOpCache()
-    store = cache.py_info(Path("/some/path"))
+    store = NoOpCache().py_info(Path("/some/path"))
     assert isinstance(store, NoOpContentStore)
 
 

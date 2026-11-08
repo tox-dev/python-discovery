@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
@@ -18,28 +18,26 @@ from python_discovery._discovery import (
 )
 from python_discovery._py_spec import PythonSpec
 
+_PYTHON_NAME: Final[str] = "python.exe" if IS_WIN else "python"
+
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 
 def test_propose_interpreters_abs_path_oserror(tmp_path: Path) -> None:
-    spec = PythonSpec.from_string_spec(str(tmp_path / "nonexistent"))
-    results = list(propose_interpreters(spec, []))
+    results = list(propose_interpreters(PythonSpec.from_string_spec(str(tmp_path / "nonexistent")), []))
     assert results == []
 
 
 def test_propose_interpreters_try_first_with_valid(session_cache: DiskCache) -> None:
-    spec = PythonSpec.from_string_spec("python")
-    results = list(propose_interpreters(spec, [sys.executable], session_cache))
+    results = list(propose_interpreters(PythonSpec.from_string_spec("python"), [sys.executable], session_cache))
     assert len(results) >= 1
 
 
 def test_propose_interpreters_try_first_with_missing(tmp_path: Path) -> None:
-    spec = PythonSpec.from_string_spec("python")
-    bad_path = str(tmp_path / "nonexistent")
-    gen = propose_interpreters(spec, [bad_path])
+    gen = propose_interpreters(PythonSpec.from_string_spec("python"), [str(tmp_path / "nonexistent")])
     results = []
-    for result in gen:  # pragma: no branch
+    for result in gen:  # pragma: no branch, the loop runs zero or more times depending on the host
         results.append(result)
         break
     assert len(results) >= 0
@@ -48,11 +46,7 @@ def test_propose_interpreters_try_first_with_missing(tmp_path: Path) -> None:
 def test_propose_interpreters_try_first_with_duplicate(session_cache: DiskCache) -> None:
     spec = PythonSpec.from_string_spec("python")
     results = list(propose_interpreters(spec, [sys.executable, sys.executable], session_cache))
-    exes = [r[0].executable for r in results if r[0] is not None]
-    seen = set()
-    for exe in exes[:2]:
-        assert True
-        seen.add(exe)
+    set().update([r[0].executable for r in results if r[0] is not None][:2])
 
 
 def test_propose_interpreters_relative_path(
@@ -61,7 +55,7 @@ def test_propose_interpreters_relative_path(
     session_cache: DiskCache,
 ) -> None:
     Path(sys.executable)
-    link = tmp_path / ("python.exe" if IS_WIN else "python")
+    link = tmp_path / _PYTHON_NAME
     Path(str(link)).symlink_to(sys.executable)
     spec = PythonSpec.from_string_spec(link.name)
     spec.path = link.name
@@ -71,39 +65,29 @@ def test_propose_interpreters_relative_path(
 
 
 def test_lazy_path_dump_basic(tmp_path: Path) -> None:
-    dumper = LazyPathDump(0, tmp_path, {})
-    result = repr(dumper)
+    result = repr(LazyPathDump(0, tmp_path, {}))
     assert "PATH[0]" in result
     assert "with =>" not in result
 
 
 def test_lazy_path_dump_debug_with_dir(tmp_path: Path) -> None:
-    env = {"_VIRTUALENV_DEBUG": "1"}
-    sub = tmp_path / "subdir"
-    sub.mkdir()
-    dumper = LazyPathDump(0, tmp_path, env)
-    result = repr(dumper)
+    (tmp_path / "subdir").mkdir()
+    result = repr(LazyPathDump(0, tmp_path, {"_VIRTUALENV_DEBUG": "1"}))
     assert "subdir" not in result
 
 
 @pytest.mark.skipif(IS_WIN, reason="POSIX test")
 def test_lazy_path_dump_debug_non_executable(tmp_path: Path) -> None:
-    env = {"_VIRTUALENV_DEBUG": "1"}
-    non_exec = tmp_path / "not_executable"
-    non_exec.touch(mode=0o644)
-    dumper = LazyPathDump(0, tmp_path, env)
-    result = repr(dumper)
+    (tmp_path / "not_executable").touch(mode=0o644)
+    result = repr(LazyPathDump(0, tmp_path, {"_VIRTUALENV_DEBUG": "1"}))
     assert "not_executable" not in result
 
 
 def test_lazy_path_dump_debug_oserror(tmp_path: Path, mocker: MockerFixture) -> None:
-    env = {"_VIRTUALENV_DEBUG": "1"}
-    bad_file = tmp_path / "bad_file"
-    bad_file.touch()
-    mocker.patch("pathlib.Path.is_dir", side_effect=[False, False])
-    mocker.patch("pathlib.Path.stat", side_effect=OSError("permission denied"))
-    dumper = LazyPathDump(0, tmp_path, env)
-    repr(dumper)
+    (tmp_path / "bad_file").touch()
+    mocker.patch("pathlib.Path.is_dir", side_effect=[False, False], autospec=True)
+    mocker.patch("pathlib.Path.stat", side_effect=OSError("permission denied"), autospec=True)
+    repr(LazyPathDump(0, tmp_path, {"_VIRTUALENV_DEBUG": "1"}))
 
 
 def test_active_versions_pyenv_version(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -173,8 +157,7 @@ def test_resolve_shim_no_match() -> None:
 def test_path_exe_finder_returns_callable(tmp_path: Path) -> None:
     from python_discovery._discovery import path_exe_finder
 
-    spec = PythonSpec.from_string_spec("python3.12")
-    finder = path_exe_finder(spec)
+    finder = path_exe_finder(PythonSpec.from_string_spec("python3.12"))
     assert callable(finder)
     results = list(finder(tmp_path))
     assert results == []
@@ -188,13 +171,12 @@ def test_get_paths_no_path_env() -> None:
 
 
 def test_propose_interpreters_abs_path_exists(session_cache: DiskCache) -> None:
-    spec = PythonSpec.from_string_spec(sys.executable)
-    results = list(propose_interpreters(spec, [], session_cache))
+    results = list(propose_interpreters(PythonSpec.from_string_spec(sys.executable), [], session_cache))
     assert len(results) >= 1
 
 
 def test_propose_interpreters_relative_spec_is_abs(tmp_path: Path, session_cache: DiskCache) -> None:
-    link = tmp_path / ("python.exe" if IS_WIN else "python")
+    link = tmp_path / _PYTHON_NAME
     Path(str(link)).symlink_to(sys.executable)
     spec = PythonSpec.from_string_spec(str(link))
     spec.path = str(link)
@@ -205,11 +187,9 @@ def test_propose_interpreters_relative_spec_is_abs(tmp_path: Path, session_cache
 def test_resolve_shim_match_no_binary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     shims = tmp_path / "shims"
     shims.mkdir()
-    versions = tmp_path / "versions"
-    versions.mkdir()
+    (tmp_path / "versions").mkdir()
     monkeypatch.setenv("PYENV_ROOT", str(tmp_path))
-    exe_path = str(shims / "python3")
-    result = _resolve_shim(exe_path, dict(os.environ))
+    result = _resolve_shim(str(shims / "python3"), dict(os.environ))
     assert result is None
 
 

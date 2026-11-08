@@ -9,12 +9,10 @@ import sys
 import winreg
 from logging import basicConfig, getLogger
 from pathlib import PureWindowsPath
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, NamedTuple
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-
-    _RegistrySpec = tuple[str, int | None, int | None, int, bool, str, str | None]
 
 _LOGGER: Final[logging.Logger] = getLogger(__name__)
 _ARCH_RE: Final[re.Pattern[str]] = re.compile(
@@ -29,9 +27,9 @@ _ARCH_RE: Final[re.Pattern[str]] = re.compile(
 _VERSION_RE: Final[re.Pattern[str]] = re.compile(
     r"""
     ^
-    (\d+)            # major
-    (?:\.(\d+))?     # optional minor
-    (?:\.(\d+))?     # optional micro
+    (?P<major>\d+)            # major
+    (?:\.(?P<minor>\d+))?     # optional minor
+    (?:\.(?P<micro>\d+))?     # optional micro
     $
     """,
     re.VERBOSE,
@@ -48,33 +46,43 @@ _THREADED_TAG_RE: Final[re.Pattern[str]] = re.compile(
 )
 
 
-def enum_keys(key: Any) -> Generator[str, None, None]:  # ruff:ignore[any-type]
+def _enum_keys(key: Any) -> Generator[str, None, None]:  # ruff:ignore[any-type] winreg handles have no importable type on other platforms
     at = 0
     while True:
         try:
-            yield winreg.EnumKey(key, at)  # ty: ignore[unresolved-attribute]
+            yield winreg.EnumKey(key, at)  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
         except OSError:
             break
         at += 1
 
 
-def get_value(key: Any, value_name: str | None) -> Any:  # ruff:ignore[any-type]
+def _get_value(key: Any, value_name: str | None) -> Any:  # ruff:ignore[any-type] winreg handles have no importable type on other platforms
     try:
-        return winreg.QueryValueEx(key, value_name)[0]  # ty: ignore[unresolved-attribute]
+        return winreg.QueryValueEx(key, value_name)[0]  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
     except OSError:
         return None
 
 
-def discover_pythons() -> Generator[_RegistrySpec, None, None]:
+class _RegistrySpec(NamedTuple):
+    company: str
+    major: int | None
+    minor: int | None
+    arch: int
+    threaded: bool
+    exe: str
+    args: str | None
+
+
+def _discover_pythons() -> Generator[_RegistrySpec, None, None]:
     for hive, hive_name, key, flags, default_arch in [
-        (winreg.HKEY_CURRENT_USER, "HKEY_CURRENT_USER", r"Software\Python", 0, 64),  # ty: ignore[unresolved-attribute]
-        (winreg.HKEY_LOCAL_MACHINE, "HKEY_LOCAL_MACHINE", r"Software\Python", winreg.KEY_WOW64_64KEY, 64),  # ty: ignore[unresolved-attribute]
-        (winreg.HKEY_LOCAL_MACHINE, "HKEY_LOCAL_MACHINE", r"Software\Python", winreg.KEY_WOW64_32KEY, 32),  # ty: ignore[unresolved-attribute]
+        (winreg.HKEY_CURRENT_USER, "HKEY_CURRENT_USER", r"Software\Python", 0, 64),  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+        (winreg.HKEY_LOCAL_MACHINE, "HKEY_LOCAL_MACHINE", r"Software\Python", winreg.KEY_WOW64_64KEY, 64),  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+        (winreg.HKEY_LOCAL_MACHINE, "HKEY_LOCAL_MACHINE", r"Software\Python", winreg.KEY_WOW64_32KEY, 32),  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
     ]:
-        yield from process_set(hive, hive_name, key, flags, default_arch)
+        yield from _process_set(hive, hive_name, key, flags, default_arch)
 
 
-def process_set(
+def _process_set(
     hive: int,
     hive_name: str,
     key: str,
@@ -82,85 +90,90 @@ def process_set(
     default_arch: int,
 ) -> Generator[_RegistrySpec, None, None]:
     try:
-        with winreg.OpenKeyEx(hive, key, 0, winreg.KEY_READ | flags) as root_key:  # ty: ignore[unresolved-attribute]
-            for company in enum_keys(root_key):
+        with winreg.OpenKeyEx(hive, key, 0, winreg.KEY_READ | flags) as root_key:  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+            for company in _enum_keys(root_key):
                 if company == "PyLauncher":  # reserved
                     continue
-                yield from process_company(hive_name, company, root_key, default_arch)
+                yield from _process_company(hive_name, company, root_key, default_arch)
     except OSError:
         pass
 
 
-def process_company(
+def _process_company(
     hive_name: str,
     company: str,
-    root_key: Any,  # ruff:ignore[any-type]
+    root_key: Any,  # ruff:ignore[any-type] winreg handles have no importable type on other platforms
     default_arch: int,
 ) -> Generator[_RegistrySpec, None, None]:
-    with winreg.OpenKeyEx(root_key, company) as company_key:  # ty: ignore[unresolved-attribute]
-        for tag in enum_keys(company_key):
-            spec = process_tag(hive_name, company, company_key, tag, default_arch)
-            if spec is not None:
+    with winreg.OpenKeyEx(root_key, company) as company_key:  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+        for tag in _enum_keys(company_key):
+            if (spec := _process_tag(hive_name, company, company_key, tag, default_arch)) is not None:
                 yield spec
 
 
-def process_tag(hive_name: str, company: str, company_key: Any, tag: str, default_arch: int) -> _RegistrySpec | None:  # ruff:ignore[any-type]
-    with winreg.OpenKeyEx(company_key, tag) as tag_key:  # ty: ignore[unresolved-attribute]
-        version = load_version_data(hive_name, company, tag, tag_key)
-        if version is not None:  # if failed to get version bail
-            major, minor, _ = version
-            arch = load_arch_data(hive_name, company, tag, tag_key, default_arch)
-            if arch is not None:
-                exe_data = load_exe(hive_name, company, company_key, tag)
-                if exe_data is not None:
-                    exe, args = exe_data
-                    threaded = load_threaded(hive_name, company, tag, tag_key)
-                    return company, major, minor, arch, threaded, exe, args
-                return None
+def _process_tag(hive_name: str, company: str, company_key: Any, tag: str, default_arch: int) -> _RegistrySpec | None:  # ruff:ignore[any-type] winreg handles have no importable type on other platforms
+    with winreg.OpenKeyEx(company_key, tag) as tag_key:  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+        for candidate, key_path in [
+            (_get_value(tag_key, "SysVersion"), f"{hive_name}/{company}/{tag}/SysVersion"),
+            (tag, f"{hive_name}/{company}/{tag}"),
+        ]:
+            if candidate is None:
+                continue
+            try:
+                version = _parse_version(candidate)
+            except ValueError as sys_version:
+                _msg(key_path, sys_version)
+            else:
+                break
+        else:
             return None
-        return None
+        arch = default_arch
+        if (arch_str := _get_value(tag_key, "SysArchitecture")) is not None:
+            try:
+                arch = _parse_arch(arch_str)
+            except ValueError as sys_arch:
+                _msg(f"{hive_name}/{company}/{tag}/SysArchitecture", sys_arch)
+        if (exe_data := _load_exe(hive_name, company, company_key, tag)) is None:
+            return None
+        exe, args = exe_data
+        display_name = _get_value(tag_key, "DisplayName")
+        if display_name is not None and not isinstance(display_name, str):
+            _msg(f"{hive_name}/{company}/{tag}/DisplayName", f"display name is not string: {display_name!r}")
+        threaded = bool(_THREADED_TAG_RE.match(tag)) or (
+            isinstance(display_name, str) and "freethreaded" in display_name.lower()
+        )
+        return _RegistrySpec(company, version.major, version.minor, arch, threaded, exe, args)
 
 
-def load_exe(hive_name: str, company: str, company_key: Any, tag: str) -> tuple[str, str | None] | None:  # ruff:ignore[any-type]
+def _load_exe(hive_name: str, company: str, company_key: Any, tag: str) -> tuple[str, str | None] | None:  # ruff:ignore[any-type] winreg handles have no importable type on other platforms
     key_path = f"{hive_name}/{company}/{tag}"
     try:
-        with winreg.OpenKeyEx(company_key, rf"{tag}\InstallPath") as ip_key, ip_key:  # ty: ignore[unresolved-attribute]
+        with winreg.OpenKeyEx(company_key, rf"{tag}\InstallPath") as ip_key, ip_key:  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
             if (exe := _resolve_exe(ip_key, key_path)) is not None and os.path.exists(exe):
-                if (args := get_value(ip_key, "ExecutableArguments")) is None or isinstance(args, str):
+                if (args := _get_value(ip_key, "ExecutableArguments")) is None or isinstance(args, str):
                     return exe, args if args and args.strip() else None
-                msg(f"{key_path}/ExecutableArguments", f"expected a string, got {type(args).__name__}")
+                _msg(f"{key_path}/ExecutableArguments", f"expected a string, got {type(args).__name__}")
                 return None
-            msg(key_path, f"could not load exe with value {exe}")
+            _msg(key_path, f"could not load exe with value {exe}")
     except OSError:
-        msg(f"{key_path}/InstallPath", "missing")
+        _msg(f"{key_path}/InstallPath", "missing")
     return None
 
 
-def _resolve_exe(ip_key: Any, key_path: str) -> str | None:  # ruff:ignore[any-type]
-    if (exe := get_value(ip_key, "ExecutablePath")) is None:
-        if (exe := get_value(ip_key, None)) is None:
-            msg(key_path, "no ExecutablePath or default for it")
+def _resolve_exe(ip_key: Any, key_path: str) -> str | None:  # ruff:ignore[any-type] winreg handles have no importable type on other platforms
+    if (exe := _get_value(ip_key, "ExecutablePath")) is None:
+        if (exe := _get_value(ip_key, None)) is None:
+            _msg(key_path, "no ExecutablePath or default for it")
             return None
         if isinstance(exe, str):
             exe = os.path.join(exe, "python.exe")
     if not isinstance(exe, str) or not PureWindowsPath(exe).is_absolute():
-        msg(key_path, f"expected an absolute executable path, got {exe!r}")
+        _msg(key_path, f"expected an absolute executable path, got {exe!r}")
         return None
     return exe
 
 
-def load_arch_data(hive_name: str, company: str, tag: str, tag_key: Any, default_arch: int) -> int | None:  # ruff:ignore[any-type]
-    arch_str = get_value(tag_key, "SysArchitecture")
-    if arch_str is not None:
-        key_path = f"{hive_name}/{company}/{tag}/SysArchitecture"
-        try:
-            return parse_arch(arch_str)
-        except ValueError as sys_arch:
-            msg(key_path, sys_arch)
-    return default_arch
-
-
-def parse_arch(arch_str: Any) -> int:  # ruff:ignore[any-type]
+def _parse_arch(arch_str: Any) -> int:  # ruff:ignore[any-type] winreg handles have no importable type on other platforms
     if isinstance(arch_str, str):
         if match := _ARCH_RE.match(arch_str):
             return int(next(iter(match.groups())))
@@ -170,32 +183,20 @@ def parse_arch(arch_str: Any) -> int:  # ruff:ignore[any-type]
     raise ValueError(error)
 
 
-def load_version_data(
-    hive_name: str,
-    company: str,
-    tag: str,
-    tag_key: Any,  # ruff:ignore[any-type]
-) -> tuple[int | None, int | None, int | None] | None:
-    for candidate, key_path in [
-        (get_value(tag_key, "SysVersion"), f"{hive_name}/{company}/{tag}/SysVersion"),
-        (tag, f"{hive_name}/{company}/{tag}"),
-    ]:
-        if candidate is not None:
-            try:
-                return parse_version(candidate)
-            except ValueError as sys_version:
-                msg(key_path, sys_version)
-    return None
+class _Version(NamedTuple):
+    major: int | None
+    minor: int | None
+    micro: int | None
 
 
-def parse_version(version_str: Any) -> tuple[int | None, int | None, int | None]:  # ruff:ignore[any-type]
+def _parse_version(version_str: Any) -> _Version:  # ruff:ignore[any-type] winreg handles have no importable type on other platforms
     if isinstance(version_str, str):
         if match := _VERSION_RE.match(version_str):
-            g1, g2, g3 = match.groups()
-            return (
-                int(g1) if g1 is not None else None,
-                int(g2) if g2 is not None else None,
-                int(g3) if g3 is not None else None,
+            major, minor, micro = match["major"], match["minor"], match["micro"]
+            return _Version(
+                int(major) if major is not None else None,
+                int(minor) if minor is not None else None,
+                int(micro) if micro is not None else None,
             )
         error = f"invalid format {version_str}"
     else:
@@ -203,26 +204,13 @@ def parse_version(version_str: Any) -> tuple[int | None, int | None, int | None]
     raise ValueError(error)
 
 
-def load_threaded(hive_name: str, company: str, tag: str, tag_key: Any) -> bool:  # ruff:ignore[any-type]
-    display_name = get_value(tag_key, "DisplayName")
-    if display_name is not None:
-        if isinstance(display_name, str):
-            if "freethreaded" in display_name.lower():
-                return True
-        else:
-            key_path = f"{hive_name}/{company}/{tag}/DisplayName"
-            msg(key_path, f"display name is not string: {display_name!r}")
-    return bool(_THREADED_TAG_RE.match(tag))
-
-
-def msg(path: str, what: object) -> None:
+def _msg(path: str, what: str | Exception) -> None:
     _LOGGER.warning("PEP-514 violation in Windows Registry at %s error: %s", path, what)
 
 
 def _run() -> None:
     basicConfig()
-    interpreters = [repr(spec) for spec in discover_pythons()]
-    sys.stdout.write("\n".join(sorted(interpreters)))
+    sys.stdout.write("\n".join(sorted([repr(tuple(spec)) for spec in _discover_pythons()])))
     sys.stdout.write("\n")
 
 

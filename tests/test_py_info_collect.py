@@ -8,7 +8,8 @@ import sysconfig
 from itertools import takewhile
 from pathlib import Path
 from subprocess import run
-from typing import TYPE_CHECKING
+from types import ModuleType
+from typing import TYPE_CHECKING, Final
 
 import pytest
 import vermin
@@ -19,15 +20,14 @@ from python_discovery._py_info import VersionInfo
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from unittest.mock import Mock
 
-    from pytest_mock import MockerFixture
+    from pytest_mock import MockerFixture, MockType
 
-SCRIPT = Path(python_discovery.__file__).parent / "_py_info_collect.py"
+_SCRIPT: Final[Path] = Path(python_discovery.__file__).parent / "_py_info_collect.py"
 
 
 def test_script_parses_down_to_python27() -> None:
-    py2, py3 = vermin.detect(SCRIPT.read_text(encoding="utf-8"))
+    py2, py3 = vermin.detect(_SCRIPT.read_text(encoding="utf-8"))
     assert py2 is not None, "script no longer parses on Python 2.7, the version gate cannot run there"
     assert py2 <= (2, 7)
     assert py3 is not None
@@ -35,16 +35,12 @@ def test_script_parses_down_to_python27() -> None:
 
 
 def test_script_version_gate_precedes_imports() -> None:
-    body = ast.parse(SCRIPT.read_text(encoding="utf-8")).body
+    body = ast.parse(_SCRIPT.read_text(encoding="utf-8")).body
     before_gate = takewhile(lambda node: not isinstance(node, ast.If), body)
     imported = [
         alias.name for node in before_gate if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names
     ]
     assert imported == ["sys"], "only sys may load before the version gate; Python 3.0/3.1 lack sysconfig"
-
-
-def _run_script(*args: str) -> str:
-    return run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, check=True).stdout
 
 
 def test_script_version_gate_reports_executable() -> None:
@@ -56,14 +52,13 @@ def test_script_version_gate_reports_executable() -> None:
                 "from runpy import run_path; import sys; sys.version_info = (3, 5, 10, 'final', 0); "
                 "run_path(sys.argv[1], run_name='__main__')"
             ),
-            str(SCRIPT),
+            str(_SCRIPT),
         ],
         capture_output=True,
         text=True,
         check=False,
     )
-    assert result.returncode == 79
-    assert result.stderr == f"unsupported Python version 3.5.10\n{sys.executable}"
+    assert (result.returncode, result.stderr) == (79, f"unsupported Python version 3.5.10\n{sys.executable}")
 
 
 @pytest.mark.parametrize(
@@ -83,6 +78,10 @@ def test_script_wraps_payload_in_reversed_cookies(args: tuple[str, ...], start: 
     assert payload["version_info"]["major"] == sys.version_info.major
 
 
+def _run_script(*args: str) -> str:
+    return run([sys.executable, str(_SCRIPT), *args], capture_output=True, text=True, check=True).stdout
+
+
 def test_script_payload_matches_in_process_collection() -> None:
     assert set(json.loads(_run_script())) == set(PythonInfo().to_dict())
 
@@ -100,6 +99,7 @@ def no_framework(mocker: MockerFixture) -> None:
         sysconfig,
         "get_config_var",
         side_effect=lambda name: "" if name == "PYTHONFRAMEWORK" else get_config_var(name),  # ty: ignore[deprecated]  # resolves the deprecated Literal["SO"] overload even though name is a generic str
+        autospec=True,
     )
 
 
@@ -208,6 +208,7 @@ def test_system_executable_framework_symlink_kept(tmp_path: Path, mocker: Mocker
         sysconfig,
         "get_config_var",
         side_effect=lambda name: "Python" if name == "PYTHONFRAMEWORK" else get_config_var(name),  # ty: ignore[deprecated]  # resolves the deprecated Literal["SO"] overload even though name is a generic str
+        autospec=True,
     )
     mocker.patch.object(sys, "executable", str(link))
     assert PythonInfo().system_executable == str(link)
@@ -270,30 +271,34 @@ def test_system_executable_from_existing_base(mocker: MockerFixture, tmp_path: P
 
 
 @pytest.mark.usefixtures("no_framework")
-@pytest.mark.parametrize(
-    "same_file",
-    [
-        pytest.param(False, id="distinct"),
-        pytest.param(True, id="alias"),
-    ],
-)
-def test_system_executable_prefers_exact_version(mocker: MockerFixture, tmp_path: Path, *, same_file: bool) -> None:
+def test_system_executable_prefers_exact_version_for_distinct_file(mocker: MockerFixture, tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     versioned = bin_dir / "python3.13"
     versioned.touch()
     generic = bin_dir / "python3"
-    if same_file:
-        generic.symlink_to(versioned.name)
-        landmark = tmp_path / "lib" / Path(os.__file__).parent.name / "os.py"
-        landmark.parent.mkdir(parents=True)
-        landmark.touch()
-    else:
-        generic.touch()
+    generic.touch()
     _venv(mocker)
     mocker.patch.object(sys, "_base_executable", str(generic), create=True)
     mocker.patch.object(sys, "version_info", VersionInfo(3, 13, 0, "final", 0))
-    assert PythonInfo().system_executable == str(generic if same_file else versioned)
+    assert PythonInfo().system_executable == str(versioned)
+
+
+@pytest.mark.usefixtures("no_framework")
+def test_system_executable_prefers_generic_alias_of_exact_version(mocker: MockerFixture, tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    versioned = bin_dir / "python3.13"
+    versioned.touch()
+    generic = bin_dir / "python3"
+    generic.symlink_to(versioned.name)
+    landmark = tmp_path / "lib" / Path(os.__file__).parent.name / "os.py"
+    landmark.parent.mkdir(parents=True)
+    landmark.touch()
+    _venv(mocker)
+    mocker.patch.object(sys, "_base_executable", str(generic), create=True)
+    mocker.patch.object(sys, "version_info", VersionInfo(3, 13, 0, "final", 0))
+    assert PythonInfo().system_executable == str(generic)
 
 
 def test_system_executable_versioned_fallback(mocker: MockerFixture, tmp_path: Path) -> None:
@@ -306,7 +311,7 @@ def test_system_executable_versioned_fallback(mocker: MockerFixture, tmp_path: P
 
 def test_system_executable_pypy_fallback(mocker: MockerFixture, tmp_path: Path) -> None:
     _venv_missing_base_no_candidates(mocker, tmp_path)
-    mocker.patch("platform.python_implementation", return_value="PyPy")
+    mocker.patch("platform.python_implementation", return_value="PyPy", autospec=True)
     mocker.patch.object(sys, "pypy_version_info", (7, 3, 11, "final", 0), create=True)
     pypy = tmp_path / "pypy3"
     pypy.touch()
@@ -320,30 +325,34 @@ def test_tcl_tk_libs_none_without_env(mocker: MockerFixture) -> None:
     assert (info.tcl_lib, info.tk_lib) == (None, None)
 
 
-class _TclError(Exception):
-    """Stands in for tkinter.TclError; an except clause needs a real exception type."""
+def test_tcl_tk_libs_queried_with_env(tmp_path: Path, mocker: MockerFixture) -> None:
+    tk_dir = tmp_path / "tk8.6"
+    tk_dir.mkdir()
+    _fake_tkinter(mocker, {"info library": "/tcl-lib", "set tk_library": str(tk_dir)}.__getitem__)
+    mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tmp_path)})
+    info = PythonInfo()
+    assert (info.tcl_lib, info.tk_lib) == ("/tcl-lib", str(tk_dir))
 
 
-def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] | Exception) -> Mock:
-    evaluate = mocker.Mock(side_effect=eval_side_effect)
-    profile = mocker.Mock(return_value=None)
+def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] | Exception) -> MockType:
+    evaluate = mocker.MagicMock(spec=lambda *_: None, side_effect=eval_side_effect)
+    profile = mocker.MagicMock(spec=lambda *_: None, return_value=None)
     interpreter = type(
         "Tk", (), {"__init__": lambda self, **_: self.readprofile("Tk", "Tk"), "readprofile": profile, "eval": evaluate}
     )
-    module = mocker.MagicMock(TclError=_TclError, Tk=interpreter)
-    module.Tcl.side_effect = lambda: interpreter(useTk=False)
+    module = mocker.MagicMock(
+        spec=ModuleType,
+        TclError=_TclError,
+        Tk=interpreter,
+        Tcl=mocker.MagicMock(spec=lambda: None, side_effect=lambda: interpreter(useTk=False)),
+    )
     mocker.patch.dict(sys.modules, {"tkinter": module})
     return profile
 
 
-def test_tcl_tk_libs_queried_with_env(tmp_path: Path, mocker: MockerFixture) -> None:
-    tk_dir = tmp_path / "tk8.6"
-    tk_dir.mkdir()
-    responses = {"info library": "/tcl-lib", "set tk_library": str(tk_dir)}
-    _fake_tkinter(mocker, responses.__getitem__)
-    mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tmp_path)})
-    info = PythonInfo()
-    assert (info.tcl_lib, info.tk_lib) == ("/tcl-lib", str(tk_dir))
+class _TclError(Exception):
+    # Stands in for tkinter.TclError; an except clause needs a real exception type.
+    ...
 
 
 @pytest.mark.parametrize("folder", [pytest.param("tk8.6", id="minor"), pytest.param("tk8", id="major")])
@@ -360,7 +369,7 @@ def test_tk_lib_resolved_without_loading_tk(tmp_path: Path, mocker: MockerFixtur
         raise AssertionError
 
     _fake_tkinter(mocker, evaluate)
-    mocker.patch.dict(sys.modules, {"_tkinter": mocker.MagicMock(TK_VERSION="8.6")})
+    mocker.patch.dict(sys.modules, {"_tkinter": mocker.MagicMock(spec=ModuleType, TK_VERSION="8.6")})
     mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tcl_dir)})
 
     info = PythonInfo()
@@ -378,7 +387,9 @@ def test_tcl_tk_libs_none_on_tcl_error(tmp_path: Path, mocker: MockerFixture) ->
 def test_tcl_tk_libs_skip_tk_profile(tmp_path: Path, mocker: MockerFixture) -> None:
     profile = _fake_tkinter(mocker, {"info library": "/tcl-lib"}.__getitem__)
     profile.side_effect = AssertionError("Tk profile loaded")
-    mocker.patch("python_discovery._py_info_collect.PythonInfoCollector._resolve_tk_lib", return_value=None)
+    mocker.patch(
+        "python_discovery._py_info_collect.PythonInfoCollector._resolve_tk_lib", return_value=None, autospec=True
+    )
     mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tmp_path)})
 
     info = PythonInfo()
@@ -389,6 +400,6 @@ def test_tcl_tk_libs_skip_tk_profile(tmp_path: Path, mocker: MockerFixture) -> N
 
 def test_system_stdlib_empty_when_scheme_lacks_path(mocker: MockerFixture) -> None:
     names = tuple(name for name in sysconfig.get_path_names() if name not in {"stdlib", "platstdlib"})
-    mocker.patch.object(sysconfig, "get_path_names", return_value=names)
+    mocker.patch.object(sysconfig, "get_path_names", return_value=names, autospec=True)
     info = PythonInfo()
     assert (info.system_stdlib, info.system_stdlib_platform) == ("", "")

@@ -19,10 +19,10 @@ if TYPE_CHECKING:
 _VERSION_RE: Final[re.Pattern[str]] = re.compile(
     r"""
     ^
-    (\d+)               # major
-    (?:\.(\d+))?        # optional minor
-    (?:\.(\d+))?        # optional micro
-    (?:(a|b|rc)(\d+))?  # optional pre-release suffix
+    (?P<major>\d+)               # major
+    (?:\.(?P<minor>\d+))?        # optional minor
+    (?:\.(?P<micro>\d+))?        # optional micro
+    (?:(?P<pre_type>a|b|rc)(?P<pre_num>\d+))?  # optional pre-release suffix
     $
     """,
     re.VERBOSE,
@@ -30,14 +30,13 @@ _VERSION_RE: Final[re.Pattern[str]] = re.compile(
 _SPECIFIER_RE: Final[re.Pattern[str]] = re.compile(
     r"""
     ^
-    (===|==|~=|!=|<=|>=|<|>)  # operator
+    (?P<op>===|==|~=|!=|<=|>=|<|>)  # operator
     \s*
-    (.+)                       # version string
+    (?P<version>.+)                       # version string
     $
     """,
     re.VERBOSE,
 )
-_PRE_ORDER: Final[dict[str, int]] = {"a": 1, "b": 2, "rc": 3}
 
 
 @dataclass(**DC_KW)
@@ -68,21 +67,23 @@ class SimpleVersion:
         Parse a PEP 440 version string (e.g. ``3.12.1``).
 
         :param version_str: the version string to parse.
+        :returns: the parsed version.
+        :raises ValueError: if *version_str* is not a valid version.
         """
         stripped = version_str.strip()
         if not (match := _VERSION_RE.match(stripped)):
             msg = f"Invalid version: {version_str}"
             raise ValueError(msg)
-        major = int(match.group(1))
-        minor = int(match.group(2)) if match.group(2) else 0
-        micro = int(match.group(3)) if match.group(3) else 0
+        major = int(match["major"])
+        minor = int(match["minor"]) if match["minor"] else 0
+        micro = int(match["micro"]) if match["micro"] else 0
         return cls(
             version_str=stripped,
             major=major,
             minor=minor,
             micro=micro,
-            pre_type=match.group(4),
-            pre_num=int(match.group(5)) if match.group(5) else None,
+            pre_type=match["pre_type"],
+            pre_num=int(match["pre_num"]) if match["pre_num"] else None,
             release=(major, minor, micro),
         )
 
@@ -94,7 +95,7 @@ class SimpleVersion:
     def __hash__(self) -> int:
         return hash((self.release, self.pre_type, self.pre_num))
 
-    def __lt__(self, other: object) -> bool:  # ruff:ignore[too-many-return-statements]
+    def __lt__(self, other: object) -> bool:  # ruff:ignore[too-many-return-statements] one return per distinct comparison outcome
         if not isinstance(other, SimpleVersion):
             return NotImplemented
         if self.release != other.release:
@@ -105,8 +106,9 @@ class SimpleVersion:
             return False
         if other.pre_type is None:
             return True
-        if _PRE_ORDER[self.pre_type] != _PRE_ORDER[other.pre_type]:
-            return _PRE_ORDER[self.pre_type] < _PRE_ORDER[other.pre_type]
+        pre_order: dict[str, int] = {"a": 1, "b": 2, "rc": 3}
+        if pre_order[self.pre_type] != pre_order[other.pre_type]:
+            return pre_order[self.pre_type] < pre_order[other.pre_type]
         return (self.pre_num or 0) < (other.pre_num or 0)
 
     def __le__(self, other: object) -> bool:
@@ -153,13 +155,15 @@ class SimpleSpecifier:
         Parse a single PEP 440 specifier (e.g. ``>=3.10``).
 
         :param spec_str: the specifier string to parse.
+        :returns: the parsed specifier.
+        :raises ValueError: if *spec_str* is not a valid specifier.
         """
         stripped = spec_str.strip()
         if not (match := _SPECIFIER_RE.match(stripped)):
             msg = f"Invalid specifier: {spec_str}"
             raise ValueError(msg)
-        op = match.group(1)
-        version_str = match.group(2).strip()
+        op = match["op"]
+        version_str = match["version"].strip()
         is_wildcard = version_str.endswith(".*")
         wildcard_precision: int | None = None
         if is_wildcard:
@@ -178,11 +182,26 @@ class SimpleSpecifier:
             version=version,
         )
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SimpleSpecifier):
+            return NotImplemented
+        return self.spec_str == other.spec_str
+
+    def __hash__(self) -> int:
+        return hash(self.spec_str)
+
+    def __str__(self) -> str:
+        return self.spec_str
+
+    def __repr__(self) -> str:
+        return f"SimpleSpecifier('{self.spec_str}')"
+
     def contains(self, version_str: str) -> bool:
         """
         Check if a version string satisfies this specifier.
 
         :param version_str: the version string to test.
+        :returns: ``True`` if *version_str* satisfies this specifier.
         """
         try:
             candidate = SimpleVersion.from_string(version_str) if isinstance(version_str, str) else version_str
@@ -195,8 +214,8 @@ class SimpleSpecifier:
         return self._check_standard(candidate)
 
     def _check_wildcard(self, candidate: SimpleVersion) -> bool:
-        if self.version is None:  # pragma: no branch
-            return False  # pragma: no cover
+        if self.version is None:  # pragma: no branch, defensive guard; the constructors always set the version
+            return False  # pragma: no cover, defensive guard; the constructors always set the version
         if self.operator == "==":
             return candidate.release[: self.wildcard_precision] == self.version.release[: self.wildcard_precision]
         if self.operator == "!=":
@@ -204,8 +223,8 @@ class SimpleSpecifier:
         return False
 
     def _check_standard(self, candidate: SimpleVersion) -> bool:
-        if self.version is None:  # pragma: no branch
-            return False  # pragma: no cover
+        if self.version is None:  # pragma: no branch, defensive guard; the constructors always set the version
+            return False  # pragma: no cover, defensive guard; the constructors always set the version
         if self.operator == "===":
             return str(candidate) == str(self.version)
         if self.operator == "~=":
@@ -240,20 +259,6 @@ class SimpleSpecifier:
         prefix = max(self.version_str.count("."), 1)
         return candidate.release[:prefix] == self.version.release[:prefix]
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SimpleSpecifier):
-            return NotImplemented
-        return self.spec_str == other.spec_str
-
-    def __hash__(self) -> int:
-        return hash(self.spec_str)
-
-    def __str__(self) -> str:
-        return self.spec_str
-
-    def __repr__(self) -> str:
-        return f"SimpleSpecifier('{self.spec_str}')"
-
 
 @dataclass(**DC_KW)
 class SimpleSpecifierSet:
@@ -273,26 +278,16 @@ class SimpleSpecifierSet:
         Parse a comma-separated PEP 440 specifier string (e.g. ``>=3.10,<4``).
 
         :param specifiers_str: the specifier string to parse.
+        :returns: the parsed specifier set.
         """
         stripped = specifiers_str.strip()
         specs: list[SimpleSpecifier] = []
         if stripped:
             for spec_item in stripped.split(","):
-                item = spec_item.strip()
-                if item:
+                if item := spec_item.strip():
                     with contextlib.suppress(ValueError):
                         specs.append(SimpleSpecifier.from_string(item))
         return cls(specifiers_str=stripped, specifiers=tuple(specs))
-
-    def contains(self, version_str: str) -> bool:
-        """
-        Check if a version satisfies all specifiers in the set.
-
-        :param version_str: the version string to test.
-        """
-        if not self.specifiers:
-            return True
-        return all(spec.contains(version_str) for spec in self.specifiers)
 
     def __iter__(self) -> Iterator[SimpleSpecifier]:
         return iter(self.specifiers)
@@ -310,6 +305,17 @@ class SimpleSpecifierSet:
 
     def __repr__(self) -> str:
         return f"SimpleSpecifierSet('{self.specifiers_str}')"
+
+    def contains(self, version_str: str) -> bool:
+        """
+        Check if a version satisfies all specifiers in the set.
+
+        :param version_str: the version string to test.
+        :returns: ``True`` if *version_str* satisfies every specifier.
+        """
+        if not self.specifiers:
+            return True
+        return all(spec.contains(version_str) for spec in self.specifiers)
 
 
 __all__ = [

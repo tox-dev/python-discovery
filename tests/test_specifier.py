@@ -4,8 +4,6 @@ import pytest
 
 from python_discovery._specifier import SimpleSpecifier, SimpleSpecifierSet, SimpleVersion
 
-# --- SimpleVersion ---
-
 
 @pytest.mark.parametrize(
     ("version_str", "release", "pre_type", "pre_num"),
@@ -25,9 +23,7 @@ def test_version_parse(
     pre_num: int | None,
 ) -> None:
     version = SimpleVersion.from_string(version_str)
-    assert version.release == release
-    assert version.pre_type == pre_type
-    assert version.pre_num == pre_num
+    assert (version.release, version.pre_type, version.pre_num) == (release, pre_type, pre_num)
 
 
 def test_version_invalid_raises() -> None:
@@ -44,7 +40,7 @@ def test_version_eq_different() -> None:
 
 
 def test_version_eq_not_implemented() -> None:
-    result = SimpleVersion.from_string("3.11").__eq__("3.11")  # ruff:ignore[unnecessary-dunder-call]
+    result = SimpleVersion.from_string("3.11").__eq__("3.11")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
     assert result is NotImplemented
 
 
@@ -69,7 +65,7 @@ def test_version_lt(left: str, right: str, expected: bool) -> None:
 
 
 def test_version_lt_not_implemented() -> None:
-    result = SimpleVersion.from_string("3.11").__lt__("3.12")  # ruff:ignore[unnecessary-dunder-call]
+    result = SimpleVersion.from_string("3.11").__lt__("3.12")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
     assert result is NotImplemented
 
 
@@ -83,7 +79,7 @@ def test_version_gt() -> None:
 
 
 def test_version_gt_not_implemented() -> None:
-    result = SimpleVersion.from_string("3.11").__gt__("3.11")  # ruff:ignore[unnecessary-dunder-call]
+    result = SimpleVersion.from_string("3.11").__gt__("3.11")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
     assert result is NotImplemented
 
 
@@ -100,9 +96,6 @@ def test_version_repr() -> None:
     assert repr(SimpleVersion.from_string("3.11")) == "SimpleVersion('3.11')"
 
 
-# --- SimpleSpecifier ---
-
-
 def test_specifier_invalid_raises() -> None:
     with pytest.raises(ValueError, match="Invalid specifier"):
         SimpleSpecifier.from_string("no_operator")
@@ -110,8 +103,7 @@ def test_specifier_invalid_raises() -> None:
 
 def test_specifier_parse_gte() -> None:
     spec = SimpleSpecifier.from_string(">=3.12")
-    assert spec.operator == ">="
-    assert spec.version == SimpleVersion.from_string("3.12")
+    assert (spec.operator, spec.version) == (">=", SimpleVersion.from_string("3.12"))
     assert spec.is_wildcard is False
 
 
@@ -209,7 +201,7 @@ def test_specifier_eq() -> None:
 
 
 def test_specifier_eq_not_implemented() -> None:
-    result = SimpleSpecifier.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call]
+    result = SimpleSpecifier.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
     assert result is NotImplemented
 
 
@@ -242,9 +234,6 @@ def test_specifier_unknown_operator() -> None:
     assert spec.contains("3.12.0") is False
 
 
-# --- SimpleSpecifierSet ---
-
-
 @pytest.mark.parametrize(
     ("spec_str", "version_str", "expected"),
     [
@@ -263,8 +252,7 @@ def test_specifier_set_contains(spec_str: str, version_str: str, expected: bool)
 
 
 def test_specifier_set_iter() -> None:
-    spec_set = SimpleSpecifierSet.from_string(">=3.12,<3.14")
-    specs = list(spec_set)
+    specs = list(SimpleSpecifierSet.from_string(">=3.12,<3.14"))
     assert len(specs) == 2
 
 
@@ -273,7 +261,7 @@ def test_specifier_set_eq() -> None:
 
 
 def test_specifier_set_eq_not_implemented() -> None:
-    result = SimpleSpecifierSet.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call]
+    result = SimpleSpecifierSet.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
     assert result is NotImplemented
 
 

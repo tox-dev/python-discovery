@@ -48,4 +48,6 @@ def _cancel_synchronous_io(thread_id: int) -> None:
             raise WinError(get_last_error())
 
 
-__all__ = ["stop_query_reader"]
+__all__ = [
+    "stop_query_reader",
+]

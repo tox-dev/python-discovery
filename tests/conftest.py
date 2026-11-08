@@ -25,6 +25,6 @@ def _ensure_py_info_cache_empty(session_cache: DiskCache) -> Generator[None]:
 @pytest.fixture
 def _skip_if_test_in_system(session_cache: DiskCache) -> None:
     current = PythonInfo.current(session_cache)
-    if current.system_executable is not None:  # pragma: no cover
+    if current.system_executable is not None:  # pragma: no cover, only set on hosts with a system executable
         msg = "test not valid if run under system"
         raise pytest.skip.Exception(msg)

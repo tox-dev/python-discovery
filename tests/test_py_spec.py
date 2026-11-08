@@ -29,12 +29,18 @@ if TYPE_CHECKING:
 def test_bad_py_spec(text: str) -> None:
     spec = PythonSpec.from_string_spec(text)
     assert text in repr(spec)
-    assert spec.str_spec == text
-    assert spec.path == text
-    content = vars(spec)
-    del content["str_spec"]
-    del content["path"]
-    assert all(v is None for v in content.values())
+    assert (spec.str_spec, spec.path) == (text, text)
+    assert (
+        spec.implementation,
+        spec.major,
+        spec.minor,
+        spec.micro,
+        spec.architecture,
+        spec.free_threaded,
+        spec.machine,
+        spec.debug,
+        spec.version_specifier,
+    ) == (None,) * 9
 
 
 @pytest.mark.parametrize(
@@ -82,8 +88,7 @@ def test_specifier_modifiers(text: str, expected: tuple[str, bool | None, bool |
 
 def test_py_spec_first_digit_only_major() -> None:
     spec = PythonSpec.from_string_spec("278")
-    assert spec.major == 2
-    assert spec.minor == 78
+    assert (spec.major, spec.minor) == (2, 78)
 
 
 def test_spec_satisfies_path_ok() -> None:
@@ -117,7 +122,11 @@ def test_spec_satisfies_free_threaded() -> None:
 
 @pytest.mark.parametrize(
     ("req", "spec"),
-    [("py", "python"), ("jython", "jython"), ("CPython", "cpython")],
+    [
+        pytest.param("py", "python", id="py"),
+        pytest.param("jython", "jython", id="jython"),
+        pytest.param("CPython", "cpython", id="CPython"),
+    ],
 )
 def test_spec_satisfies_implementation_ok(req: str, spec: str) -> None:
     spec_1 = PythonSpec.from_string_spec(req)
@@ -170,9 +179,8 @@ def _version_not_satisfies_pairs() -> list[tuple[str, str]]:
                     temp = sat_ver.copy()
                     temp[patch] += offset
                     if temp[patch] < 0:
-                        continue  # pragma: no cover
-                    sat = ".".join(str(i) for i in temp)
-                    target.add((req, sat))
+                        continue  # pragma: no cover, the branch needs an interpreter the test runners lack
+                    target.add((req, ".".join(str(i) for i in temp)))
     return sorted(target)
 
 
@@ -193,10 +201,10 @@ def test_relative_spec(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        (">=3.12", ">=3.12"),
-        ("python>=3.12", ">=3.12"),
-        ("cpython!=3.11.*", "!=3.11.*"),
-        ("<=3.13,>=3.12", "<=3.13,>=3.12"),
+        pytest.param(">=3.12", ">=3.12", id=">=3.12"),
+        pytest.param("python>=3.12", ">=3.12", id="python>=3.12"),
+        pytest.param("cpython!=3.11.*", "!=3.11.*", id="cpython!=3.11.*"),
+        pytest.param("<=3.13,>=3.12", "<=3.13,>=3.12", id="<=3.13,>=3.12"),
     ],
 )
 def test_specifier_parsing(text: str, expected: str) -> None:
@@ -206,14 +214,12 @@ def test_specifier_parsing(text: str, expected: str) -> None:
 
 def test_specifier_with_implementation() -> None:
     spec = PythonSpec.from_string_spec("cpython>=3.12")
-    assert spec.implementation == "cpython"
-    assert spec.version_specifier == SpecifierSet.from_string(">=3.12")
+    assert (spec.implementation, spec.version_specifier) == ("cpython", SpecifierSet.from_string(">=3.12"))
 
 
 def test_specifier_with_graalpy_implementation_alias() -> None:
     spec = PythonSpec.from_string_spec("graalvm>=3.12")
-    assert spec.implementation == "graalpy"
-    assert spec.version_specifier == SpecifierSet.from_string(">=3.12")
+    assert (spec.implementation, spec.version_specifier) == ("graalpy", SpecifierSet.from_string(">=3.12"))
 
 
 def test_specifier_satisfies_with_partial_information() -> None:
@@ -254,8 +260,7 @@ def test_spec_parse_machine(spec_str: str, expected_machine: str | None) -> None
 )
 def test_spec_parse_arch_and_machine_together(spec_str: str, expected_arch: int, expected_machine: str | None) -> None:
     spec = PythonSpec.from_string_spec(spec_str)
-    assert spec.architecture == expected_arch
-    assert spec.machine == expected_machine
+    assert (spec.architecture, spec.machine) == (expected_arch, expected_machine)
 
 
 @pytest.mark.parametrize(
@@ -272,8 +277,7 @@ def test_spec_parse_debug(spec_str: str) -> None:
     spec = PythonSpec.from_string_spec(spec_str)
 
     assert spec.debug is True
-    assert spec.major == 3
-    assert spec.minor == 13
+    assert (spec.major, spec.minor) == (3, 13)
     assert spec.machine is None
     assert spec.path is None
 
@@ -335,7 +339,10 @@ def test_spec_repr_machine(spec_str: str, in_repr: str) -> None:
     assert in_repr in repr(PythonSpec.from_string_spec(spec_str))
 
 
-@pytest.mark.parametrize(("left", "right"), [("graalpy", "graalvm"), ("graalvm", "graalpy")])
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [pytest.param("graalpy", "graalvm", id="graalpy"), pytest.param("graalvm", "graalpy", id="graalvm")],
+)
 def test_spec_satisfies_graalpy_implementation_aliases(left: str, right: str) -> None:
     spec_1 = PythonSpec.from_string_spec(left)
     spec_2 = PythonSpec.from_string_spec(right)

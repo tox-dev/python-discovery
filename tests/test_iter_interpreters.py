@@ -4,13 +4,15 @@ import contextlib
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final, Protocol
 from uuid import uuid4
 
 import pytest
 
 from python_discovery import DiskCache, PythonInfo, iter_interpreters
 from python_discovery._discovery import IS_WIN
+
+_EXE_SUFFIX: Final[str] = ".exe" if IS_WIN else ""
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def uv_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Empty uv install root with environment variables pointing at it."""
+    # Empty uv install root with environment variables pointing at it.
     monkeypatch.delenv("XDG_DATA_HOME", raising=False)
     root = tmp_path / "uv-python"
     root.mkdir()
@@ -28,8 +30,12 @@ def uv_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
+class UvInstall(Protocol):
+    def __call__(self, *relative: str) -> None: ...
+
+
 @pytest.fixture
-def uv_install(uv_dir: Path) -> Callable[..., None]:
+def uv_install(uv_dir: Path) -> UvInstall:
     def _install(*relative: str) -> None:
         for entry in relative:
             (path := uv_dir / entry).parent.mkdir(parents=True, exist_ok=True)
@@ -42,9 +48,9 @@ def uv_install(uv_dir: Path) -> Callable[..., None]:
 def uv_probed(
     uv_dir: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> Callable[[str | None], list[str]]:
-    """Stub out the interrogation subprocess, so a run reports the executables discovery reached for."""
+    # Stub out the interrogation subprocess, so a run reports the executables discovery reached for.
     monkeypatch.setenv("PATH", "")
-    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
 
     def _probed(key: str | None) -> list[str]:
         list(iter_interpreters(key))
@@ -133,11 +139,11 @@ def test_iter_interpreters_no_key_includes_running_interpreter(session_cache: Di
 def test_iter_interpreters_no_key_probes_variant_builds_on_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, name: str
 ) -> None:
-    exe = tmp_path / "bin" / f"{name}{'.exe' if IS_WIN else ''}"
+    exe = tmp_path / "bin" / f"{name}{_EXE_SUFFIX}"
     exe.parent.mkdir()
     exe.touch()
     monkeypatch.setenv("PATH", str(exe.parent))
-    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
 
     list(iter_interpreters())
 
@@ -149,7 +155,7 @@ def test_iter_interpreters_no_key_probes_variant_builds_on_path(
     "directory_name",
     [
         pytest.param(".", id="path-directory"),
-        pytest.param(f"python3.99{'.exe' if IS_WIN else ''}", id="named-directory"),
+        pytest.param(f"python3.99{_EXE_SUFFIX}", id="named-directory"),
     ],
 )
 def test_iter_interpreters_skips_path_directories(
@@ -158,10 +164,10 @@ def test_iter_interpreters_skips_path_directories(
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     (bin_dir / directory_name).mkdir(exist_ok=True)
-    executable = bin_dir / f"python3.98{'.exe' if IS_WIN else ''}"
+    executable = bin_dir / f"python3.98{_EXE_SUFFIX}"
     executable.touch()
     monkeypatch.setenv("PATH", str(bin_dir))
-    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True)
 
     list(iter_interpreters())
 
@@ -174,9 +180,8 @@ def test_iter_interpreters_dedups_symlinks(
     monkeypatch: pytest.MonkeyPatch,
     session_cache: DiskCache,
 ) -> None:
-    suffix = ".exe" if IS_WIN else ""
     for name in ("python3", "python3.99"):
-        Path(str(tmp_path / f"{name}{suffix}")).symlink_to(sys.executable)
+        Path(str(tmp_path / f"{name}{_EXE_SUFFIX}")).symlink_to(sys.executable)
     pyvenv_cfg = Path(sys.executable).parents[1] / "pyvenv.cfg"
     with contextlib.suppress(FileNotFoundError):
         (tmp_path / pyvenv_cfg.name).write_bytes(pyvenv_cfg.read_bytes())
@@ -207,6 +212,7 @@ def test_iter_interpreters_skips_none_from_propose(
     mocker.patch(
         "python_discovery._discovery.propose_interpreters",
         return_value=iter([(None, True), (real_info, True)]),
+        autospec=True,
     )
     results = list(iter_interpreters(cache=session_cache))
     assert results == [real_info]
@@ -216,12 +222,11 @@ def test_iter_interpreters_skips_when_no_executable(
     session_cache: DiskCache,
     mocker: MockerFixture,
 ) -> None:
-    bogus = mocker.MagicMock(spec=PythonInfo)
-    bogus.system_executable = None
-    bogus.executable = None
+    bogus = mocker.MagicMock(spec=PythonInfo, system_executable=None, executable=None)
     mocker.patch(
         "python_discovery._discovery.propose_interpreters",
         return_value=iter([(bogus, True)]),
+        autospec=True,
     )
     assert list(iter_interpreters(cache=session_cache)) == []
 
@@ -237,11 +242,10 @@ def test_iter_interpreters_uv_yields_when_interrogation_succeeds(
     bin_path.mkdir(parents=True)
     (bin_path / "python").touch()
 
-    fake_info = mocker.MagicMock(spec=PythonInfo)
-    fake_info.system_executable = str(uv_dir / "fake-unique" / "python")
+    fake_info = mocker.MagicMock(spec=PythonInfo, system_executable=str(uv_dir / "fake-unique" / "python"))
     fake_info.executable = fake_info.system_executable
     fake_info.satisfies.return_value = True
-    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=fake_info)
+    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=fake_info, autospec=True)
 
     assert fake_info in list(iter_interpreters(cache=session_cache))
 
@@ -297,7 +301,9 @@ def test_iter_interpreters_uv_layout(
     for link_rel, target_rel in symlinks:
         Path(str(uv_dir / link_rel)).symlink_to(uv_dir / target_rel)
 
-    mock_from_exe = mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=None)
+    mock_from_exe = mocker.patch(
+        "python_discovery._discovery.PathPythonInfo.from_exe", return_value=None, autospec=True
+    )
     list(iter_interpreters(cache=session_cache))
 
     interrogated_real = {os.path.realpath(call.args[0]) for call in mock_from_exe.call_args_list}
@@ -457,7 +463,7 @@ def test_iter_interpreters_uv_layout(
     ],
 )
 def test_iter_interpreters_uv_probe_order(
-    uv_install: Callable[..., None],
+    uv_install: UvInstall,
     uv_probed: Callable[[str | None], list[str]],
     planted: tuple[str, ...],
     key: str | None,
@@ -469,9 +475,9 @@ def test_iter_interpreters_uv_probe_order(
 
 
 def test_iter_interpreters_uv_minor_version_link_loses_to_its_target(
-    uv_dir: Path, uv_install: Callable[..., None], uv_probed: Callable[[str | None], list[str]]
+    uv_dir: Path, uv_install: UvInstall, uv_probed: Callable[[str | None], list[str]]
 ) -> None:
-    """uv links `cpython-3.15` at the concrete install, and repoints it on the next patch release."""
+    # uv links `cpython-3.15` at the concrete install, and repoints it on the next patch release.
     uv_install("cpython-3.15.0b3-macos-aarch64-none/bin/python")
     Path(uv_dir / "cpython-3.15-macos-aarch64-none").symlink_to(uv_dir / "cpython-3.15.0b3-macos-aarch64-none")
 
@@ -487,7 +493,7 @@ def test_iter_interpreters_uv_minor_version_link_loses_to_its_target(
     ],
 )
 def test_iter_interpreters_uv_minor_version_junction_loses_to_its_target(
-    uv_install: Callable[..., None],
+    uv_install: UvInstall,
     uv_probed: Callable[[str | None], list[str]],
     uv_junction: Callable[[str, str], None],
     concrete: str,
@@ -509,15 +515,15 @@ def uv_junction(uv_dir: Path, mocker: MockerFixture) -> Callable[[str, str], Non
         else:  # pragma: win32 no cover
             # stand in for the junction with a symlink that does not report as one
             (uv_dir / link).symlink_to(uv_dir / target)
-            mocker.patch.object(Path, "is_symlink", return_value=False)
+            mocker.patch.object(Path, "is_symlink", return_value=False, autospec=True)
 
     return _junction
 
 
 def test_iter_interpreters_uv_probes_one_executable_per_install(
-    uv_dir: Path, uv_install: Callable[..., None], monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+    uv_dir: Path, uv_install: UvInstall, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    """GraalPy ships bin/python as a copy of bin/graalpy, so the realpath dedup alone would spawn it twice."""
+    # GraalPy ships bin/python as a copy of bin/graalpy, so the realpath dedup alone would spawn it twice.
     monkeypatch.setenv("PATH", "")
     uv_install("graalpy-3.11.0-macos-aarch64-none/bin/python", "graalpy-3.11.0-macos-aarch64-none/bin/graalpy")
     executable = str(uv_dir / "graalpy-3.11.0-macos-aarch64-none" / "bin" / "python")
@@ -526,6 +532,7 @@ def test_iter_interpreters_uv_probes_one_executable_per_install(
         return_value=mocker.create_autospec(
             PythonInfo, instance=True, system_executable=executable, executable=executable
         ),
+        autospec=True,
     )
 
     list(iter_interpreters("graalpy3.11"))

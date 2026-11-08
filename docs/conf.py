@@ -5,15 +5,16 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Final
 
 from python_discovery import __version__
 
-company = "tox-dev"
+company: Final[str] = "tox-dev"
 name = "python-discovery"
-repository = f"https://github.com/{company}/{name}"
+repository: Final[str] = f"https://github.com/{company}/{name}"
 version = ".".join(__version__.split(".")[:2])
 release = __version__
-copyright = f"2026-{datetime.now(tz=timezone.utc).year}, {company}"  # ruff:ignore[builtin-variable-shadowing]
+copyright: Final[str] = f"2026-{datetime.now(tz=timezone.utc).year}, {company}"  # ruff:ignore[builtin-variable-shadowing] Sphinx reads the name `copyright`
 
 extensions = [
     "sphinx_llm.txt",
@@ -26,10 +27,10 @@ extensions = [
     "sphinxcontrib.towncrier.ext",
 ]
 
-towncrier_draft_autoversion_mode = "draft"
-towncrier_draft_include_empty = True
+towncrier_draft_autoversion_mode: Final[str] = "draft"
+towncrier_draft_include_empty: Final[bool] = True
 towncrier_draft_working_directory = Path(__file__).parent.parent
-autosectionlabel_maxdepth = 2
+autosectionlabel_maxdepth: Final[int] = 2
 
 extlinks = {
     "issue": (f"{repository}/issues/%s", "#%s"),
@@ -43,19 +44,19 @@ intersphinx_mapping = {
 }
 
 templates_path = []
-source_suffix = ".rst"
+source_suffix: Final[str] = ".rst"
 exclude_patterns = ["_build", "changelog/*"]
 
-main_doc = "index"
-pygments_style = "default"
-always_document_param_types = True
+main_doc: Final[str] = "index"
+pygments_style: Final[str] = "default"
+always_document_param_types: Final[bool] = True
 project = name
 
-html_theme = "furo"
+html_theme: Final[str] = "furo"
 html_title = project
 html_last_updated_fmt = datetime.now(tz=timezone.utc).isoformat()
-pygments_dark_style = "monokai"
-html_show_sourcelink = False
+pygments_dark_style: Final[str] = "monokai"
+html_show_sourcelink: Final[bool] = False
 html_static_path = ["_static"]
 html_theme_options = {
     "light_logo": "logo.svg",

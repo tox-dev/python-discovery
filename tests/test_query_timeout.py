@@ -33,9 +33,7 @@ def test_from_exe_query_timeout(
     mocker: MockerFixture, caplog: pytest.LogCaptureFixture, raw: str | None, expected: float | None
 ) -> None:
     collect = mocker.patch("python_discovery._cached_py_info._collect_query_output", wraps=_collect_query_output)
-    env = {key: value for key, value in os.environ.items() if key != "PY_DISCOVERY_TIMEOUT"}
-    if raw is not None:
-        env["PY_DISCOVERY_TIMEOUT"] = raw
+    env = {key: value for key, value in {**os.environ, "PY_DISCOVERY_TIMEOUT": raw}.items() if value is not None}
     result = PythonInfo.from_exe(sys.executable, env=env, ignore_cache=True, resolve_to_host=False)
     assert result is not None
     assert result.version_info == sys.version_info
@@ -80,12 +78,22 @@ def test_from_exe_timeout_warning_cache_is_bounded(caplog: pytest.LogCaptureFixt
         assert result is not None
         assert result.version_info == sys.version_info
     caplog.clear()
-    for raw in ("invalid-timeout-128", "invalid-timeout-0"):
-        result = PythonInfo.from_exe(
-            sys.executable, env={**os.environ, "PY_DISCOVERY_TIMEOUT": raw}, ignore_cache=True, resolve_to_host=False
-        )
-        assert result is not None
-        assert result.version_info == sys.version_info
+    result = PythonInfo.from_exe(
+        sys.executable,
+        env={**os.environ, "PY_DISCOVERY_TIMEOUT": "invalid-timeout-128"},
+        ignore_cache=True,
+        resolve_to_host=False,
+    )
+    assert result is not None
+    assert result.version_info == sys.version_info
+    result = PythonInfo.from_exe(
+        sys.executable,
+        env={**os.environ, "PY_DISCOVERY_TIMEOUT": "invalid-timeout-0"},
+        ignore_cache=True,
+        resolve_to_host=False,
+    )
+    assert result is not None
+    assert result.version_info == sys.version_info
     assert [record.getMessage() for record in caplog.records] == [
         "ignoring PY_DISCOVERY_TIMEOUT='invalid-timeout-0', not a positive number of seconds; using 15.0"
     ]
