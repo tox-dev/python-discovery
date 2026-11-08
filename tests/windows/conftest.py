@@ -1,18 +1,19 @@
 from __future__ import annotations
 
+import importlib
 import os
 import runpy
 import sys
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from functools import cache
 from pathlib import Path
 from types import ModuleType, TracebackType
-from typing import TYPE_CHECKING, NamedTuple, Protocol
+from typing import TYPE_CHECKING
 
 import pytest
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    from collections.abc import Generator
 
     from pytest_mock import MockerFixture, MockType
     from typing_extensions import Self
@@ -22,23 +23,48 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def _mock_registry(monkeypatch: pytest.MonkeyPatch) -> None:
-    if sys.platform != "win32":
-        winreg = _create_winreg_mock()
-        monkeypatch.setitem(sys.modules, "winreg", winreg)
-    else:
-        import winreg
+    winreg = _create_winreg_mock() if sys.platform != "win32" else importlib.import_module("winreg")
+    monkeypatch.setitem(sys.modules, "winreg", winreg)
 
-    enum_collect, value_collect, key_open, hive_open = _load_registry_data(winreg)
+    values = runpy.run_path(str(Path(__file__).parent / "winreg_mock_values.py"), init_globals={"winreg": winreg})
+    enum_collect: dict[int, list[str | OSError]] = values["_ENUM_COLLECT"]
+    value_collect: dict[int, dict[str, tuple[str, int] | OSError]] = values["_VALUE_COLLECT"]
+    key_open: dict[int, dict[str, int]] = values["_KEY_OPEN"]
+    hive_open: dict[tuple[int, str, int, int], int | OSError] = values["_HIVE_OPEN"]
 
-    monkeypatch.setattr(winreg, "EnumKey", _make_enum_key(enum_collect))
-    monkeypatch.setattr(winreg, "QueryValueEx", _make_query_value_ex(value_collect))
-    monkeypatch.setattr(winreg, "OpenKeyEx", _make_open_key_ex(key_open, hive_open))
+    def _enum_key(key: _Key | int, at: int) -> str:
+        result = enum_collect[_key_value(key)][at]
+        if isinstance(result, OSError):
+            raise result
+        return result
+
+    @contextmanager
+    def _open_key_ex(*args: object) -> Generator[_Key | int | OSError]:
+        if len(args) == 2:
+            key, value = args
+            result = _Key(key_open[_key_value(key)][value])
+        elif len(args) == 4:
+            result = hive_open[args]
+        else:
+            raise RuntimeError
+        value = result.value if isinstance(result, _Key) else result
+        if isinstance(value, OSError):
+            raise value
+        yield result
+
+    def _query_value_ex(key: _Key | int, value_name: str) -> tuple[str, int]:
+        result = value_collect[_key_value(key)][value_name]
+        if isinstance(result, OSError):
+            raise result
+        return result
+
+    monkeypatch.setattr(winreg, "EnumKey", _enum_key)
+    monkeypatch.setattr(winreg, "QueryValueEx", _query_value_ex)
+    monkeypatch.setattr(winreg, "OpenKeyEx", _open_key_ex)
     real_exists = os.path.exists
 
     def _mock_exists(path: str) -> bool:
-        if isinstance(path, str) and ("\\" in path or path.startswith(("C:", "Z:"))):
-            return True
-        return real_exists(path)
+        return (isinstance(path, str) and ("\\" in path or path.startswith(("C:", "Z:")))) or real_exists(path)
 
     monkeypatch.setattr("os.path.exists", _mock_exists)
 
@@ -60,26 +86,8 @@ def _create_winreg_mock() -> ModuleType:
     return winreg
 
 
-def _load_registry_data(winreg: ModuleType) -> _RegistryData:
-    values = runpy.run_path(str(Path(__file__).parent / "winreg_mock_values.py"), init_globals={"winreg": winreg})
-    return _RegistryData(values["_ENUM_COLLECT"], values["_VALUE_COLLECT"], values["_KEY_OPEN"], values["_HIVE_OPEN"])
-
-
-class _RegistryData(NamedTuple):
-    enum_collect: dict[int, list[str | OSError]]
-    value_collect: dict[int, dict[str, tuple[str, int] | OSError]]
-    key_open: dict[int, dict[str, int]]
-    hive_open: dict[tuple[int, str, int, int], int | OSError]
-
-
-def _make_enum_key(enum_collect: dict[int, list[str | OSError]]) -> Callable[[_Key | int, int], str]:
-    def _enum_key(key: _Key | int, at: int) -> str:
-        result = enum_collect[(key.value if isinstance(key, _Key) else key)][at]
-        if isinstance(result, OSError):
-            raise result
-        return result  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
-
-    return _enum_key
+def _key_value(key: _Key | int) -> int:
+    return key.value if isinstance(key, _Key) else key
 
 
 class _Key:
@@ -93,42 +101,6 @@ class _Key:
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> None:
         return None
-
-
-def _make_query_value_ex(
-    value_collect: dict[int, dict[str, tuple[str, int] | OSError]],
-) -> Callable[[_Key | int, str], tuple[str, int]]:
-    def _query_value_ex(key: _Key | int, value_name: str) -> tuple[str, int]:
-        result = value_collect[(key.value if isinstance(key, _Key) else key)][value_name]
-        if isinstance(result, OSError):
-            raise result
-        return result
-
-    return _query_value_ex
-
-
-def _make_open_key_ex(
-    key_open: dict[int, dict[str, int]], hive_open: dict[tuple[int, str, int, int], int | OSError]
-) -> _OpenKeyEx:
-    @contextmanager
-    def _open_key_ex(*args: object) -> Generator[_Key | int | OSError]:
-        if len(args) == 2:
-            key, value = args
-            result = _Key(key_open[(key.value if isinstance(key, _Key) else key)][value])
-        elif len(args) == 4:
-            result = hive_open[args]
-        else:
-            raise RuntimeError
-        value = result.value if isinstance(result, _Key) else result
-        if isinstance(value, OSError):
-            raise value
-        yield result
-
-    return _open_key_ex
-
-
-class _OpenKeyEx(Protocol):
-    def __call__(self, *args: object) -> AbstractContextManager[_Key | int | OSError]: ...
 
 
 @pytest.fixture
