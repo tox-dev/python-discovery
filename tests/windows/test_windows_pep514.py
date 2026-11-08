@@ -205,7 +205,7 @@ def test_pep514_rejects_non_absolute_executable(
 
 
 @pytest.fixture
-def load_exe_with_args(mocker: MockerFixture) -> Callable[[object], tuple[str, str | None] | None]:
+def load_exe_with_args(mocker: MockerFixture) -> Callable[[str | int | None], tuple[str, str | None] | None]:
     from python_discovery._windows import _pep514 as pep514
 
     mocker.patch.object(
@@ -214,7 +214,7 @@ def load_exe_with_args(mocker: MockerFixture) -> Callable[[object], tuple[str, s
     mocker.patch.object(pep514, "_resolve_exe", return_value=r"C:\py.exe", autospec=True)
     mocker.patch.object(pep514.os.path, "exists", return_value=True, autospec=True)
 
-    def load(registered: object) -> tuple[str, str | None] | None:
+    def load(registered: str | int | None) -> tuple[str, str | None] | None:
         mocker.patch.object(pep514, "_get_value", return_value=registered, autospec=True)
         return pep514._load_exe("HKCU", "PythonCore", object(), "3.11")
 
@@ -232,14 +232,16 @@ def load_exe_with_args(mocker: MockerFixture) -> Callable[[object], tuple[str, s
     ],
 )
 def test_pep514_loads_executable_arguments(
-    load_exe_with_args: Callable[[object], tuple[str, str | None] | None], registered: str | None, expected: str | None
+    load_exe_with_args: Callable[[str | int | None], tuple[str, str | None] | None],
+    registered: str | None,
+    expected: str | None,
 ) -> None:
     assert load_exe_with_args(registered) == (r"C:\py.exe", expected)
 
 
 @pytest.mark.usefixtures("_mock_registry")
 def test_pep514_rejects_non_string_executable_arguments(
-    load_exe_with_args: Callable[[object], tuple[str, str | None] | None],
+    load_exe_with_args: Callable[[str | int | None], tuple[str, str | None] | None],
 ) -> None:
     assert load_exe_with_args(42) is None
 

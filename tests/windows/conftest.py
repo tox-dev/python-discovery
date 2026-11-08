@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import runpy
 import sys
 from contextlib import AbstractContextManager, contextmanager
 from functools import cache
@@ -60,12 +61,8 @@ def _create_winreg_mock() -> ModuleType:
 
 
 def _load_registry_data(winreg: ModuleType) -> _RegistryData:
-    # Load winreg mock values using the given (possibly mock) winreg module.
-    loc: dict[str, object] = {}
-    glob: dict[str, object] = {"winreg": winreg}
-    mock_value_str = (Path(__file__).parent / "winreg_mock_values.py").read_text(encoding="utf-8")
-    exec(mock_value_str, glob, loc)  # ruff:ignore[exec-builtin] the mock values are Python source kept in a separate file
-    return _RegistryData(loc["_ENUM_COLLECT"], loc["_VALUE_COLLECT"], loc["_KEY_OPEN"], loc["_HIVE_OPEN"])  # ty: ignore[invalid-return-type] the namespace is built by exec, so it has no static types
+    values = runpy.run_path(str(Path(__file__).parent / "winreg_mock_values.py"), init_globals={"winreg": winreg})
+    return _RegistryData(values["_ENUM_COLLECT"], values["_VALUE_COLLECT"], values["_KEY_OPEN"], values["_HIVE_OPEN"])
 
 
 class _RegistryData(NamedTuple):
