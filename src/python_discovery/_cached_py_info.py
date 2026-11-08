@@ -28,7 +28,7 @@ from ._py_info import PythonInfo
 from ._py_info_collect import MIN_INTERROGATE_VERSION, UNSUPPORTED_EXIT_CODE, UNSUPPORTED_MARKER
 
 if sys.platform == "win32":  # pragma: win32 cover
-    from ._windows._cancel_io import _stop_query_reader
+    from ._windows._cancel_io import stop_query_reader
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -322,7 +322,7 @@ def _collect_query_output(process: Popen[str], timeout: float | None) -> _QueryO
         process.wait()
         for reader in readers:
             if sys.platform == "win32":  # pragma: win32 cover
-                _stop_query_reader(reader)
+                stop_query_reader(reader)
             else:
                 reader.join()
         return _QueryOutput("", "timed out", -1)
