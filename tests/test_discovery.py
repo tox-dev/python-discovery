@@ -387,7 +387,7 @@ def test_get_paths_skips_relative_default(
     absolute_dir.mkdir()
     (absolute_dir / "python3").touch()
 
-    mocker.patch("python_discovery._discovery.os.confstr", side_effect=AttributeError, create=True)
+    monkeypatch.delattr(os, "confstr", raising=False)
     mocker.patch("python_discovery._discovery.os.defpath", f".{os.pathsep}{absolute_dir}")
     assert list(get_paths({})) == [absolute_dir]
 

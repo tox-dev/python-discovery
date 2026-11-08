@@ -6,9 +6,9 @@ import shutil
 import subprocess
 import sys
 import textwrap
+from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -194,11 +194,13 @@ def test_pep514_rejects_non_absolute_executable(
     from python_discovery._windows import _pep514 as pep514
 
     registered = {"ExecutablePath": executable_path, None: install_path}
-    mocker.patch.object(pep514.winreg, "OpenKeyEx", return_value=MagicMock())
+    mocker.patch.object(
+        pep514.winreg, "OpenKeyEx", return_value=mocker.MagicMock(spec=AbstractContextManager), autospec=True
+    )
     mocker.patch.object(pep514, "_get_value", side_effect=lambda _key, name: registered.get(name), autospec=True)
     mocker.patch.object(pep514.os.path, "exists", return_value=True, autospec=True)
 
-    assert pep514._load_exe("HKCU", "PythonCore", MagicMock(), "3.11") is None
+    assert pep514._load_exe("HKCU", "PythonCore", object(), "3.11") is None
     assert "expected an absolute executable path" in caplog.text
 
 
@@ -206,13 +208,15 @@ def test_pep514_rejects_non_absolute_executable(
 def load_exe_with_args(mocker: MockerFixture) -> Callable[[object], tuple[str, str | None] | None]:
     from python_discovery._windows import _pep514 as pep514
 
-    mocker.patch.object(pep514.winreg, "OpenKeyEx", return_value=MagicMock())
+    mocker.patch.object(
+        pep514.winreg, "OpenKeyEx", return_value=mocker.MagicMock(spec=AbstractContextManager), autospec=True
+    )
     mocker.patch.object(pep514, "_resolve_exe", return_value=r"C:\py.exe", autospec=True)
     mocker.patch.object(pep514.os.path, "exists", return_value=True, autospec=True)
 
     def load(registered: object) -> tuple[str, str | None] | None:
         mocker.patch.object(pep514, "_get_value", return_value=registered, autospec=True)
-        return pep514._load_exe("HKCU", "PythonCore", MagicMock(), "3.11")
+        return pep514._load_exe("HKCU", "PythonCore", object(), "3.11")
 
     return load
 

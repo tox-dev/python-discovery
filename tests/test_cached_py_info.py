@@ -12,7 +12,6 @@ from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline
 from threading import enumerate as active_threads
 from time import monotonic
 from typing import TYPE_CHECKING, Final
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -33,7 +32,7 @@ from python_discovery._cached_py_info import (
 if TYPE_CHECKING:
     from typing import IO
 
-    from pytest_mock import MockerFixture
+    from pytest_mock import MockerFixture, MockType
 
 
 def test_gen_cookie_length() -> None:
@@ -94,20 +93,24 @@ def test_run_subprocess_bad_exe() -> None:
 
 
 def test_run_subprocess_invalid_json(mocker: MockerFixture) -> None:
-    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process("not json", "", 0), autospec=True)
+    mocker.patch(
+        "python_discovery._cached_py_info.Popen", return_value=_mock_process(mocker, "not json", "", 0), autospec=True
+    )
     failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
     assert failure is not None
     assert result is None
 
 
-def _mock_process(out: str, err: str, code: int) -> MagicMock:
+def _mock_process(mocker: MockerFixture, out: str, err: str, code: int) -> MockType:
     streams: list[IO[str]] = []
     for value in (out, err):
         read_fd, write_fd = os.pipe()
         with os.fdopen(write_fd, "wb") as writer:
             writer.write(value.encode())
         streams.append(os.fdopen(read_fd, "r", encoding="utf-8"))
-    return MagicMock(stdout=streams[0], stderr=streams[1], returncode=code, **{"wait.return_value": code})
+    return mocker.MagicMock(
+        spec=Popen, stdout=streams[0], stderr=streams[1], returncode=code, **{"wait.return_value": code}
+    )
 
 
 @pytest.mark.parametrize(
@@ -126,7 +129,7 @@ def test_from_exe_rejects_wrong_shape_json(tmp_path: Path, mocker: MockerFixture
     wrapped = f"{start_cookie}{output}{end_cookie}"
     mocker.patch(
         "python_discovery._cached_py_info.Popen",
-        side_effect=[_mock_process(wrapped, "", 0), _mock_process(wrapped, "", 0)],
+        side_effect=[_mock_process(mocker, wrapped, "", 0), _mock_process(mocker, wrapped, "", 0)],
         autospec=True,
     )
     mocker.patch(
@@ -139,7 +142,7 @@ def test_from_exe_rejects_json_without_cookies(tmp_path: Path, mocker: MockerFix
     output = PythonInfo().to_json()
     mocker.patch(
         "python_discovery._cached_py_info.Popen",
-        side_effect=[_mock_process(output, "", 0), _mock_process(output, "", 0)],
+        side_effect=[_mock_process(mocker, output, "", 0), _mock_process(mocker, output, "", 0)],
         autospec=True,
     )
     assert PythonInfo.from_exe(str(tmp_path / "python"), raise_on_error=False, ignore_cache=True) is None
@@ -150,11 +153,13 @@ def test_run_subprocess_with_cookies(mocker: MockerFixture) -> None:
     end_cookie = "b" * 32
     out = f"pre{start_cookie[::-1]}{json.dumps(PythonInfo().to_dict())}{end_cookie[::-1]}post"
 
-    mocker.patch("python_discovery._cached_py_info.Popen", return_value=_mock_process(out, "", 0), autospec=True)
+    mocker.patch(
+        "python_discovery._cached_py_info.Popen", return_value=_mock_process(mocker, out, "", 0), autospec=True
+    )
     mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start_cookie, end_cookie], autospec=True)
 
-    with patch("sys.stdout", autospec=True) as mock_stdout:
-        failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
+    mock_stdout = mocker.patch("sys.stdout", autospec=True)
+    failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
 
     assert failure is None
     assert result is not None
@@ -174,7 +179,7 @@ def test_run_subprocess_timeout(mocker: MockerFixture) -> None:
 def test_run_subprocess_nonzero_exit(mocker: MockerFixture) -> None:
     mocker.patch(
         "python_discovery._cached_py_info.Popen",
-        return_value=_mock_process("some output", "some error", 1),
+        return_value=_mock_process(mocker, "some output", "some error", 1),
         autospec=True,
     )
     failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
@@ -211,13 +216,13 @@ def test_collect_query_output_limit(stream: str, timeout: float | None) -> None:
     )
 
 
-def test_collect_query_output_normalizes_trailing_newline() -> None:
-    assert _collect_query_output(_mock_process("\r", "", 0), 1) == ("\n", "", 0)
+def test_collect_query_output_normalizes_trailing_newline(mocker: MockerFixture) -> None:
+    assert _collect_query_output(_mock_process(mocker, "\r", "", 0), 1) == ("\n", "", 0)
 
 
-def test_collect_query_output_decodes_split_utf8() -> None:
-    with patch("python_discovery._cached_py_info.os.read", side_effect=lambda fd, _: read(fd, 1), autospec=True):
-        assert _collect_query_output(_mock_process("é", "", 0), 1) == ("é", "", 0)
+def test_collect_query_output_decodes_split_utf8(mocker: MockerFixture) -> None:
+    mocker.patch("python_discovery._cached_py_info.os.read", side_effect=lambda fd, _: read(fd, 1), autospec=True)
+    assert _collect_query_output(_mock_process(mocker, "é", "", 0), 1) == ("é", "", 0)
 
 
 @pytest.mark.parametrize(
@@ -276,28 +281,30 @@ def test_collect_query_output_read_error(mocker: MockerFixture) -> None:
         pytest.param(StringIO(""), None, id="stderr"),
     ],
 )
-def test_collect_query_output_requires_pipes(stdout: StringIO | None, stderr: StringIO | None) -> None:
-    process = MagicMock(spec=Popen, stdout=stdout, stderr=stderr)
+def test_collect_query_output_requires_pipes(
+    mocker: MockerFixture, stdout: StringIO | None, stderr: StringIO | None
+) -> None:
+    process = mocker.MagicMock(spec=Popen, stdout=stdout, stderr=stderr)
 
     with pytest.raises(ValueError, match="query output pipes are required"):
         _collect_query_output(process, 1)
 
 
-def test_load_cached_py_info_valid() -> None:
-    result = _load_cached_py_info(PythonInfo, MagicMock(spec=ContentStore), PythonInfo().to_dict())
+def test_load_cached_py_info_valid(mocker: MockerFixture) -> None:
+    result = _load_cached_py_info(PythonInfo, mocker.MagicMock(spec=ContentStore), PythonInfo().to_dict())
     assert result is not None
     assert isinstance(result, PythonInfo)
 
 
-def test_load_cached_py_info_bad_data() -> None:
-    store = MagicMock(spec=ContentStore)
+def test_load_cached_py_info_bad_data(mocker: MockerFixture) -> None:
+    store = mocker.MagicMock(spec=ContentStore)
     result = _load_cached_py_info(PythonInfo, store, {"bad": "data"})
     assert result is None
     store.remove.assert_called_once()
 
 
 def test_load_cached_py_info_system_exe_missing(mocker: MockerFixture) -> None:
-    store = MagicMock(spec=ContentStore)
+    store = mocker.MagicMock(spec=ContentStore)
     content = PythonInfo().to_dict()
     content["system_executable"] = "/nonexistent/python"
     mocker.patch("os.path.exists", return_value=False, autospec=True)
@@ -542,16 +549,16 @@ _SELECTED: Final[str] = r"C:\Python311\python.exe"
 
 
 @pytest.fixture
-def popen(mocker: MockerFixture) -> MagicMock:
+def popen(mocker: MockerFixture) -> MockType:
     start, end = "a" * 32, "b" * 32
     mocker.patch("python_discovery._cached_py_info.gen_cookie", side_effect=[start, end], autospec=True)
     info = PythonInfo()
     info.executable = _SELECTED
-    process = _mock_process(f"{start[::-1]}{info.to_json()}{end[::-1]}", "", 0)
+    process = _mock_process(mocker, f"{start[::-1]}{info.to_json()}{end[::-1]}", "", 0)
     return mocker.patch("python_discovery._cached_py_info.Popen", return_value=process, autospec=True)
 
 
-def test_executable_args_precede_query_script(popen: MagicMock) -> None:
+def test_executable_args_precede_query_script(popen: MockType) -> None:
     _run_subprocess(PythonInfo, _LAUNCHER, dict(os.environ), _ARGS)
 
     cmd = popen.call_args.args[0]

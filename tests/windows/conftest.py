@@ -3,16 +3,17 @@ from __future__ import annotations
 import os
 import sys
 from contextlib import AbstractContextManager, contextmanager
+from functools import cache
 from pathlib import Path
 from types import ModuleType, TracebackType
 from typing import TYPE_CHECKING, NamedTuple, Protocol
-from unittest.mock import MagicMock
 
 import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 
+    from pytest_mock import MockerFixture, MockType
     from typing_extensions import Self
 
     from python_discovery import PythonSpec
@@ -41,6 +42,8 @@ def _mock_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("os.path.exists", _mock_exists)
 
 
+# _pep514 binds winreg at import, so every test must patch the same fake module.
+@cache
 def _create_winreg_mock() -> ModuleType:
     # Create a mock winreg module that works on all platforms.
     winreg = ModuleType("winreg")
@@ -49,9 +52,10 @@ def _create_winreg_mock() -> ModuleType:
     winreg.KEY_READ = 0x20019  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
     winreg.KEY_WOW64_64KEY = 0x0100  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
     winreg.KEY_WOW64_32KEY = 0x0200  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
-    winreg.EnumKey = MagicMock()  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
-    winreg.QueryValueEx = MagicMock()  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
-    winreg.OpenKeyEx = MagicMock()  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    # the fixture swaps these for registry lookups; the attributes must exist for mocker to patch them
+    winreg.EnumKey = None  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    winreg.QueryValueEx = None  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
+    winreg.OpenKeyEx = None  # ty: ignore[unresolved-attribute] winreg is Windows-only, so type checkers cannot resolve it
     return winreg
 
 
@@ -131,7 +135,7 @@ class _OpenKeyEx(Protocol):
 
 
 @pytest.fixture
-def _populate_pyinfo_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+def _populate_pyinfo_cache(monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
     from python_discovery._cached_py_info import _CACHE
 
     python_core_path = "C:\\Users\\user\\AppData\\Local\\Programs\\Python"
@@ -150,14 +154,14 @@ def _populate_pyinfo_cache(monkeypatch: pytest.MonkeyPatch) -> None:
         ("CompanyA", 3, 6, 64, False, "Z:\\CompanyA\\Python\\3.6\\python.exe"),
     ]
     for _, major, minor, arch, threaded, exe in interpreters:
-        info = _mock_pyinfo(major, minor, arch, exe, threaded)
+        info = _mock_pyinfo(mocker, major, minor, arch, exe, threaded)
         monkeypatch.setitem(_CACHE, (Path(info.executable), None), info)
 
 
-def _mock_pyinfo(major: int, minor: int, arch: int, exe: str, threaded: bool) -> MagicMock:
-    from python_discovery._py_info import VersionInfo
+def _mock_pyinfo(mocker: MockerFixture, major: int, minor: int, arch: int, exe: str, threaded: bool) -> MockType:
+    from python_discovery._py_info import PythonInfo, VersionInfo
 
-    info = MagicMock(base_prefix=str(Path(exe).parent))
+    info = mocker.MagicMock(spec=PythonInfo, base_prefix=str(Path(exe).parent))
     info.executable = info.original_executable = info.system_executable = exe
     info.implementation = "CPython"
     info.architecture = arch

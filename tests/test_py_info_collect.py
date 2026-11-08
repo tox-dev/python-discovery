@@ -8,6 +8,7 @@ import sysconfig
 from itertools import takewhile
 from pathlib import Path
 from subprocess import run
+from types import ModuleType
 from typing import TYPE_CHECKING, Final
 
 import pytest
@@ -19,9 +20,8 @@ from python_discovery._py_info import VersionInfo
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from unittest.mock import Mock
 
-    from pytest_mock import MockerFixture
+    from pytest_mock import MockerFixture, MockType
 
 _SCRIPT: Final[Path] = Path(python_discovery.__file__).parent / "_py_info_collect.py"
 
@@ -334,14 +334,18 @@ def test_tcl_tk_libs_queried_with_env(tmp_path: Path, mocker: MockerFixture) -> 
     assert (info.tcl_lib, info.tk_lib) == ("/tcl-lib", str(tk_dir))
 
 
-def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] | Exception) -> Mock:
-    evaluate = mocker.Mock(side_effect=eval_side_effect)
-    profile = mocker.Mock(return_value=None)
+def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] | Exception) -> MockType:
+    evaluate = mocker.MagicMock(spec=lambda *_: None, side_effect=eval_side_effect)
+    profile = mocker.MagicMock(spec=lambda *_: None, return_value=None)
     interpreter = type(
         "Tk", (), {"__init__": lambda self, **_: self.readprofile("Tk", "Tk"), "readprofile": profile, "eval": evaluate}
     )
-    module = mocker.MagicMock(TclError=_TclError, Tk=interpreter)
-    module.Tcl.side_effect = lambda: interpreter(useTk=False)
+    module = mocker.MagicMock(
+        spec=ModuleType,
+        TclError=_TclError,
+        Tk=interpreter,
+        Tcl=mocker.MagicMock(spec=lambda: None, side_effect=lambda: interpreter(useTk=False)),
+    )
     mocker.patch.dict(sys.modules, {"tkinter": module})
     return profile
 
@@ -365,7 +369,7 @@ def test_tk_lib_resolved_without_loading_tk(tmp_path: Path, mocker: MockerFixtur
         raise AssertionError
 
     _fake_tkinter(mocker, evaluate)
-    mocker.patch.dict(sys.modules, {"_tkinter": mocker.MagicMock(TK_VERSION="8.6")})
+    mocker.patch.dict(sys.modules, {"_tkinter": mocker.MagicMock(spec=ModuleType, TK_VERSION="8.6")})
     mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tcl_dir)})
 
     info = PythonInfo()
