@@ -105,7 +105,7 @@ release-prepare = [
 version.source = "vcs"
 metadata.hooks.fancy-pypi-readme.content-type = "text/markdown"
 metadata.hooks.fancy-pypi-readme.fragments = [ { path = "README.md" } ]
-build.hooks.python-sbom = {}
+build.hooks.custom.path = "hatch_build.py"
 
 [tool.uv]
 dependency-groups.docs = { requires-python = ">=3.12" }
