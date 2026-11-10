@@ -271,6 +271,7 @@ def test_system_executable_from_existing_base(mocker: MockerFixture, tmp_path: P
 
 
 @pytest.mark.usefixtures("no_framework")
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX versioned executable fallback")
 def test_system_executable_prefers_exact_version_for_distinct_file(mocker: MockerFixture, tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -285,6 +286,7 @@ def test_system_executable_prefers_exact_version_for_distinct_file(mocker: Mocke
 
 
 @pytest.mark.usefixtures("no_framework")
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX executable symlink")
 def test_system_executable_prefers_generic_alias_of_exact_version(mocker: MockerFixture, tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -301,6 +303,7 @@ def test_system_executable_prefers_generic_alias_of_exact_version(mocker: Mocker
     assert PythonInfo().system_executable == str(generic)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX versioned executable fallback")
 def test_system_executable_versioned_fallback(mocker: MockerFixture, tmp_path: Path) -> None:
     _venv_missing_base_no_candidates(mocker, tmp_path)
     versioned = tmp_path / "python3.12"
@@ -309,6 +312,7 @@ def test_system_executable_versioned_fallback(mocker: MockerFixture, tmp_path: P
     assert PythonInfo().system_executable == str(versioned)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX versioned executable fallback")
 def test_system_executable_pypy_fallback(mocker: MockerFixture, tmp_path: Path) -> None:
     _venv_missing_base_no_candidates(mocker, tmp_path)
     mocker.patch("platform.python_implementation", return_value="PyPy", autospec=True)

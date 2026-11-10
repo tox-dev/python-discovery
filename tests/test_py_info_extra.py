@@ -377,9 +377,9 @@ def test_sysconfig_path_no_config_var() -> None:
     assert len(result) > 0
 
 
-def test_satisfies_abs_spec_path_falls_through() -> None:
+def test_satisfies_abs_spec_path_falls_through(tmp_path: Path) -> None:
     info = copy.deepcopy(_CURRENT)
-    spec = PythonSpec("", None, None, None, None, None, "/some/other/python")
+    spec = PythonSpec("", None, None, None, None, None, str(tmp_path / "other" / "python"))
     assert spec.is_abs is True
     assert info.satisfies(spec, impl_must_match=False) is True
 
