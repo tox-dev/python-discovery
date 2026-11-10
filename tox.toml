@@ -33,12 +33,12 @@ default_base_python = [ "3.15" ]
 
 [env."type-3.15"]
 description = "run type check on code base (3.15)"
-deps = [ "gitpython>=3.2", "packaging>=26.2", "ty==0.0.84" ]
+deps = [ "gitpython>=3.2", "hatchling>=1.27", "packaging>=26.2", "python-sbom[hatch]>=0.1.2; python_version>='3.11'", "ty==0.0.84" ]
 commands = [ [ "ty", "check", "--output-format", "concise", "--error-on-warning", "--python-version", "3.15", "." ] ]
 
 [env."type-3.9"]
 description = "run type check on code base (3.9)"
-deps = [ "gitpython>=3.2", "packaging>=26.2", "ty==0.0.84" ]
+deps = [ "gitpython>=3.2", "hatchling>=1.27", "packaging>=26.2", "python-sbom[hatch]>=0.1.2; python_version>='3.11'", "ty==0.0.84" ]
 commands = [ [ "ty", "check", "--output-format", "concise", "--error-on-warning", "--python-version", "3.9", "." ] ]
 
 [env.docs]
