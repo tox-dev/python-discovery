@@ -138,6 +138,7 @@ def _mock_pyinfo(mocker: MockerFixture, major: int, minor: int, arch: int, exe: 
     info.free_threaded = threaded
     info.sysconfig_platform = "win-amd64" if arch == 64 else "win32"
     info.machine = "x86_64" if arch == 64 else "x86"
+    info.resolve_to_system.return_value = info
 
     def satisfies(spec: PythonSpec, **_kwargs: object) -> bool:
         if spec.implementation is not None and spec.implementation.lower() != "cpython":
