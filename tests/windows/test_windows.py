@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+import shutil
 import sys
 from pathlib import Path
+from subprocess import check_call
 
 import pytest
 
@@ -60,3 +63,17 @@ def test_propose_interpreters(string_spec: str, expected_exe: str) -> None:
 
     interpreter = next(propose_interpreters(spec=PythonSpec.from_string_spec(string_spec), cache=None, env={}))
     assert interpreter.executable == expected_exe
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows executable names")
+@pytest.mark.parametrize("name", ["python3.exe", "PYTHON3.EXE", "pythonw.exe"])
+def test_discovery_via_path_exe_suffixed_name(tmp_path: Path, name: str) -> None:
+    venv = tmp_path / "venv"
+    check_call([sys.executable, "-m", "venv", "--without-pip", str(venv)])
+    scripts = venv / "Scripts"
+    shutil.copyfile(scripts / "python.exe", scripts / "python3.exe")
+
+    interpreter = get_interpreter(name, [], env={"PATH": str(scripts), "SYSTEMROOT": os.environ["SYSTEMROOT"]})
+
+    assert interpreter is not None
+    assert interpreter.executable == str(scripts / name)
