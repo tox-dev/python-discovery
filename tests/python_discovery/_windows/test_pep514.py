@@ -12,17 +12,62 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from python_discovery import PythonSpec
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from pytest_mock import MockerFixture
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="propose_interpreters calls from_exe with Windows paths")
+@pytest.mark.usefixtures("_mock_registry")
+@pytest.mark.usefixtures("_mock_interpreter_query")
+@pytest.mark.parametrize(
+    ("string_spec", "expected_exe"),
+    [
+        pytest.param("python3.10", "C:\\Users\\user\\Miniconda3-64\\python.exe", id="python3.10"),
+        pytest.param("cpython3.10", "C:\\Users\\user\\Miniconda3-64\\python.exe", id="cpython3.10"),
+        pytest.param(
+            "python3.12", "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python312\\python.exe", id="python3.12"
+        ),
+        pytest.param(
+            "cpython3.12", "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python312\\python.exe", id="cpython3.12"
+        ),
+        pytest.param(
+            "python", "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python313\\python3.13t.exe", id="python"
+        ),
+        pytest.param(
+            "cpython", "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python313\\python3.13t.exe", id="cpython"
+        ),
+        pytest.param(
+            "python3", "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python312\\python.exe", id="python3"
+        ),
+        pytest.param(
+            "cpython3", "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python312\\python.exe", id="cpython3"
+        ),
+        pytest.param("python3.6", "Z:\\CompanyA\\Python\\3.6\\python.exe", id="python3.6"),
+        pytest.param("cpython3.6", "Z:\\CompanyA\\Python\\3.6\\python.exe", id="cpython3.6"),
+        pytest.param("3t", "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python313\\python3.13t.exe", id="3t"),
+        pytest.param(
+            "python3.13t",
+            "C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python313\\python3.13t.exe",
+            id="python3.13t",
+        ),
+    ],
+)
+def test_propose_interpreters(string_spec: str, expected_exe: str) -> None:
+    from python_discovery._windows._propose import propose_interpreters
+
+    interpreter = next(propose_interpreters(spec=PythonSpec.from_string_spec(string_spec), cache=None, env={}))
+    assert interpreter.executable == expected_exe
+
+
 @pytest.mark.usefixtures("_mock_registry")
 def test_pep514_discovers_interpreters() -> None:
-    from python_discovery._windows._pep514 import _discover_pythons
+    from python_discovery._windows._pep514 import discover_pythons
 
-    interpreters = list(_discover_pythons())
+    interpreters = list(discover_pythons())
     assert len(interpreters) == 12
     companies = {i[0] for i in interpreters}
     assert "ContinuumAnalytics" in companies
@@ -53,9 +98,9 @@ def test_pep514_parse_functions() -> None:
 @pytest.mark.skipif(sys.platform != "win32", reason="path joining differs on POSIX")
 @pytest.mark.usefixtures("_mock_registry")
 def test_pep514() -> None:
-    from python_discovery._windows._pep514 import _discover_pythons
+    from python_discovery._windows._pep514 import discover_pythons
 
-    interpreters = list(_discover_pythons())
+    interpreters = list(discover_pythons())
     assert interpreters == [
         ("ContinuumAnalytics", 3, 10, 32, False, "C:\\Users\\user\\Miniconda3\\python.exe", None),
         ("ContinuumAnalytics", 3, 10, 64, False, "C:\\Users\\user\\Miniconda3-64\\python.exe", None),
@@ -131,9 +176,9 @@ def test_pep514() -> None:
 @pytest.mark.skipif(sys.platform != "win32", reason="path joining differs on POSIX")
 @pytest.mark.usefixtures("_mock_registry")
 def test_pep514_run(capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture) -> None:
-    from python_discovery._windows import _pep514 as pep514
+    from python_discovery._windows._pep514 import _run
 
-    pep514._run()
+    _run()
     out, err = capsys.readouterr()
     py = r"C:\\Users\\user\\AppData\\Local\\Programs\\Python"
     expected = textwrap.dedent(
@@ -191,32 +236,40 @@ def test_pep514_rejects_non_absolute_executable(
     executable_path: str | int | bytes | list[str] | None,
     install_path: str | int | None,
 ) -> None:
-    from python_discovery._windows import _pep514 as pep514
+    from python_discovery._windows._pep514 import _load_exe
 
     registered = {"ExecutablePath": executable_path, None: install_path}
-    mocker.patch.object(
-        pep514.winreg, "OpenKeyEx", return_value=mocker.MagicMock(spec=AbstractContextManager), autospec=True
+    mocker.patch(
+        "python_discovery._windows._pep514.winreg.OpenKeyEx",
+        return_value=mocker.create_autospec(AbstractContextManager, instance=True),
+        autospec=True,
     )
-    mocker.patch.object(pep514, "_get_value", side_effect=lambda _key, name: registered.get(name), autospec=True)
-    mocker.patch.object(pep514.os.path, "exists", return_value=True, autospec=True)
+    mocker.patch(
+        "python_discovery._windows._pep514._get_value",
+        side_effect=lambda _key, name: registered.get(name),
+        autospec=True,
+    )
+    mocker.patch("python_discovery._windows._pep514.Path.exists", return_value=True, autospec=True)
 
-    assert pep514._load_exe("HKCU", "PythonCore", object(), "3.11") is None
+    assert _load_exe("HKCU", "PythonCore", object(), "3.11") is None
     assert "expected an absolute executable path" in caplog.text
 
 
 @pytest.fixture
 def load_exe_with_args(mocker: MockerFixture) -> Callable[[str | int | None], tuple[str, str | None] | None]:
-    from python_discovery._windows import _pep514 as pep514
+    from python_discovery._windows._pep514 import _load_exe
 
-    mocker.patch.object(
-        pep514.winreg, "OpenKeyEx", return_value=mocker.MagicMock(spec=AbstractContextManager), autospec=True
+    mocker.patch(
+        "python_discovery._windows._pep514.winreg.OpenKeyEx",
+        return_value=mocker.create_autospec(AbstractContextManager, instance=True),
+        autospec=True,
     )
-    mocker.patch.object(pep514, "_resolve_exe", return_value=r"C:\py.exe", autospec=True)
-    mocker.patch.object(pep514.os.path, "exists", return_value=True, autospec=True)
+    mocker.patch("python_discovery._windows._pep514._resolve_exe", return_value=r"C:\py.exe", autospec=True)
+    mocker.patch("python_discovery._windows._pep514.Path.exists", return_value=True, autospec=True)
 
     def load(registered: str | int | None) -> tuple[str, str | None] | None:
-        mocker.patch.object(pep514, "_get_value", return_value=registered, autospec=True)
-        return pep514._load_exe("HKCU", "PythonCore", object(), "3.11")
+        mocker.patch("python_discovery._windows._pep514._get_value", return_value=registered, autospec=True)
+        return _load_exe("HKCU", "PythonCore", object(), "3.11")
 
     return load
 
@@ -255,8 +308,8 @@ def _launcher_selects_311() -> bool:
     sys.platform != "win32" or not _launcher_selects_311(), reason="requires the Windows launcher with Python 3.11"
 )
 def test_pep514_launcher_arguments_select_interpreter(mocker: MockerFixture, tmp_path: Path) -> None:
-    from python_discovery import DiskCache, PythonSpec
-    from python_discovery._windows import _propose
+    from python_discovery import DiskCache
+    from python_discovery._windows._propose import propose_interpreters
 
     launcher = shutil.which("py")
     assert launcher is not None
@@ -265,15 +318,12 @@ def test_pep514_launcher_arguments_select_interpreter(mocker: MockerFixture, tmp
     )
     probe = subprocess.run([launcher, "-3.11", "-c", script], capture_output=True, text=True, check=True)
     selected, major, minor, arch = json.loads(probe.stdout)
-    mocker.patch.object(
-        _propose,
-        "_discover_pythons",
+    mocker.patch(
+        "python_discovery._windows._propose.discover_pythons",
         return_value=[("PythonCore", major, minor, arch, False, launcher, "-3.11")],
         autospec=True,
     )
 
-    info = next(
-        _propose.propose_interpreters(PythonSpec.from_string_spec("python3.11"), DiskCache(tmp_path), os.environ)
-    )
+    info = next(propose_interpreters(PythonSpec.from_string_spec("python3.11"), DiskCache(tmp_path), os.environ))
 
     assert Path(info.executable).samefile(selected)

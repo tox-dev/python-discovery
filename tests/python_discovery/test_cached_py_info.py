@@ -284,27 +284,29 @@ def test_collect_query_output_read_error(mocker: MockerFixture) -> None:
 def test_collect_query_output_requires_pipes(
     mocker: MockerFixture, stdout: StringIO | None, stderr: StringIO | None
 ) -> None:
-    process = mocker.MagicMock(spec=Popen, stdout=stdout, stderr=stderr)
+    process = mocker.create_autospec(Popen, instance=True, stdout=stdout, stderr=stderr)
 
     with pytest.raises(ValueError, match="query output pipes are required"):
         _collect_query_output(process, 1)
 
 
 def test_load_cached_py_info_valid(mocker: MockerFixture) -> None:
-    result = _load_cached_py_info(PythonInfo, mocker.MagicMock(spec=ContentStore), PythonInfo().to_dict())
+    result = _load_cached_py_info(
+        PythonInfo, mocker.create_autospec(ContentStore, instance=True), PythonInfo().to_dict()
+    )
     assert result is not None
     assert isinstance(result, PythonInfo)
 
 
 def test_load_cached_py_info_bad_data(mocker: MockerFixture) -> None:
-    store = mocker.MagicMock(spec=ContentStore)
+    store = mocker.create_autospec(ContentStore, instance=True)
     result = _load_cached_py_info(PythonInfo, store, {"bad": "data"})
     assert result is None
     store.remove.assert_called_once()
 
 
 def test_load_cached_py_info_system_exe_missing(mocker: MockerFixture) -> None:
-    store = mocker.MagicMock(spec=ContentStore)
+    store = mocker.create_autospec(ContentStore, instance=True)
     content = PythonInfo().to_dict()
     content["system_executable"] = "/nonexistent/python"
     mocker.patch("os.path.exists", return_value=False, autospec=True)
@@ -607,3 +609,108 @@ def test_executable_args_memory_cache_keyed_by_args(tmp_path: Path, mocker: Mock
 
     assert results == [first, second, first]
     assert query.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        pytest.param(None, 15.0, id="default"),
+        pytest.param("30", 30.0, id="seconds"),
+        pytest.param(" 0.5 ", 0.5, id="padded-fraction"),
+        pytest.param("inf", None, id="inf"),
+        pytest.param("1e30", None, id="beyond-platform-wait"),
+        pytest.param("2147483.647", 2147483.647, id="wait-limit"),
+        pytest.param("2147483.648", None, id="above-wait-limit"),
+    ],
+)
+def test_from_exe_query_timeout(
+    mocker: MockerFixture, caplog: pytest.LogCaptureFixture, raw: str | None, expected: float | None
+) -> None:
+    collect = mocker.patch(
+        "python_discovery._cached_py_info._collect_query_output", side_effect=_collect_query_output, autospec=True
+    )
+    env = {key: value for key, value in {**os.environ, "PY_DISCOVERY_TIMEOUT": raw}.items() if value is not None}
+    result = PythonInfo.from_exe(sys.executable, env=env, ignore_cache=True, resolve_to_host=False)
+    assert result is not None
+    assert result.version_info == sys.version_info
+    assert collect.call_args_list[0].args[1] == expected
+    assert not caplog.records
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        pytest.param("", id="empty"),
+        pytest.param("abc", id="words"),
+        pytest.param("0x10", id="hex"),
+        pytest.param("nan", id="nan"),
+        pytest.param("0", id="zero"),
+        pytest.param("-1", id="negative"),
+        pytest.param("-inf", id="negative-inf"),
+        pytest.param("1e-999", id="underflow"),
+    ],
+)
+def test_from_exe_invalid_timeout_warns_once(mocker: MockerFixture, caplog: pytest.LogCaptureFixture, raw: str) -> None:
+    collect = mocker.patch(
+        "python_discovery._cached_py_info._collect_query_output", side_effect=_collect_query_output, autospec=True
+    )
+    env = {**os.environ, "PY_DISCOVERY_TIMEOUT": raw}
+    for _ in range(2):
+        result = PythonInfo.from_exe(sys.executable, env=env, ignore_cache=True, resolve_to_host=False)
+        assert result is not None
+        assert result.version_info == sys.version_info
+    assert [call.args[1] for call in collect.call_args_list] == [15.0] * 2
+    assert [(record.levelno, record.getMessage()) for record in caplog.records] == [
+        (logging.WARNING, f"ignoring PY_DISCOVERY_TIMEOUT={raw!r}, not a positive number of seconds; using 15.0")
+    ]
+
+
+def test_from_exe_timeout_warning_cache_is_bounded(caplog: pytest.LogCaptureFixture) -> None:
+    for index in range(129):
+        result = PythonInfo.from_exe(
+            sys.executable,
+            env={**os.environ, "PY_DISCOVERY_TIMEOUT": f"invalid-timeout-{index}"},
+            ignore_cache=True,
+            resolve_to_host=False,
+        )
+        assert result is not None
+        assert result.version_info == sys.version_info
+    caplog.clear()
+    result = PythonInfo.from_exe(
+        sys.executable,
+        env={**os.environ, "PY_DISCOVERY_TIMEOUT": "invalid-timeout-128"},
+        ignore_cache=True,
+        resolve_to_host=False,
+    )
+    assert result is not None
+    assert result.version_info == sys.version_info
+    result = PythonInfo.from_exe(
+        sys.executable,
+        env={**os.environ, "PY_DISCOVERY_TIMEOUT": "invalid-timeout-0"},
+        ignore_cache=True,
+        resolve_to_host=False,
+    )
+    assert result is not None
+    assert result.version_info == sys.version_info
+    assert [record.getMessage() for record in caplog.records] == [
+        "ignoring PY_DISCOVERY_TIMEOUT='invalid-timeout-0', not a positive number of seconds; using 15.0"
+    ]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell launcher")
+def test_from_exe_timeout_with_inherited_pipes(tmp_path: Path) -> None:
+    executable = tmp_path / "python3.11"
+    executable.write_text("#!/bin/sh\n/bin/sleep 3 &\nexit 0\n")
+    executable.chmod(0o755)
+
+    started = monotonic()
+    result = PythonInfo.from_exe(
+        str(executable),
+        env={**os.environ, "PY_DISCOVERY_TIMEOUT": "0.1"},
+        ignore_cache=True,
+        raise_on_error=False,
+        resolve_to_host=False,
+    )
+
+    assert result is None
+    assert monotonic() - started < 2.5

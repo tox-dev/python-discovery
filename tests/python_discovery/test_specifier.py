@@ -40,7 +40,7 @@ def test_version_eq_different() -> None:
 
 
 def test_version_eq_not_implemented() -> None:
-    result = SimpleVersion.from_string("3.11").__eq__("3.11")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
+    result = SimpleVersion.from_string("3.11").__eq__("3.11")  # ruff:ignore[unnecessary-dunder-call] test dunder
     assert result is NotImplemented
 
 
@@ -65,7 +65,7 @@ def test_version_lt(left: str, right: str, expected: bool) -> None:
 
 
 def test_version_lt_not_implemented() -> None:
-    result = SimpleVersion.from_string("3.11").__lt__("3.12")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
+    result = SimpleVersion.from_string("3.11").__lt__("3.12")  # ruff:ignore[unnecessary-dunder-call] test dunder
     assert result is NotImplemented
 
 
@@ -79,7 +79,7 @@ def test_version_gt() -> None:
 
 
 def test_version_gt_not_implemented() -> None:
-    result = SimpleVersion.from_string("3.11").__gt__("3.11")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
+    result = SimpleVersion.from_string("3.11").__gt__("3.11")  # ruff:ignore[unnecessary-dunder-call] test dunder
     assert result is NotImplemented
 
 
@@ -193,7 +193,7 @@ def test_specifier_compatible_release_version_none() -> None:
         wildcard_precision=None,
         version=None,
     )
-    assert spec._check_compatible_release(SimpleVersion.from_string("3.12")) is False
+    assert spec.contains("3.12") is False
 
 
 def test_specifier_eq() -> None:
@@ -201,7 +201,7 @@ def test_specifier_eq() -> None:
 
 
 def test_specifier_eq_not_implemented() -> None:
-    result = SimpleSpecifier.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
+    result = SimpleSpecifier.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call] test dunder
     assert result is NotImplemented
 
 
@@ -261,7 +261,7 @@ def test_specifier_set_eq() -> None:
 
 
 def test_specifier_set_eq_not_implemented() -> None:
-    result = SimpleSpecifierSet.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call] the test checks the dunder method itself
+    result = SimpleSpecifierSet.from_string(">=3.12").__eq__(">=3.12")  # ruff:ignore[unnecessary-dunder-call] dunder
     assert result is NotImplemented
 
 

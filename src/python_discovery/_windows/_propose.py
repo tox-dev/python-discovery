@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from python_discovery._py_info import PythonInfo
-from python_discovery._py_spec import PythonSpec
+from python_discovery import PythonInfo, PythonSpec
 
-from ._pep514 import _discover_pythons
+from ._pep514 import discover_pythons
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
 
-    from python_discovery._cache import PyInfoCache
+    from python_discovery import PyInfoCache
 
 
 def propose_interpreters(
@@ -18,7 +17,7 @@ def propose_interpreters(
     cache: PyInfoCache | None,
     env: Mapping[str, str],
 ) -> Generator[PythonInfo, None, None]:
-    existing = list(_discover_pythons())
+    existing = list(discover_pythons())
     existing.sort(
         key=lambda item: (
             *tuple(-1 if j is None else j for j in item[1:4]),
@@ -37,7 +36,7 @@ def propose_interpreters(
         skip_pre_filter = implementation.lower() != "cpython"
         registry_spec = PythonSpec("", implementation, major, minor, None, arch, exe, free_threaded=threaded)
         if skip_pre_filter or registry_spec.satisfies(spec):
-            interpreter = _Pep514PythonInfo._from_exe_with_args(  # ruff:ignore[private-member-access] same package; the Windows proposer builds the same info object
+            interpreter = _Pep514PythonInfo._from_exe_with_args(  # ruff:ignore[private-member-access] PEP 514 arguments
                 exe,
                 cache,
                 env=env,
@@ -48,9 +47,7 @@ def propose_interpreters(
                 yield interpreter
 
 
-class _Pep514PythonInfo(PythonInfo):
-    # A Python information acquired from PEP-514.
-    ...
+class _Pep514PythonInfo(PythonInfo): ...
 
 
 __all__ = [

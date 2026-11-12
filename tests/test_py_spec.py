@@ -6,9 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from python_discovery import PythonSpec
-from python_discovery._py_info import normalize_isa
-from python_discovery._specifier import SimpleSpecifierSet as SpecifierSet
+from python_discovery import PythonSpec, normalize_isa
+from python_discovery import SimpleSpecifierSet as SpecifierSet
 
 if TYPE_CHECKING:
     from pathlib import Path
