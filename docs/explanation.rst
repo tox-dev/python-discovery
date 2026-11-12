@@ -12,10 +12,10 @@ order. It stops as soon as it finds an interpreter that matches your spec.
     flowchart TD
         Start["get_interpreter()"] --> AbsPath{"Is spec an<br>absolute path?"}
         AbsPath -->|Yes| TryAbs["Use path directly"]
-        AbsPath -->|No| TryFirst["try_first_with paths"]
-        TryFirst --> RelPath{"Does spec name a<br>relative directory?"}
+        AbsPath -->|No| RelPath{"Does spec name a<br>relative directory?"}
         RelPath -->|Yes| TryRel["Resolve relative to cwd"]
-        RelPath -->|No| Bare{"Bare executable name?"}
+        RelPath -->|No| TryFirst["try_first_with paths"]
+        TryFirst --> Bare{"Bare executable name?"}
         Bare -->|Yes| PATH
         Bare -->|No| Current["Current interpreter"]
         Current --> Win{"Windows?"}

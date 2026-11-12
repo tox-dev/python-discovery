@@ -127,15 +127,17 @@ def _propose_explicit(
     env: Mapping[str, str],
     tested_exes: set[str],
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
+    # Unparsed bare names reach spec.path; only an explicit directory should search the working directory. Probe that
+    # path before try_first_with: only it can satisfy the spec, and a hint on the same file or base interpreter would
+    # otherwise fail first and get it skipped as a duplicate.
+    if spec.path is not None and os.path.dirname(spec.path) and (exe_raw := _check_exe(spec.path, tested_exes)):
+        yield PythonInfo.from_exe(exe_raw, cache, env=env), True
+
     for py_exe in try_first_with:
         if Path(py_exe).exists() and (exe_raw := _check_exe(py_exe, tested_exes)):
             yield PythonInfo.from_exe(exe_raw, cache, env=env), True
 
-    if spec.path is not None:
-        # Unparsed bare names reach spec.path; only an explicit directory should search the working directory.
-        if os.path.dirname(spec.path) and (exe_raw := _check_exe(spec.path, tested_exes)):
-            yield PythonInfo.from_exe(exe_raw, cache, env=env), True
-    else:
+    if spec.path is None:
         yield from _propose_current_and_windows(spec, cache, env, tested_exes)
 
 
