@@ -150,7 +150,7 @@ def _propose_current_and_windows(
         yield current_python, True
 
     if IS_WIN:  # pragma: win32 cover
-        from ._windows._propose import propose_interpreters as win_propose  # ruff:ignore[import-outside-top-level] the module is Windows-only and imported only there
+        from ._windows import propose_interpreters as win_propose  # ruff:ignore[import-outside-top-level] Windows-only
 
         for interpreter in win_propose(spec, cache, env):
             if _is_new_exe(str(interpreter.executable), tested_exes):
@@ -433,7 +433,7 @@ def _uv_specifier_matches(key: _UvKey, specifier: SimpleSpecifier) -> bool:
     precision = numeric_version.count(".") + 1
     release = ".".join(str(part) for part in key.version.release[:precision])
     if key.version.pre_type is not None and (
-        precision == 3 or specifier.version.pre_type is not None  # ruff:ignore[magic-value-comparison] 3 is the precision of a full version tuple
+        precision == 3 or specifier.version.pre_type is not None  # ruff:ignore[magic-value-comparison] full version
     ):
         release = f"{release}{key.version.pre_type}{key.version.pre_num}"
     return specifier.contains(release)
@@ -529,7 +529,7 @@ def iter_interpreters(
         yield from _iter_for_spec(spec_str, first_with, cache, env_map, predicate, seen)
 
 
-def _iter_for_spec(  # ruff:ignore[too-many-arguments, too-many-positional-arguments] each argument is a separate spec input
+def _iter_for_spec(  # ruff:ignore[too-many-arguments, too-many-positional-arguments] distinct spec inputs
     spec_str: str | None,
     try_first_with: tuple[str, ...],
     cache: PyInfoCache | None,
@@ -576,11 +576,9 @@ class _UvInstall:
 
 
 __all__ = [
-    "IS_WIN",
     "LazyPathDump",
     "get_interpreter",
     "get_paths",
     "iter_interpreters",
-    "path_exe_finder",
     "propose_interpreters",
 ]

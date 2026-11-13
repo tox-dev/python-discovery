@@ -133,12 +133,13 @@ lint.ignore = [
   "missing-trailing-comma",                    # Conflict with formatter
   "multi-line-summary-first-line",             # `multi-line-summary-first-line` and `multi-line-summary-second-line` are incompatible
   "single-line-implicit-string-concatenation", # Conflict with formatter
-  "undocumented-magic-method",                 # undocumented-public-api (simplint SMP903) covers the public API instead
-  "undocumented-public-class",                 # undocumented-public-api (simplint SMP903) covers the public API instead
-  "undocumented-public-function",              # undocumented-public-api (simplint SMP903) covers the public API instead
-  "undocumented-public-init",                  # undocumented-public-api (simplint SMP903) covers the public API instead
-  "undocumented-public-method",                # undocumented-public-api (simplint SMP903) covers the public API instead
-  "undocumented-public-nested-class",          # undocumented-public-api (simplint SMP903) covers the public API instead
+  "undocumented-magic-method",                 # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-class",                 # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-function",              # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-init",                  # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-method",                # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-nested-class",          # undocumented-public-api (simplint) covers the public API instead
+  "unnecessary-regular-expression-compile",    # conflicts with simplint inline-regex
 ]
 lint.per-file-ignores."docs/**/*.py" = [
   "implicit-namespace-package", # no __init__.py in docs directory
@@ -153,11 +154,8 @@ lint.per-file-ignores."src/python_discovery/_py_info_collect.py" = [
   "ANN",                              # file must parse on Python 2.7 for the version gate: no annotations
   "missing-required-import",          # `from __future__ import annotations` is a SyntaxError below 3.7
   "module-import-not-at-top-of-file", # the version gate must run before importing sysconfig, absent on 3.0/3.1
-  "PTH",                              # must use os.path — file runs as subprocess script with only stdlib
+  "PTH",                              # probe exchanges string paths with older interpreters
   "UP",                               # pyupgrade pushes syntax newer than the 2.7 parse floor, e.g. f-strings
-]
-lint.per-file-ignores."src/python_discovery/_windows/_pep514.py" = [
-  "PTH", # os.path.exists is monkeypatched in tests; pathlib.Path.exists bypasses the mock
 ]
 lint.per-file-ignores."tasks/**/*.py" = [
   "D",                                    # release helper scripts, not API
@@ -175,12 +173,12 @@ lint.per-file-ignores."tests/**/*.py" = [
   "magic-value-comparison",               # Magic value used in comparison
   "private-member-access",                # private member access needed to test internals
   "pytest-fixture-autouse",               # shared setup fixtures are meant to apply to every test
-  "subprocess-without-shell-equals-true", # `subprocess` call: check for execution of untrusted input
-  "suspicious-subprocess-import",         # subprocess import
+  "subprocess-without-shell-equals-true", # tests launch known interpreters and test-created scripts
+  "suspicious-subprocess-import",         # subprocess calls exercise interpreter discovery
   "too-many-arguments",                   # too many arguments (pytest fixtures)
   "too-many-positional-arguments",        # too many positional arguments (pytest fixtures)
 ]
-lint.per-file-ignores."tests/windows/winreg_mock_values.py" = [
+lint.per-file-ignores."tests/python_discovery/_windows/winreg_mock_values.py" = [
   "undefined-name", # undefined name (winreg available only on Windows)
 ]
 lint.isort = { known-first-party = [
@@ -199,7 +197,7 @@ count = true
 max_supported_python = "3.15"
 
 [tool.ty]
-src.exclude = [ "tests/windows/winreg_mock_values.py" ]
+src.exclude = [ "tests/python_discovery/_windows/winreg_mock_values.py" ]
 
 [[tool.ty.overrides]]
 include = [
@@ -243,8 +241,12 @@ paths.source = [
 ]
 report.fail_under = 100
 report.omit = [
-  "src/python_discovery/_windows/*",
-  "tests/windows/*",
+  "src/python_discovery/_windows/_cancel_io.py",
+  "src/python_discovery/_windows/_pep514.py",
+  "src/python_discovery/_windows/_propose.py",
+  "tests/python_discovery/_windows/conftest.py",
+  "tests/python_discovery/_windows/test_pep514.py",
+  "tests/python_discovery/_windows/winreg_mock_values.py",
 ]
 report.partial_branches = [
   "assert any\\(",

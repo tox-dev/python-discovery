@@ -95,7 +95,7 @@ class SimpleVersion:
     def __hash__(self) -> int:
         return hash((self.release, self.pre_type, self.pre_num))
 
-    def __lt__(self, other: object) -> bool:  # ruff:ignore[too-many-return-statements] one return per distinct comparison outcome
+    def __lt__(self, other: object) -> bool:  # ruff:ignore[too-many-return-statements] distinct outcomes
         if not isinstance(other, SimpleVersion):
             return NotImplemented
         if self.release != other.release:
@@ -207,34 +207,30 @@ class SimpleSpecifier:
             candidate = SimpleVersion.from_string(version_str) if isinstance(version_str, str) else version_str
         except ValueError:
             return False
-        if self.version is None:
+        if (version := self.version) is None:
             return False
         if self.is_wildcard:
-            return self._check_wildcard(candidate)
-        return self._check_standard(candidate)
+            return self._check_wildcard(candidate, version)
+        return self._check_standard(candidate, version)
 
-    def _check_wildcard(self, candidate: SimpleVersion) -> bool:
-        if self.version is None:  # pragma: no branch, defensive guard; the constructors always set the version
-            return False  # pragma: no cover, defensive guard; the constructors always set the version
+    def _check_wildcard(self, candidate: SimpleVersion, version: SimpleVersion) -> bool:
         if self.operator == "==":
-            return candidate.release[: self.wildcard_precision] == self.version.release[: self.wildcard_precision]
+            return candidate.release[: self.wildcard_precision] == version.release[: self.wildcard_precision]
         if self.operator == "!=":
-            return candidate.release[: self.wildcard_precision] != self.version.release[: self.wildcard_precision]
+            return candidate.release[: self.wildcard_precision] != version.release[: self.wildcard_precision]
         return False
 
-    def _check_standard(self, candidate: SimpleVersion) -> bool:
-        if self.version is None:  # pragma: no branch, defensive guard; the constructors always set the version
-            return False  # pragma: no cover, defensive guard; the constructors always set the version
+    def _check_standard(self, candidate: SimpleVersion, version: SimpleVersion) -> bool:
         if self.operator == "===":
-            return str(candidate) == str(self.version)
+            return str(candidate) == str(version)
         if self.operator == "~=":
-            return self._check_compatible_release(candidate)
+            return self._check_compatible_release(candidate, version)
         # PEP 440 excludes prereleases of a final release named by an exclusive upper bound.
         if (
             self.operator == "<"
             and candidate.pre_type is not None
-            and self.version.pre_type is None
-            and candidate.release == self.version.release
+            and version.pre_type is None
+            and candidate.release == version.release
         ):
             return False
         cmp_ops = {
@@ -246,18 +242,16 @@ class SimpleSpecifier:
             ">=": operator.ge,
         }
         if self.operator in cmp_ops:
-            return cmp_ops[self.operator](candidate, self.version)
+            return cmp_ops[self.operator](candidate, version)
         return False
 
-    def _check_compatible_release(self, candidate: SimpleVersion) -> bool:
-        if self.version is None:
-            return False
-        if candidate < self.version:
+    def _check_compatible_release(self, candidate: SimpleVersion, version: SimpleVersion) -> bool:
+        if candidate < version:
             return False
         # ~=X.Y is >=X.Y, ==X.*: compare all but the last part the spec wrote (release is padded to three).
         # A bare ~=X still compares its one part, so it stays ==X.*.
         prefix = max(self.version_str.count("."), 1)
-        return candidate.release[:prefix] == self.version.release[:prefix]
+        return candidate.release[:prefix] == version.release[:prefix]
 
 
 @dataclass(**DC_KW)

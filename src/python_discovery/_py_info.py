@@ -1,3 +1,4 @@
+# simplint: ignore[flattened-package]  # ruff: ignore[commented-out-code]  # keep the existing private path
 """Concrete Python interpreter information, collected in-process or via subprocess interrogation."""
 
 from __future__ import annotations
@@ -44,7 +45,7 @@ def _get_path_extensions() -> list[str]:
 EXTENSIONS: Final[list[str]] = _get_path_extensions()
 
 
-class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the public query surface; splitting it breaks callers
+class PythonInfo:  # ruff:ignore[too-many-public-methods] public query API
     """
     Contains information for a Python interpreter.
 
@@ -200,7 +201,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         )
 
     @classmethod
-    def _from_exe_with_args(  # ruff:ignore[too-many-arguments] each argument is a separate probe input
+    def _from_exe_with_args(  # ruff:ignore[too-many-arguments] distinct probe inputs
         cls,
         exe: str,
         cache: PyInfoCache | None = None,
@@ -211,8 +212,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         resolve_to_host: bool = True,
         env: Mapping[str, str] | None = None,
     ) -> PythonInfo | None:
-        # Interrogate an executable with optional platform-specific leading arguments.
-        from ._cached_py_info import from_exe  # ruff:ignore[import-outside-top-level]
+        from ._cached_py_info import from_exe  # ruff:ignore[import-outside-top-level] deferred import avoids a cycle
 
         env = os.environ if env is None else env
         proposed = from_exe(
@@ -472,12 +472,13 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
 
         :param cache: the cache store to clear.
         """
-        from ._cached_py_info import clear  # ruff:ignore[import-outside-top-level] deferred import avoids a cycle with _cached_py_info
+        from ._cached_py_info import clear  # ruff:ignore[import-outside-top-level] import cycle
 
         clear(cache)
         cls._cache_exe_discovery.clear()
 
-    def satisfies(self, spec: PythonSpec, *, impl_must_match: bool) -> bool:  # ruff:ignore[too-many-return-statements] one return per distinct satisfaction outcome
+    # ruff:ignore[too-many-return-statements] distinct outcomes
+    def satisfies(self, spec: PythonSpec, *, impl_must_match: bool) -> bool:
         """
         Check if a given specification can be satisfied by this python interpreter instance.
 
@@ -535,7 +536,8 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
             release = ".".join(str(c) for c in [version_info.major, version_info.minor, version_info.micro][:precision])
             if (
                 version_info.releaselevel != "final"
-                and (precision == 3 or specifier.version.pre_type is not None)  # ruff:ignore[magic-value-comparison] 3 is the precision of a full version tuple
+                # ruff:ignore[magic-value-comparison] full version has three parts
+                and (precision == 3 or specifier.version.pre_type is not None)
                 and (suffix := {"alpha": "a", "beta": "b", "candidate": "rc"}.get(version_info.releaselevel))
             ):
                 release = f"{release}{suffix}{version_info.serial}"
@@ -629,7 +631,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] PythonInfo is the publ
         for base in possible_base:
             lower = base.lower()
             yield lower
-            from ._compat import fs_is_case_sensitive  # ruff:ignore[import-outside-top-level] imported only when this path is walked
+            from ._compat import fs_is_case_sensitive  # ruff:ignore[import-outside-top-level] cold path
 
             if fs_is_case_sensitive():  # pragma: no branch, the branch depends on the host filesystem
                 if base != lower:
@@ -780,9 +782,7 @@ def normalize_isa(isa: str) -> str:
 
 
 __all__ = [
-    "EXTENSIONS",
     "KNOWN_ARCHITECTURES",
-    "InfoValue",
     "MarkerEnvironment",
     "PythonInfo",
     "VersionInfo",

@@ -1,3 +1,4 @@
+# simplint: ignore[flattened-package]  # ruff: ignore[commented-out-code]  # keep the existing private path
 """
 Collect interpreter information, also run as the subprocess interrogation script (stdlib only).
 
@@ -246,10 +247,10 @@ class PythonInfoCollector:
             warnings.simplefilter("ignore")
             try:
                 # ruff:ignore[import-outside-top-level] distutils is optional and removed in newer Pythons
-                from distutils import dist  # ty: ignore[unresolved-import] distutils is removed from the stdlib in Python 3.12
+                from distutils import dist  # ty: ignore[unresolved-import] removed in 3.12
 
                 # ruff:ignore[import-outside-top-level] distutils is optional and removed in newer Pythons
-                from distutils.command.install import SCHEME_KEYS  # ty: ignore[unresolved-import] distutils is removed from the stdlib in Python 3.12
+                from distutils.command.install import SCHEME_KEYS  # ty: ignore[unresolved-import] removed in 3.12
             except ImportError:  # pragma: no cover # if removed or not installed ignore
                 return {}
 
@@ -257,7 +258,7 @@ class PythonInfoCollector:
             "script_args": "--no-user-cfg",
         })  # conf files not parsed so they do not hijack paths
         if hasattr(sys, "_framework"):  # pragma: no cover # macOS framework builds only
-            sys._framework = None  # ty: ignore[invalid-assignment]  # ruff:ignore[private-member-access]  # disable macOS static paths for framework
+            sys._framework = None  # ty: ignore[invalid-assignment]  # ruff:ignore[private-member-access] macOS paths
 
         with warnings.catch_warnings():  # disable warning for PEP-632
             warnings.simplefilter("ignore")
@@ -311,7 +312,7 @@ class PythonInfoCollector:
         else:
             # Tk.__init__ reads profile scripts from HOME or the working directory; probing needs only library metadata.
             class _TclWithoutProfile(tk.Tk):
-                def readprofile(self, *_args, **_kwargs):  # ruff:ignore[no-self-use] # Tk override must be an instance method.
+                def readprofile(self, *_args, **_kwargs):  # ruff:ignore[no-self-use] Tk override
                     return None
 
             try:
@@ -324,17 +325,16 @@ class PythonInfoCollector:
         return tcl_lib, tk_lib
 
     @staticmethod
-    def _resolve_tk_lib(tcl, tcl_lib):  # pragma: no cover, Tcl probing needs a Tk install the test runners lack
+    def _resolve_tk_lib(tcl, tcl_lib):  # pragma: no cover # Tk is absent on test runners
         # Resolve the TK library path by direct query or path construction.
         tk_lib = PythonInfoCollector._query_tk_library(tcl)
         if tk_lib is not None:
             return tk_lib
-        import _tkinter  # ruff:ignore[import-outside-top-level,import-private-name] # novermin # linked Tk version
+        import _tkinter  # ruff:ignore[import-outside-top-level,import-private-name] # simplint: ignore[private-import-path] # novermin
 
-        # Loading Tk can block on DISPLAY; the linked version is enough to locate its library.
-        tk_version = _tkinter.TK_VERSION
         tcl_parent = os.path.dirname(tcl_lib)
-        for version in (tk_version, tk_version.split(".")[0]):
+        version_text = _tkinter.TK_VERSION
+        for version in (version_text, version_text.split(".", maxsplit=1)[0]):
             tk_lib_path = os.path.join(tcl_parent, "tk{}".format(version))
             if os.path.isdir(tk_lib_path) and os.path.exists(os.path.join(tk_lib_path, "tk.tcl")):
                 return tk_lib_path

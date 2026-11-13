@@ -54,7 +54,7 @@ def test_check_version_specifier_none() -> None:
 
 
 def test_get_required_precision_none() -> None:
-    from python_discovery._specifier import SimpleSpecifier
+    from python_discovery import SimpleSpecifier
 
     specifier = SimpleSpecifier(
         spec_str=">=3.12",
@@ -68,7 +68,7 @@ def test_get_required_precision_none() -> None:
 
 
 def test_get_required_precision_normal() -> None:
-    from python_discovery._specifier import SimpleSpecifier
+    from python_discovery import SimpleSpecifier
 
     specifier = SimpleSpecifier.from_string(">=3.12.0")
     assert PythonSpec._get_required_precision(specifier) == 3

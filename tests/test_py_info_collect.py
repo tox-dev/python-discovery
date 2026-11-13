@@ -9,14 +9,13 @@ from itertools import takewhile
 from pathlib import Path
 from subprocess import run
 from types import ModuleType
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 import pytest
 import vermin
 
 import python_discovery
 from python_discovery import PythonInfo
-from python_discovery._py_info import VersionInfo
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -24,6 +23,14 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture, MockType
 
 _SCRIPT: Final[Path] = Path(python_discovery.__file__).parent / "_py_info_collect.py"
+
+
+class _VersionInfo(NamedTuple):
+    major: int
+    minor: int
+    micro: int
+    releaselevel: str
+    serial: int
 
 
 def test_script_parses_down_to_python27() -> None:
@@ -98,7 +105,8 @@ def no_framework(mocker: MockerFixture) -> None:
     mocker.patch.object(
         sysconfig,
         "get_config_var",
-        side_effect=lambda name: "" if name == "PYTHONFRAMEWORK" else get_config_var(name),  # ty: ignore[deprecated]  # resolves the deprecated Literal["SO"] overload even though name is a generic str
+        # ty: ignore[deprecated] generic keys may include deprecated SO
+        side_effect=lambda name: "" if name == "PYTHONFRAMEWORK" else get_config_var(name),
         autospec=True,
     )
 
@@ -207,7 +215,8 @@ def test_system_executable_framework_symlink_kept(tmp_path: Path, mocker: Mocker
     mocker.patch.object(
         sysconfig,
         "get_config_var",
-        side_effect=lambda name: "Python" if name == "PYTHONFRAMEWORK" else get_config_var(name),  # ty: ignore[deprecated]  # resolves the deprecated Literal["SO"] overload even though name is a generic str
+        # ty: ignore[deprecated] generic keys may include deprecated SO
+        side_effect=lambda name: "Python" if name == "PYTHONFRAMEWORK" else get_config_var(name),
         autospec=True,
     )
     mocker.patch.object(sys, "executable", str(link))
@@ -231,13 +240,13 @@ def _venv_base_executable_is_self(mocker: MockerFixture, _tmp_path: Path) -> Non
 def _venv_missing_base_before_311(mocker: MockerFixture, tmp_path: Path) -> None:
     _venv(mocker)
     mocker.patch.object(sys, "_base_executable", str(tmp_path / "python"), create=True)
-    mocker.patch.object(sys, "version_info", VersionInfo(3, 9, 0, "final", 0))
+    mocker.patch.object(sys, "version_info", _VersionInfo(3, 9, 0, "final", 0))
 
 
 def _venv_missing_base_no_candidates(mocker: MockerFixture, tmp_path: Path) -> None:
     _venv(mocker)
     mocker.patch.object(sys, "_base_executable", str(tmp_path / "python"), create=True)
-    mocker.patch.object(sys, "version_info", VersionInfo(3, 12, 0, "final", 0))
+    mocker.patch.object(sys, "version_info", _VersionInfo(3, 12, 0, "final", 0))
 
 
 def _venv(mocker: MockerFixture) -> None:
@@ -281,7 +290,7 @@ def test_system_executable_prefers_exact_version_for_distinct_file(mocker: Mocke
     generic.touch()
     _venv(mocker)
     mocker.patch.object(sys, "_base_executable", str(generic), create=True)
-    mocker.patch.object(sys, "version_info", VersionInfo(3, 13, 0, "final", 0))
+    mocker.patch.object(sys, "version_info", _VersionInfo(3, 13, 0, "final", 0))
     assert PythonInfo().system_executable == str(versioned)
 
 
@@ -299,7 +308,7 @@ def test_system_executable_prefers_generic_alias_of_exact_version(mocker: Mocker
     landmark.touch()
     _venv(mocker)
     mocker.patch.object(sys, "_base_executable", str(generic), create=True)
-    mocker.patch.object(sys, "version_info", VersionInfo(3, 13, 0, "final", 0))
+    mocker.patch.object(sys, "version_info", _VersionInfo(3, 13, 0, "final", 0))
     assert PythonInfo().system_executable == str(generic)
 
 
@@ -339,16 +348,24 @@ def test_tcl_tk_libs_queried_with_env(tmp_path: Path, mocker: MockerFixture) -> 
 
 
 def _fake_tkinter(mocker: MockerFixture, eval_side_effect: Callable[[str], str] | Exception) -> MockType:
-    evaluate = mocker.MagicMock(spec=lambda *_: None, side_effect=eval_side_effect)
-    profile = mocker.MagicMock(spec=lambda *_: None, return_value=None)
+    evaluate = mocker.create_autospec(lambda *_: None, side_effect=eval_side_effect)
+    profile = mocker.create_autospec(lambda *_: None, return_value=None)
     interpreter = type(
-        "Tk", (), {"__init__": lambda self, **_: self.readprofile("Tk", "Tk"), "readprofile": profile, "eval": evaluate}
+        "Tk",
+        (),
+        {
+            "__init__": lambda self, **_: self.readprofile("Tk", "Tk"),
+            "readprofile": staticmethod(profile),
+            "eval": staticmethod(evaluate),
+        },
     )
-    module = mocker.MagicMock(
-        spec=ModuleType,
+    module = mocker.create_autospec(
+        ModuleType,
+        instance=True,
         TclError=_TclError,
+        TkVersion=8.6,
         Tk=interpreter,
-        Tcl=mocker.MagicMock(spec=lambda: None, side_effect=lambda: interpreter(useTk=False)),
+        Tcl=mocker.create_autospec(lambda: None, side_effect=lambda: interpreter(useTk=False)),
     )
     mocker.patch.dict(sys.modules, {"tkinter": module})
     return profile
@@ -359,8 +376,17 @@ class _TclError(Exception):
     ...
 
 
-@pytest.mark.parametrize("folder", [pytest.param("tk8.6", id="minor"), pytest.param("tk8", id="major")])
-def test_tk_lib_resolved_without_loading_tk(tmp_path: Path, mocker: MockerFixture, folder: str) -> None:
+@pytest.mark.parametrize(
+    ("folder", "tk_version"),
+    [
+        pytest.param("tk8.6", "8.6", id="minor"),
+        pytest.param("tk8", "8.6", id="major"),
+        pytest.param("tk8.10", "8.10", id="two-digit-minor"),
+    ],
+)
+def test_tk_lib_resolved_without_loading_tk(
+    tmp_path: Path, mocker: MockerFixture, folder: str, tk_version: str
+) -> None:
     tcl_dir, tk_dir = tmp_path / "tcl8.6", tmp_path / folder
     tk_dir.mkdir()
     (tk_dir / "tk.tcl").touch()
@@ -373,7 +399,9 @@ def test_tk_lib_resolved_without_loading_tk(tmp_path: Path, mocker: MockerFixtur
         raise AssertionError
 
     _fake_tkinter(mocker, evaluate)
-    mocker.patch.dict(sys.modules, {"_tkinter": mocker.MagicMock(spec=ModuleType, TK_VERSION="8.6")})
+    mocker.patch.dict(
+        sys.modules, {"_tkinter": mocker.create_autospec(ModuleType, instance=True, TK_VERSION=tk_version)}
+    )
     mocker.patch.dict(os.environ, {"TCL_LIBRARY": str(tcl_dir)})
 
     info = PythonInfo()

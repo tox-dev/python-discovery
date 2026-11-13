@@ -231,10 +231,10 @@ class DiskContentStore:
 
 class NoOpContentStore(ContentStore):
     # Content store that does nothing -- implements ContentStore protocol.
-    def exists(self) -> bool:  # ruff:ignore[no-self-use]
+    def exists(self) -> bool:  # ruff:ignore[no-self-use] cache protocol
         return False
 
-    def read(self) -> dict | None:  # ruff:ignore[no-self-use] keeps the cache interface uniform across implementations
+    def read(self) -> dict | None:  # ruff:ignore[no-self-use] cache protocol
         return None
 
     def write(self, content: dict) -> None:
@@ -244,13 +244,13 @@ class NoOpContentStore(ContentStore):
         pass
 
     @contextmanager
-    def locked(self) -> Generator[None]:  # ruff:ignore[no-self-use] keeps the cache interface uniform across implementations
+    def locked(self) -> Generator[None]:  # ruff:ignore[no-self-use] cache protocol
         yield
 
 
 class NoOpCache(PyInfoCache):
     # Cache that does nothing -- implements PyInfoCache protocol.
-    def py_info(self, path: Path) -> NoOpContentStore:  # ruff:ignore[unused-method-argument, no-self-use]
+    def py_info(self, path: Path) -> NoOpContentStore:  # ruff:ignore[unused-method-argument, no-self-use] protocol
         return NoOpContentStore()
 
     def py_info_clear(self) -> None:
