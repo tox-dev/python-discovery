@@ -139,6 +139,25 @@ class DiskCache:
                         entry.unlink()
 
 
+class NoOpContentStore(ContentStore):
+    # Content store that does nothing -- implements ContentStore protocol.
+    def exists(self) -> bool:  # ruff:ignore[no-self-use] cache protocol
+        return False
+
+    def read(self) -> dict | None:  # ruff:ignore[no-self-use] cache protocol
+        return None
+
+    def write(self, content: dict) -> None:
+        pass
+
+    def remove(self) -> None:
+        pass
+
+    @contextmanager
+    def locked(self) -> Generator[None]:  # ruff:ignore[no-self-use] cache protocol
+        yield
+
+
 class DiskContentStore:
     # JSON file-based content store with file locking.
     def __init__(self, folder: Path, key: str) -> None:
@@ -227,25 +246,6 @@ class DiskContentStore:
             lock = FileLock(str(self._folder / f"{self._key}.lock"))
         with lock:
             yield
-
-
-class NoOpContentStore(ContentStore):
-    # Content store that does nothing -- implements ContentStore protocol.
-    def exists(self) -> bool:  # ruff:ignore[no-self-use] cache protocol
-        return False
-
-    def read(self) -> dict | None:  # ruff:ignore[no-self-use] cache protocol
-        return None
-
-    def write(self, content: dict) -> None:
-        pass
-
-    def remove(self) -> None:
-        pass
-
-    @contextmanager
-    def locked(self) -> Generator[None]:  # ruff:ignore[no-self-use] cache protocol
-        yield
 
 
 class NoOpCache(PyInfoCache):

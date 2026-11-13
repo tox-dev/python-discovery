@@ -112,29 +112,6 @@ def _spec_from_match(
     )
 
 
-def _parse_specifier(string_spec: str) -> PythonSpec | None:
-    if not (match := _SPECIFIER_PATTERN.match(string_spec.strip())):
-        return None
-    spec_text = match["spec"].strip()
-    version_specifier = SpecifierSet.from_string(spec_text)
-    # the set never raises: it keeps an unparsable version as None and drops items without an operator
-    items = [item for item in spec_text.split(",") if item.strip()]
-    if len(items) != len(version_specifier.specifiers) or any(spec.version is None for spec in version_specifier):
-        msg = f"invalid version specifier {string_spec!r}"
-        raise ValueError(msg)
-    return _spec_from_match(
-        string_spec,
-        match,
-        (None, None, None),
-        # the version bounds say nothing about the build, so without a trailing t any build qualifies
-        threaded=True if match["threaded"] else None,
-        version_specifier=version_specifier,
-    )
-
-
-_GET_REQUIRED_PRECISION_PATTERN: Final[re.Pattern[str]] = re.compile(r"a|b|rc")
-
-
 class PythonSpec:
     """
     Contains specification about a Python Interpreter.
@@ -315,6 +292,29 @@ class PythonSpec:
         if item.wildcard_precision is not None:
             return item.wildcard_precision
         return _GET_REQUIRED_PRECISION_PATTERN.split(item.version_str, maxsplit=1)[0].count(".") + 1
+
+
+def _parse_specifier(string_spec: str) -> PythonSpec | None:
+    if not (match := _SPECIFIER_PATTERN.match(string_spec.strip())):
+        return None
+    spec_text = match["spec"].strip()
+    version_specifier = SpecifierSet.from_string(spec_text)
+    # the set never raises: it keeps an unparsable version as None and drops items without an operator
+    items = [item for item in spec_text.split(",") if item.strip()]
+    if len(items) != len(version_specifier.specifiers) or any(spec.version is None for spec in version_specifier):
+        msg = f"invalid version specifier {string_spec!r}"
+        raise ValueError(msg)
+    return _spec_from_match(
+        string_spec,
+        match,
+        (None, None, None),
+        # the version bounds say nothing about the build, so without a trailing t any build qualifies
+        threaded=True if match["threaded"] else None,
+        version_specifier=version_specifier,
+    )
+
+
+_GET_REQUIRED_PRECISION_PATTERN: Final[re.Pattern[str]] = re.compile(r"a|b|rc")
 
 
 __all__ = [

@@ -331,9 +331,8 @@ def test_system_executable_pypy_fallback(mocker: MockerFixture, tmp_path: Path) 
     assert PythonInfo().system_executable == str(pypy)
 
 
-def test_tcl_tk_libs_none_without_env(mocker: MockerFixture) -> None:
-    mocker.patch.dict(os.environ)
-    os.environ.pop("TCL_LIBRARY", None)
+def test_tcl_tk_libs_none_without_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TCL_LIBRARY", raising=False)
     info = PythonInfo()
     assert (info.tcl_lib, info.tk_lib) == (None, None)
 

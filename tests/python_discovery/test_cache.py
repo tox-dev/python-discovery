@@ -84,7 +84,9 @@ def test_disk_content_store_remove(tmp_path: Path) -> None:
 
 
 def test_disk_content_store_remove_missing_file(tmp_path: Path) -> None:
-    DiskContentStore(tmp_path, "test").remove()
+    store = DiskContentStore(tmp_path, "test")
+    store.remove()
+    assert not store.exists()
 
 
 def test_disk_content_store_locked(tmp_path: Path) -> None:
@@ -178,6 +180,7 @@ def test_disk_cache_py_info_clear(tmp_path: Path) -> None:
 
 def test_disk_cache_py_info_clear_empty(tmp_path: Path) -> None:
     DiskCache(tmp_path).py_info_clear()
+    assert list(tmp_path.rglob("*.json")) == []
 
 
 def test_disk_cache_py_info_clear_skips_non_json(tmp_path: Path) -> None:
@@ -356,16 +359,22 @@ def test_noop_content_store_read() -> None:
 
 
 def test_noop_content_store_write() -> None:
-    NoOpContentStore().write({"key": "value"})
+    store = NoOpContentStore()
+    store.write({"key": "value"})
+    assert store.read() is None
 
 
 def test_noop_content_store_remove() -> None:
-    NoOpContentStore().remove()
+    store = NoOpContentStore()
+    store.remove()
+    assert not store.exists()
 
 
 def test_noop_content_store_locked() -> None:
-    with NoOpContentStore().locked():
-        pass
+    store = NoOpContentStore()
+    with store.locked():
+        store.write({"key": "value"})
+    assert store.read() is None
 
 
 def test_noop_cache_py_info() -> None:
@@ -374,4 +383,6 @@ def test_noop_cache_py_info() -> None:
 
 
 def test_noop_cache_py_info_clear() -> None:
-    NoOpCache().py_info_clear()
+    cache = NoOpCache()
+    cache.py_info_clear()
+    assert cache.py_info(Path("/some/path")).read() is None

@@ -27,14 +27,6 @@ if TYPE_CHECKING:
     InfoValue = Union[str, int, bool, None, "tuple[int | str, ...]", "list[str]", "dict[str, str | int | None]"]
 
 
-class VersionInfo(NamedTuple):
-    major: int
-    minor: int
-    micro: int
-    releaselevel: str
-    serial: int
-
-
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
 
@@ -707,6 +699,39 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods] public query API
         return sorted_discovered[0]
 
 
+class VersionInfo(NamedTuple):
+    major: int
+    minor: int
+    micro: int
+    releaselevel: str
+    serial: int
+
+
+def normalize_isa(isa: str) -> str:
+    """
+    Normalize an ISA (instruction set architecture) string to a canonical form.
+
+    Known aliases are mapped (e.g. ``amd64`` → ``x86_64``, ``aarch64`` → ``arm64``).
+    Unrecognized values are lowercased and returned as-is.
+
+    :param isa: the architecture string as the platform reports it.
+    :returns: the normalized architecture name.
+    """
+    low = isa.lower()
+    return {
+        "amd64": "x86_64",
+        "aarch64": "arm64",
+        "i386": "x86",
+        "i486": "x86",
+        "i586": "x86",
+        "i686": "x86",
+        "powerpc": "ppc",
+        "powerpc64": "ppc64",
+        "powerpc64le": "ppc64le",
+        "sparcv9": "sparc64",
+    }.get(low, low)
+
+
 class MarkerEnvironment(TypedDict):
     """
     Environment markers of an interpreter, as defined by PEP 508.
@@ -754,31 +779,6 @@ KNOWN_ARCHITECTURES: Final[frozenset[str]] = frozenset({
 .. deprecated::
     Use :func:`normalize_isa` instead, which handles both known and unknown architectures.
 """
-
-
-def normalize_isa(isa: str) -> str:
-    """
-    Normalize an ISA (instruction set architecture) string to a canonical form.
-
-    Known aliases are mapped (e.g. ``amd64`` → ``x86_64``, ``aarch64`` → ``arm64``).
-    Unrecognized values are lowercased and returned as-is.
-
-    :param isa: the architecture string as the platform reports it.
-    :returns: the normalized architecture name.
-    """
-    low = isa.lower()
-    return {
-        "amd64": "x86_64",
-        "aarch64": "arm64",
-        "i386": "x86",
-        "i486": "x86",
-        "i586": "x86",
-        "i686": "x86",
-        "powerpc": "ppc",
-        "powerpc64": "ppc64",
-        "powerpc64le": "ppc64le",
-        "sparcv9": "sparc64",
-    }.get(low, low)
 
 
 __all__ = [

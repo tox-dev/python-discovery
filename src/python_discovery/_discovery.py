@@ -456,6 +456,21 @@ def _parse_uv_install(path: Path) -> _UvInstall:
     return _UvInstall(path=path, key=key)
 
 
+@dataclass(**DC_KW)
+class _UvInstall:
+    path: Path
+    key: _UvKey | None
+
+
+@dataclass(**DC_KW)
+class _UvKey:
+    # The ``<implementation>-<version>[+<variant>]-<os>-<arch>-<libc>`` name uv gives an install directory.
+    implementation: str
+    version: SimpleVersion
+    free_threaded: bool
+    debug: bool
+
+
 def _uv_sort_key(install: _UvInstall) -> tuple[int, ...]:
     # Rank like uv does: CPython first, newest version first, default build ahead of free-threaded and debug.
     impl_order: Final[tuple[str, ...]] = ("cpython", "pypy", "graalpy", "pyodide")
@@ -558,21 +573,6 @@ def _iter_for_spec(  # ruff:ignore[too-many-arguments, too-many-positional-argum
             continue
         seen.add(real_path)
         yield interpreter
-
-
-@dataclass(**DC_KW)
-class _UvKey:
-    # The ``<implementation>-<version>[+<variant>]-<os>-<arch>-<libc>`` name uv gives an install directory.
-    implementation: str
-    version: SimpleVersion
-    free_threaded: bool
-    debug: bool
-
-
-@dataclass(**DC_KW)
-class _UvInstall:
-    path: Path
-    key: _UvKey | None
 
 
 __all__ = [

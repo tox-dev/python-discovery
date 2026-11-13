@@ -1121,10 +1121,11 @@ def test_propose_interpreters_try_first_with_missing(tmp_path: Path) -> None:
     assert len(results) >= 0
 
 
-def test_propose_interpreters_try_first_with_duplicate(session_cache: DiskCache) -> None:
-    spec = PythonSpec.from_string_spec("python")
-    results = list(propose_interpreters(spec, [sys.executable, sys.executable], session_cache))
-    set().update([r[0].executable for r in results if r[0] is not None][:2])
+def test_propose_interpreters_try_first_with_duplicate(tmp_path: Path, session_cache: DiskCache) -> None:
+    link = tmp_path / _PYTHON_NAME
+    link.symlink_to(sys.executable)
+    results = list(propose_interpreters(PythonSpec.from_string_spec("python"), [str(link), str(link)], session_cache))
+    assert [info.executable for info, _ in results if info is not None].count(str(link)) == 1
 
 
 def test_propose_interpreters_relative_path(

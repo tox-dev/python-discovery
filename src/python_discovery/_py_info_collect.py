@@ -40,7 +40,8 @@ _CONF_VAR_RE = re.compile(
 )
 
 
-class PythonInfoCollector:
+# Each attribute is a public PythonInfo field and a key of the cached JSON, so they stay flat.
+class PythonInfoCollector:  # simplint: ignore[too-many-attributes]
     # Collects information about the currently running Python interpreter.
     def __init__(self):
         self._init_identity()
