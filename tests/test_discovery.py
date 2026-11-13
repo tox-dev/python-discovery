@@ -307,6 +307,36 @@ def test_discovery_absolute_path_with_try_first(
     assert Path(interpreter.executable) == good_exe
 
 
+@pytest.mark.parametrize(
+    "hint",
+    [
+        pytest.param("sibling", id="sibling-venv"),
+        pytest.param("base", id="base-interpreter"),
+        pytest.param("case", id="other-case", marks=pytest.mark.skipif(not IS_WIN, reason="case-insensitive paths")),
+    ],
+)
+def test_discovery_relative_path_with_try_first(
+    tmp_path: Path, session_cache: DiskCache, monkeypatch: pytest.MonkeyPatch, hint: str
+) -> None:
+    for name in ("good", "bad"):
+        check_call([sys.executable, "-m", "venv", "--without-pip", str(tmp_path / name)])
+    monkeypatch.chdir(tmp_path)
+    spec = str(Path("good", _SCRIPTS_DIR, _PYTHON_NAME))
+    good_exe = tmp_path / spec
+    first = {
+        "sibling": tmp_path / "bad" / _VENV_PYTHON,
+        "base": PythonInfo.current_system(session_cache).system_executable,
+        "case": str(good_exe).upper(),
+    }[hint]
+    env = {**os.environ, "PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")}
+
+    found = get_interpreter(spec, try_first_with=[str(first)], cache=session_cache, env=env)
+    listed = iter_interpreters(spec, try_first_with=[str(first)], cache=session_cache, env=env)
+
+    assert found is not None
+    assert (Path(found.executable), [Path(info.executable) for info in listed]) == (good_exe, [good_exe])
+
+
 def test_discovery_venvs_on_one_base_keep_their_executable(tmp_path: Path, session_cache: DiskCache) -> None:
     scripts_dir = _SCRIPTS_DIR
     exe_name = _PYTHON_NAME
