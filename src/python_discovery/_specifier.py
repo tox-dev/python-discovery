@@ -40,93 +40,61 @@ _SPECIFIER_RE: Final[re.Pattern[str]] = re.compile(
 
 
 @dataclass(**DC_KW)
-class SimpleVersion:
+class SimpleSpecifierSet:
     """
-    Simple PEP 440-like version parser using only standard library.
+    Simple PEP 440-like specifier set using only standard library.
 
-    :param version_str: the original version string.
-    :param major: major version number.
-    :param minor: minor version number.
-    :param micro: micro (patch) version number.
-    :param pre_type: pre-release label (``"a"``, ``"b"``, or ``"rc"``), or ``None``.
-    :param pre_num: pre-release sequence number, or ``None``.
-    :param release: the ``(major, minor, micro)`` tuple.
+    :param specifiers_str: the original comma-separated specifier string.
+    :param specifiers: the parsed individual specifiers.
     """
 
-    version_str: str
-    major: int
-    minor: int
-    micro: int
-    pre_type: str | None
-    pre_num: int | None
-    release: tuple[int, int, int]
+    specifiers_str: str
+    specifiers: tuple[SimpleSpecifier, ...]
 
     @classmethod
-    def from_string(cls, version_str: str) -> SimpleVersion:
+    def from_string(cls, specifiers_str: str = "") -> SimpleSpecifierSet:
         """
-        Parse a PEP 440 version string (e.g. ``3.12.1``).
+        Parse a comma-separated PEP 440 specifier string (e.g. ``>=3.10,<4``).
 
-        :param version_str: the version string to parse.
-        :returns: the parsed version.
-        :raises ValueError: if *version_str* is not a valid version.
+        :param specifiers_str: the specifier string to parse.
+        :returns: the parsed specifier set.
         """
-        stripped = version_str.strip()
-        if not (match := _VERSION_RE.match(stripped)):
-            msg = f"Invalid version: {version_str}"
-            raise ValueError(msg)
-        major = int(match["major"])
-        minor = int(match["minor"]) if match["minor"] else 0
-        micro = int(match["micro"]) if match["micro"] else 0
-        return cls(
-            version_str=stripped,
-            major=major,
-            minor=minor,
-            micro=micro,
-            pre_type=match["pre_type"],
-            pre_num=int(match["pre_num"]) if match["pre_num"] else None,
-            release=(major, minor, micro),
-        )
+        stripped = specifiers_str.strip()
+        specs: list[SimpleSpecifier] = []
+        if stripped:
+            for spec_item in stripped.split(","):
+                if item := spec_item.strip():
+                    with contextlib.suppress(ValueError):
+                        specs.append(SimpleSpecifier.from_string(item))
+        return cls(specifiers_str=stripped, specifiers=tuple(specs))
+
+    def __iter__(self) -> Iterator[SimpleSpecifier]:
+        return iter(self.specifiers)
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SimpleVersion):
+        if not isinstance(other, SimpleSpecifierSet):
             return NotImplemented
-        return self.release == other.release and self.pre_type == other.pre_type and self.pre_num == other.pre_num
+        return self.specifiers_str == other.specifiers_str
 
     def __hash__(self) -> int:
-        return hash((self.release, self.pre_type, self.pre_num))
-
-    def __lt__(self, other: object) -> bool:  # ruff:ignore[too-many-return-statements] distinct outcomes
-        if not isinstance(other, SimpleVersion):
-            return NotImplemented
-        if self.release != other.release:
-            return self.release < other.release
-        if self.pre_type is None and other.pre_type is None:
-            return False
-        if self.pre_type is None:
-            return False
-        if other.pre_type is None:
-            return True
-        pre_order: dict[str, int] = {"a": 1, "b": 2, "rc": 3}
-        if pre_order[self.pre_type] != pre_order[other.pre_type]:
-            return pre_order[self.pre_type] < pre_order[other.pre_type]
-        return (self.pre_num or 0) < (other.pre_num or 0)
-
-    def __le__(self, other: object) -> bool:
-        return self == other or self < other
-
-    def __gt__(self, other: object) -> bool:
-        if not isinstance(other, SimpleVersion):
-            return NotImplemented
-        return not self <= other
-
-    def __ge__(self, other: object) -> bool:
-        return not self < other
+        return hash(self.specifiers_str)
 
     def __str__(self) -> str:
-        return self.version_str
+        return self.specifiers_str
 
     def __repr__(self) -> str:
-        return f"SimpleVersion('{self.version_str}')"
+        return f"SimpleSpecifierSet('{self.specifiers_str}')"
+
+    def contains(self, version_str: str) -> bool:
+        """
+        Check if a version satisfies all specifiers in the set.
+
+        :param version_str: the version string to test.
+        :returns: ``True`` if *version_str* satisfies every specifier.
+        """
+        if not self.specifiers:
+            return True
+        return all(spec.contains(version_str) for spec in self.specifiers)
 
 
 @dataclass(**DC_KW)
@@ -255,61 +223,93 @@ class SimpleSpecifier:
 
 
 @dataclass(**DC_KW)
-class SimpleSpecifierSet:
+class SimpleVersion:
     """
-    Simple PEP 440-like specifier set using only standard library.
+    Simple PEP 440-like version parser using only standard library.
 
-    :param specifiers_str: the original comma-separated specifier string.
-    :param specifiers: the parsed individual specifiers.
+    :param version_str: the original version string.
+    :param major: major version number.
+    :param minor: minor version number.
+    :param micro: micro (patch) version number.
+    :param pre_type: pre-release label (``"a"``, ``"b"``, or ``"rc"``), or ``None``.
+    :param pre_num: pre-release sequence number, or ``None``.
+    :param release: the ``(major, minor, micro)`` tuple.
     """
 
-    specifiers_str: str
-    specifiers: tuple[SimpleSpecifier, ...]
+    version_str: str
+    major: int
+    minor: int
+    micro: int
+    pre_type: str | None
+    pre_num: int | None
+    release: tuple[int, int, int]
 
     @classmethod
-    def from_string(cls, specifiers_str: str = "") -> SimpleSpecifierSet:
+    def from_string(cls, version_str: str) -> SimpleVersion:
         """
-        Parse a comma-separated PEP 440 specifier string (e.g. ``>=3.10,<4``).
+        Parse a PEP 440 version string (e.g. ``3.12.1``).
 
-        :param specifiers_str: the specifier string to parse.
-        :returns: the parsed specifier set.
+        :param version_str: the version string to parse.
+        :returns: the parsed version.
+        :raises ValueError: if *version_str* is not a valid version.
         """
-        stripped = specifiers_str.strip()
-        specs: list[SimpleSpecifier] = []
-        if stripped:
-            for spec_item in stripped.split(","):
-                if item := spec_item.strip():
-                    with contextlib.suppress(ValueError):
-                        specs.append(SimpleSpecifier.from_string(item))
-        return cls(specifiers_str=stripped, specifiers=tuple(specs))
-
-    def __iter__(self) -> Iterator[SimpleSpecifier]:
-        return iter(self.specifiers)
+        stripped = version_str.strip()
+        if not (match := _VERSION_RE.match(stripped)):
+            msg = f"Invalid version: {version_str}"
+            raise ValueError(msg)
+        major = int(match["major"])
+        minor = int(match["minor"]) if match["minor"] else 0
+        micro = int(match["micro"]) if match["micro"] else 0
+        return cls(
+            version_str=stripped,
+            major=major,
+            minor=minor,
+            micro=micro,
+            pre_type=match["pre_type"],
+            pre_num=int(match["pre_num"]) if match["pre_num"] else None,
+            release=(major, minor, micro),
+        )
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SimpleSpecifierSet):
+        if not isinstance(other, SimpleVersion):
             return NotImplemented
-        return self.specifiers_str == other.specifiers_str
+        return self.release == other.release and self.pre_type == other.pre_type and self.pre_num == other.pre_num
 
     def __hash__(self) -> int:
-        return hash(self.specifiers_str)
+        return hash((self.release, self.pre_type, self.pre_num))
+
+    def __lt__(self, other: object) -> bool:  # ruff:ignore[too-many-return-statements] distinct outcomes
+        if not isinstance(other, SimpleVersion):
+            return NotImplemented
+        if self.release != other.release:
+            return self.release < other.release
+        if self.pre_type is None and other.pre_type is None:
+            return False
+        if self.pre_type is None:
+            return False
+        if other.pre_type is None:
+            return True
+        pre_order: dict[str, int] = {"a": 1, "b": 2, "rc": 3}
+        if pre_order[self.pre_type] != pre_order[other.pre_type]:
+            return pre_order[self.pre_type] < pre_order[other.pre_type]
+        return (self.pre_num or 0) < (other.pre_num or 0)
+
+    def __le__(self, other: object) -> bool:
+        return self == other or self < other
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, SimpleVersion):
+            return NotImplemented
+        return not self <= other
+
+    def __ge__(self, other: object) -> bool:
+        return not self < other
 
     def __str__(self) -> str:
-        return self.specifiers_str
+        return self.version_str
 
     def __repr__(self) -> str:
-        return f"SimpleSpecifierSet('{self.specifiers_str}')"
-
-    def contains(self, version_str: str) -> bool:
-        """
-        Check if a version satisfies all specifiers in the set.
-
-        :param version_str: the version string to test.
-        :returns: ``True`` if *version_str* satisfies every specifier.
-        """
-        if not self.specifiers:
-            return True
-        return all(spec.contains(version_str) for spec in self.specifiers)
+        return f"SimpleVersion('{self.version_str}')"
 
 
 __all__ = [
