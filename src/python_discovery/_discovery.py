@@ -285,7 +285,12 @@ def _active_versions(env: Mapping[str, str]) -> Generator[str, None, None]:
     if pyenv_version := env.get("PYENV_VERSION"):
         yield from pyenv_version.split(":")
         return
-    if versions := _read_python_version_file(Path.cwd()):
+    cwd: str | Path | None
+    try:
+        cwd = Path.cwd()
+    except OSError:  # removed, or on illumos below an unreadable directory; pyenv reads $PWD as well
+        cwd = env.get("PWD")
+    if cwd and (versions := _read_python_version_file(cwd)):
         yield from versions
         return
     if (pyenv_root := env.get("PYENV_ROOT")) and (
