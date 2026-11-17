@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Protocol
@@ -10,9 +11,9 @@ from uuid import uuid4
 import pytest
 
 from python_discovery import DiskCache, PythonInfo, iter_interpreters
-from python_discovery._discovery import IS_WIN
 
-_EXE_SUFFIX: Final[str] = ".exe" if IS_WIN else ""
+_EXE_SUFFIX: Final[str] = ".exe" if sys.platform == "win32" else ""
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -222,7 +223,7 @@ def test_iter_interpreters_skips_when_no_executable(
     session_cache: DiskCache,
     mocker: MockerFixture,
 ) -> None:
-    bogus = mocker.MagicMock(spec=PythonInfo, system_executable=None, executable=None)
+    bogus = mocker.create_autospec(PythonInfo, instance=True, system_executable=None, executable=None)
     mocker.patch(
         "python_discovery._discovery.propose_interpreters",
         return_value=iter([(bogus, True)]),
@@ -242,7 +243,9 @@ def test_iter_interpreters_uv_yields_when_interrogation_succeeds(
     bin_path.mkdir(parents=True)
     (bin_path / "python").touch()
 
-    fake_info = mocker.MagicMock(spec=PythonInfo, system_executable=str(uv_dir / "fake-unique" / "python"))
+    fake_info = mocker.create_autospec(
+        PythonInfo, instance=True, system_executable=str(uv_dir / "fake-unique" / "python")
+    )
     fake_info.executable = fake_info.system_executable
     fake_info.satisfies.return_value = True
     mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=fake_info, autospec=True)
@@ -508,10 +511,12 @@ def test_iter_interpreters_uv_minor_version_junction_loses_to_its_target(
 @pytest.fixture
 def uv_junction(uv_dir: Path, mocker: MockerFixture) -> Callable[[str, str], None]:
     def _junction(target: str, link: str) -> None:
-        if IS_WIN:  # pragma: win32 cover
-            import _winapi
-
-            _winapi.CreateJunction(str(uv_dir / target), str(uv_dir / link))
+        if sys.platform == "win32":  # pragma: win32 cover
+            subprocess.run(
+                [os.environ["COMSPEC"], "/c", "mklink", "/J", str(uv_dir / link), str(uv_dir / target)],
+                check=True,
+                capture_output=True,
+            )
         else:  # pragma: win32 no cover
             # stand in for the junction with a symlink that does not report as one
             (uv_dir / link).symlink_to(uv_dir / target)

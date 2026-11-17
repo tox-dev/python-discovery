@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from ctypes import WinDLL, WinError, get_last_error, wintypes  # ty: ignore[unresolved-import]  # Windows-only APIs
+import sys
 from time import monotonic
 from typing import TYPE_CHECKING, Final
+
+if sys.platform == "win32":
+    from ctypes import WinDLL, WinError, get_last_error, wintypes
 
 if TYPE_CHECKING:
     from threading import Thread

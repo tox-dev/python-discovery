@@ -35,7 +35,7 @@ repos:
         priority: 5
         args: ["--fix", "--unsafe-fixes", "--exit-non-zero-on-fix"]
   - repo: https://github.com/gaborbernat/simplint-pre-commit
-    rev: "f15525433ac9797aa1580f46fdadfe60dd77923c" # frozen: v0.8.0
+    rev: "a12d8eaac290be24041a3e2778c636c56453722e" # frozen: v0.12.2
     hooks:
       - id: simplint
         priority: 6
@@ -81,7 +81,7 @@ repos:
         additional_dependencies:
           - "sphinx==9.2.0"
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: c92afdf2c6ca336aaa8f39e2bd8d48f62dbd8e1f # frozen: v1.31.1
+    rev: 06a39750ec31860bb44f2acf67182c40016cd1e7 # frozen: v1.32.0
     hooks:
       - id: zizmor
         priority: 8
