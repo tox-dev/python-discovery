@@ -63,6 +63,7 @@ shell. You can override these to control exactly where the library looks.
 
 Only absolute directories in ``PATH`` are searched. To select an interpreter in the working directory, use
 ``./python`` as the spec on POSIX or ``./python.exe`` on Windows.
+On Windows, ``get_interpreter("pythonw.exe")`` also finds that named executable on ``PATH``.
 
 Customize interpreter query timeout
 -------------------------------------
