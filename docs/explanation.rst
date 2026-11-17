@@ -208,7 +208,8 @@ That means symlinked aliases like ``/bin/python3`` and ``/usr/bin/python3``, or 
 symlinks to its base interpreter, collapse to a single yield. The semantic is "one entry per distinct install,"
 which is what callers building choosers or version-range pickers usually want.
 
-**Iteration order.** Yields come back in *priority order*: ``try_first_with`` first, then the running interpreter,
+**Iteration order.** A relative path spec is checked before ``try_first_with`` because only that path can match. For
+other specs, yields come back in *priority order*: ``try_first_with`` first, then the running interpreter,
 then :pep:`514` entries on Windows, then PATH left-to-right, then UV-managed installs. This matches what
 :func:`~python_discovery.get_interpreter` would have returned at each step. If your ordering differs (newest
 version first, smallest install root, etc.), wrap the call in :func:`sorted` -- the API deliberately does not

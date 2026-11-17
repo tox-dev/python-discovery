@@ -7,6 +7,7 @@ Try specific executables first
 If you know the path to an interpreter executable, pass it via ``try_first_with`` to check it
 before the normal search. This is useful when you have a custom Python install outside the
 standard locations.
+If the spec names a relative path such as ``./venv/bin/python``, that path is checked before ``try_first_with``.
 
 .. code-block:: python
 
