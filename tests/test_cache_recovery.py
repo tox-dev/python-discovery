@@ -75,15 +75,15 @@ def test_from_exe_recovers_missing_system_executable(cached_interpreter: _Cached
     )
 
 
-class _CachedInterpreter(NamedTuple):
-    cache: DiskCache
-    cache_file: Path
-    expected: dict
-
-
 @pytest.fixture
 def cached_interpreter(tmp_path: Path) -> _CachedInterpreter:
     cache = DiskCache(tmp_path)
     assert PythonInfo.from_exe(sys.executable, cache, ignore_cache=True, resolve_to_host=False) is not None
     cache_file = next(tmp_path.rglob("*.json"))
     return _CachedInterpreter(cache, cache_file, json.loads(cache_file.read_text(encoding="utf-8")))
+
+
+class _CachedInterpreter(NamedTuple):
+    cache: DiskCache
+    cache_file: Path
+    expected: dict

@@ -18,7 +18,9 @@ from io import DEFAULT_BUFFER_SIZE, IncrementalNewlineDecoder
 from pathlib import Path
 from select import select
 from shlex import quote
-from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline  # ruff:ignore[suspicious-subprocess-import] list2cmdline only formats the command for logging
+
+# ruff:ignore[suspicious-subprocess-import] interpreter interrogation
+from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline
 from threading import Event, Thread
 from time import monotonic
 from typing import TYPE_CHECKING, Final, NamedTuple
@@ -28,7 +30,7 @@ from ._py_info import PythonInfo
 from ._py_info_collect import MIN_INTERROGATE_VERSION, UNSUPPORTED_EXIT_CODE, UNSUPPORTED_MARKER
 
 if sys.platform == "win32":  # pragma: win32 cover
-    from ._windows._cancel_io import stop_query_reader
+    from ._windows import stop_query_reader
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -207,7 +209,7 @@ def _run_subprocess(
         env["PYTHONUTF8"] = "1"
         _LOGGER.debug("get interpreter info via cmd: %s", cmd if isinstance(cmd, str) else LogCmd(cmd))
         try:
-            process = Popen(  # ruff:ignore[subprocess-without-shell-equals-true] argv list without a shell, so no shell injection
+            process = Popen(  # ruff:ignore[subprocess-without-shell-equals-true] interrogate discovered interpreter
                 cmd,
                 universal_newlines=True,
                 stdin=DEVNULL,
@@ -460,5 +462,4 @@ __all__ = [
     "LogCmd",
     "clear",
     "from_exe",
-    "gen_cookie",
 ]

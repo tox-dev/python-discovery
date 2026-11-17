@@ -139,6 +139,25 @@ class DiskCache:
                         entry.unlink()
 
 
+class NoOpContentStore(ContentStore):
+    # Content store that does nothing -- implements ContentStore protocol.
+    def exists(self) -> bool:  # ruff:ignore[no-self-use] cache protocol
+        return False
+
+    def read(self) -> dict | None:  # ruff:ignore[no-self-use] cache protocol
+        return None
+
+    def write(self, content: dict) -> None:
+        pass
+
+    def remove(self) -> None:
+        pass
+
+    @contextmanager
+    def locked(self) -> Generator[None]:  # ruff:ignore[no-self-use] cache protocol
+        yield
+
+
 class DiskContentStore:
     # JSON file-based content store with file locking.
     def __init__(self, folder: Path, key: str) -> None:
@@ -229,28 +248,9 @@ class DiskContentStore:
             yield
 
 
-class NoOpContentStore(ContentStore):
-    # Content store that does nothing -- implements ContentStore protocol.
-    def exists(self) -> bool:  # ruff:ignore[no-self-use]
-        return False
-
-    def read(self) -> dict | None:  # ruff:ignore[no-self-use] keeps the cache interface uniform across implementations
-        return None
-
-    def write(self, content: dict) -> None:
-        pass
-
-    def remove(self) -> None:
-        pass
-
-    @contextmanager
-    def locked(self) -> Generator[None]:  # ruff:ignore[no-self-use] keeps the cache interface uniform across implementations
-        yield
-
-
 class NoOpCache(PyInfoCache):
     # Cache that does nothing -- implements PyInfoCache protocol.
-    def py_info(self, path: Path) -> NoOpContentStore:  # ruff:ignore[unused-method-argument, no-self-use]
+    def py_info(self, path: Path) -> NoOpContentStore:  # ruff:ignore[unused-method-argument, no-self-use] protocol
         return NoOpContentStore()
 
     def py_info_clear(self) -> None:
