@@ -1262,7 +1262,7 @@ def test_path_exe_finder_win32_direct_name(
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows executable names")
 @pytest.mark.parametrize("name", ["python3.exe", "PYTHON3.EXE", "pythonw.exe"])
-def test_discovery_via_path_exe_suffixed_name(tmp_path: Path, name: str) -> None:
+def test_discovery_via_path_exe_suffixed_name(tmp_path: Path, name: str) -> None:  # pragma: win32 cover
     venv = tmp_path / "venv"
     check_call([sys.executable, "-m", "venv", "--without-pip", str(venv)])
     scripts = venv / "Scripts"
