@@ -146,6 +146,24 @@ def test_generic_python_spec_accepts_mixed_case_alias(tmp_path: Path, session_ca
     assert (selected.executable, selected.implementation) == (str(alias), "CPython")
 
 
+@pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
+def test_mixed_case_generic_spec_finds_lowercase_executable(tmp_path: Path, session_cache: DiskCache) -> None:
+    threaded = "t" * PythonInfo.current_system(session_cache).free_threaded
+    version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
+    exe = tmp_path / f"python{version}{_EXE_SUFFIX}"
+    exe.symlink_to(sys.executable)
+
+    selected = get_interpreter(
+        f"Py{version}",
+        [],
+        cache=session_cache,
+        env={"PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
+    )
+
+    assert selected is not None
+    assert (selected.executable, selected.implementation) == (str(exe), "CPython")
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell script")
 @pytest.mark.parametrize(
     "output",

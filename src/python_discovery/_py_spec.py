@@ -95,9 +95,10 @@ def _spec_from_match(
     version_specifier: SpecifierSet | None,
 ) -> PythonSpec:
     impl = match["impl"]
-    if impl in {"py", "python"}:
+    # implementation names compare case-insensitively everywhere else, so the aliases must too
+    if (alias := None if impl is None else impl.lower()) in {"py", "python"}:
         impl = None
-    if impl == "graalvm":
+    elif alias == "graalvm":
         impl = "graalpy"
     return PythonSpec(
         string_spec,

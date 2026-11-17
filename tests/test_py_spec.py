@@ -346,3 +346,19 @@ def test_spec_satisfies_graalpy_implementation_aliases(left: str, right: str) ->
     spec_1 = PythonSpec.from_string_spec(left)
     spec_2 = PythonSpec.from_string_spec(right)
     assert spec_1.satisfies(spec_2) is True
+
+
+@pytest.mark.parametrize(
+    ("spec_str", "implementation", "interpreter"),
+    [
+        pytest.param("Python3.12", None, "cpython3.12", id="Python"),
+        pytest.param("PYTHON3.12", None, "cpython3.12", id="PYTHON"),
+        pytest.param("Py3.12", None, "cpython3.12", id="Py"),
+        pytest.param("Python>=3.12", None, "cpython3.12", id="Python-specifier"),
+        pytest.param("GraalVM3.12", "graalpy", "graalpy3.12", id="GraalVM"),
+    ],
+)
+def test_spec_implementation_alias_ignores_case(spec_str: str, implementation: str | None, interpreter: str) -> None:
+    spec = PythonSpec.from_string_spec(spec_str)
+    assert spec.implementation == implementation
+    assert PythonSpec.from_string_spec(interpreter).satisfies(spec) is True
