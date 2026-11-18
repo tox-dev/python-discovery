@@ -6,6 +6,45 @@
 
 .. towncrier release notes start
 
+.. _release-1-9-6:
+
+*********************
+ v1.9.6 (2026-11-18)
+*********************
+
+.. _release-1-9-6-changes:
+
+Changes
+-------
+
+- Restore ``MarkerEnvironment`` as a package-root export after its removal during simplint adoption (:pr:`258`) by
+  :user:`gaborbernat`.
+
+.. _release-1-9-6-fixed:
+
+Fixed
+-----
+
+- :func:`~python_discovery.get_interpreter` no longer raises while resolving a ``pyenv`` shim when the working directory
+  was removed, or on illumos sits below an unreadable directory; it reads ``$PWD`` instead, as ``pyenv`` does
+  (:pr:`263`) by :user:`hnwg` and :user:`gaborbernat`.
+- Discovery now finds an interpreter given as a relative path such as ``./venv/bin/python`` when ``try_first_with``
+  lists the same file under another name or case, its base interpreter, or another virtual environment on that base,
+  instead of finding nothing (:pr:`261`) by :user:`darrenhuai` and :user:`gaborbernat`.
+- On Windows, find interpreter names that already end in ``.exe``, such as ``pythonw.exe``, on ``PATH`` (:pr:`253`) by
+  :user:`darrenhuai` and :user:`gaborbernat`.
+- Treat the ``py``, ``python`` and ``graalvm`` spec prefixes case-insensitively, so ``Python3.12`` finds the same
+  interpreters as ``python3.12`` instead of none (:pr:`271`) by :user:`HarshJamgaonkar05` and :user:`gaborbernat`.
+
+.. _release-1-9-6-packaging:
+
+Packaging
+---------
+
+- Every wheel now carries a `PEP 770 <https://peps.python.org/pep-0770/>`_ CycloneDX SBOM in its ``.dist-info/sboms``
+  directory, written at build time by `python-sbom <https://github.com/tox-dev/python-sbom>`_ (:pr:`256`) by
+  :user:`gaborbernat`.
+
 .. _release-1-9-5:
 
 *********************
