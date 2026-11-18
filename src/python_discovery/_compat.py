@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-__lazy_modules__ = ["pathlib", "tempfile", "typing"]
+__lazy_modules__ = [
+    "pathlib",
+    "tempfile",
+    "typing",
+]
 
 import functools
 import logging

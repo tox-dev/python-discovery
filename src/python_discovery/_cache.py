@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-__lazy_modules__ = ["hashlib", "json", "pathlib", "tempfile"]
+__lazy_modules__ = [
+    "hashlib",
+    "json",
+    "pathlib",
+    "tempfile",
+]
 
 import json
 import logging

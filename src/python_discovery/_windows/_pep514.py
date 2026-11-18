@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-__lazy_modules__ = ["pathlib", "winreg"]
+__lazy_modules__ = [
+    "pathlib",
+    "winreg",
+]
 
 import logging
 import re
