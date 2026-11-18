@@ -729,6 +729,36 @@ def test_shim_unreadable_python_version_file_is_skipped(
     assert pyenv_probed() == ("versions", "2.7.18")
 
 
+@pytest.mark.parametrize("error", [FileNotFoundError, PermissionError])
+def test_shim_unnameable_working_directory_reads_pwd(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
+    pyenv_probed: Callable[[], tuple[str, ...]],
+    error: type[OSError],
+) -> None:
+    root = Path(os.environ["PYENV_ROOT"])
+    _create_versioned_binary(root, ("versions",), "2.7.15", "python2.7")
+    (root / "version").write_text("2.7.15\n", encoding="utf-8")
+    (tmp_path / ".python-version").write_text("2.7.18\n", encoding="utf-8")
+    monkeypatch.setenv("PWD", str(tmp_path / "removed"))
+    mocker.patch.object(Path, "cwd", autospec=True, side_effect=error)
+
+    assert pyenv_probed() == ("versions", "2.7.18")
+
+
+def test_shim_unnameable_working_directory_without_pwd_reads_global_version(
+    monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, pyenv_probed: Callable[[], tuple[str, ...]]
+) -> None:
+    root = Path(os.environ["PYENV_ROOT"])
+    _create_versioned_binary(root, ("versions",), "2.7.15", "python2.7")
+    (root / "version").write_text("2.7.15\n", encoding="utf-8")
+    monkeypatch.delenv("PWD", raising=False)
+    mocker.patch.object(Path, "cwd", autospec=True, side_effect=FileNotFoundError)
+
+    assert pyenv_probed() == ("versions", "2.7.15")
+
+
 @_POSIX_PERMISSIONS
 def test_shim_unsearchable_directory_is_skipped(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyenv_probed: Callable[[], tuple[str, ...]]
@@ -736,6 +766,7 @@ def test_shim_unsearchable_directory_is_skipped(
     (tmp_path / ".python-version").write_text("2.7.18\n", encoding="utf-8")
     (work := tmp_path / "locked" / "work").mkdir(parents=True)
     monkeypatch.chdir(work)
+    monkeypatch.setenv("PWD", str(work))
     work.parent.chmod(0o600)
     try:
         assert pyenv_probed() == ("versions", "2.7.18")

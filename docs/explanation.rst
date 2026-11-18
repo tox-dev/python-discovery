@@ -75,6 +75,9 @@ detects these shims and resolves them to the actual binary.
 python-discovery skips version files over 4096 characters. It checks parent directories and, for pyenv, the global
 version when needed.
 
+Version-file search starts in the current directory. If the process can no longer name that directory,
+python-discovery starts from ``PWD`` in the supplied environment. If that is unavailable, it checks the global version.
+
 A version must name one directory below the version manager's installation root. Discovery skips ``.`` and ``..`` and
 version names containing a path separator, then tries the next configured version.
 

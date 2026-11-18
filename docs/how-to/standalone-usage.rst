@@ -41,6 +41,8 @@ Restrict the search environment
 
 By default, python-discovery reads environment variables like ``PATH`` and ``PYENV_ROOT`` from your
 shell. You can override these to control exactly where the library looks.
+If the process cannot name its current directory, set ``PWD`` to the intended directory so shim resolution can find
+its ``.python-version`` file.
 
 .. mermaid::
 
@@ -48,6 +50,7 @@ shell. You can override these to control exactly where the library looks.
         Env["Custom env dict"] --> Call["get_interpreter(spec, env=env)"]
         Call --> PATH["PATH"]
         Call --> Pyenv["PYENV_ROOT"]
+        Call --> PWD["PWD fallback"]
         Call --> UV["UV_PYTHON_INSTALL_DIR"]
         Call --> Mise["MISE_DATA_DIR"]
 
