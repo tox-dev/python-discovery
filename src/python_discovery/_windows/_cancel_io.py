@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = ["ctypes"]
+
 import sys
 from time import monotonic
 from typing import TYPE_CHECKING, Final

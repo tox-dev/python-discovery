@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    f"{__spec__.parent}._pep514",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+]
+
 from typing import TYPE_CHECKING
 
 from python_discovery import PythonInfo, PythonSpec

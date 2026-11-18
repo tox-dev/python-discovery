@@ -3,6 +3,16 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "collections",
+    "copy",
+    "itertools",
+    "json",
+    "platform",
+    "string",
+    f"{__spec__.parent}._py_info_collect",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+]
+
 import copy
 import json
 import logging

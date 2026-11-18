@@ -2,6 +2,21 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "hashlib",
+    "io",
+    "pkgutil",
+    "secrets",
+    "select",
+    "shlex",
+    "subprocess",
+    "tempfile",
+    "threading",
+    f"{__spec__.parent}._cache",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._py_info_collect",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._windows",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+]
+
 import hashlib
 import logging
 import os

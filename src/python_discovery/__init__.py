@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    f"{__spec__.parent}._about",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._cache",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._discovery",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._py_info",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._py_spec",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._specifier",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+]
+
 from ._about import __version__
 from ._cache import ContentStore, DiskCache, PyInfoCache
 from ._discovery import get_interpreter, iter_interpreters
