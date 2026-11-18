@@ -130,21 +130,24 @@ def test_pypy_spec_rejects_cpython_alias(name: str, tmp_path: Path, session_cach
 
 
 @pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
-def test_generic_python_spec_accepts_mixed_case_alias(tmp_path: Path, session_cache: DiskCache) -> None:
+def test_generic_python_spec_accepts_mixed_case_alias(session_cache: DiskCache) -> None:
     threaded = "t" * PythonInfo.current_system(session_cache).free_threaded
     version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
-    alias = tmp_path / f"Python{version}{_EXE_SUFFIX}"
-    alias.symlink_to(sys.executable)
-
-    selected = get_interpreter(
-        f"Python{version}",
-        [],
-        cache=session_cache,
-        env={"PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
-    )
+    selected = get_interpreter(f"Python{version}", [], cache=session_cache)
 
     assert selected is not None
-    assert (selected.executable, selected.implementation) == (str(alias), "CPython")
+    assert selected.implementation == "CPython"
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
+def test_mixed_case_generic_spec_finds_lowercase_executable(tmp_path: Path, session_cache: DiskCache) -> None:
+    threaded = "t" * PythonInfo.current_system(session_cache).free_threaded
+    version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
+    exe = tmp_path / f"python{version}{_EXE_SUFFIX}"
+    exe.touch()
+    spec = PythonSpec.from_string_spec(f"Py{version}")
+
+    assert list(path_exe_finder(spec)(tmp_path)) == [(exe, True)]
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell script")
