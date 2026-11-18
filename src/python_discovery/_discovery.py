@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "contextlib",
+    "itertools",
+    "pathlib",
+    f"{__spec__.parent}._compat",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._py_spec",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+]
+
 import logging
 import os
 import sys

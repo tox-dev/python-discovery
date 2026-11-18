@@ -3,6 +3,11 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "pathlib",
+    f"{__spec__.parent}._py_info",  # ty: ignore[unresolved-attribute]  # imported modules have a spec
+]
+
 import pathlib
 import re
 from typing import Final, NamedTuple
