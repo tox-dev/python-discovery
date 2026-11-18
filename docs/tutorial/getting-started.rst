@@ -104,7 +104,7 @@ implementation python-discovery knows about, or pass a spec to filter.
 .. mermaid::
 
     flowchart TD
-        Call["iter_interpreters(spec, cache)"] --> Yield["yields PythonInfo"]
+        Call["iter_interpreters(cache=cache)"] --> Yield["yields PythonInfo"]
         Yield --> A["1. try_first_with paths"]
         Yield --> B["2. running interpreter"]
         Yield --> C["3. PATH (left to right)"]

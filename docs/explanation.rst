@@ -12,10 +12,10 @@ order. It stops as soon as it finds an interpreter that matches your spec.
     flowchart TD
         Start["get_interpreter()"] --> AbsPath{"Is spec an<br>absolute path?"}
         AbsPath -->|Yes| TryAbs["Use path directly"]
-        AbsPath -->|No| TryFirst["try_first_with paths"]
-        TryFirst --> RelPath{"Does spec name a<br>relative directory?"}
+        AbsPath -->|No| RelPath{"Does spec name a<br>relative directory?"}
         RelPath -->|Yes| TryRel["Resolve relative to cwd"]
-        RelPath -->|No| Bare{"Bare executable name?"}
+        RelPath -->|No| TryFirst["try_first_with paths"]
+        TryFirst --> Bare{"Bare executable name?"}
         Bare -->|Yes| PATH
         Bare -->|No| Current["Current interpreter"]
         Current --> Win{"Windows?"}
@@ -208,7 +208,8 @@ That means symlinked aliases like ``/bin/python3`` and ``/usr/bin/python3``, or 
 symlinks to its base interpreter, collapse to a single yield. The semantic is "one entry per distinct install,"
 which is what callers building choosers or version-range pickers usually want.
 
-**Iteration order.** Yields come back in *priority order*: ``try_first_with`` first, then the running interpreter,
+**Iteration order.** A relative path spec is checked before ``try_first_with`` because only that path can match. For
+other specs, yields come back in *priority order*: ``try_first_with`` first, then the running interpreter,
 then :pep:`514` entries on Windows, then PATH left-to-right, then UV-managed installs. This matches what
 :func:`~python_discovery.get_interpreter` would have returned at each step. If your ordering differs (newest
 version first, smallest install root, etc.), wrap the call in :func:`sorted` -- the API deliberately does not

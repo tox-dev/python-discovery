@@ -42,7 +42,8 @@ def get_interpreter(
         `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
         (``>=3.10``). When a sequence is given each entry is tried in order.
 
-    :param try_first_with: executables to probe before the normal discovery search.
+    :param try_first_with: executables to probe before the normal discovery search. A relative path spec is checked
+        first.
     :param cache: interpreter metadata cache; when ``None`` results are not cached.
     :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
     :param predicate: optional callback applied after an interpreter matches the spec. Return ``True`` to accept the
@@ -127,15 +128,15 @@ def _propose_explicit(
     env: Mapping[str, str],
     tested_exes: set[str],
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
+    # A hint on the same file or base interpreter could otherwise hide the only candidate matching a relative path.
+    if spec.path is not None and os.path.dirname(spec.path) and (exe_raw := _check_exe(spec.path, tested_exes)):
+        yield PythonInfo.from_exe(exe_raw, cache, env=env), True
+
     for py_exe in try_first_with:
         if Path(py_exe).exists() and (exe_raw := _check_exe(py_exe, tested_exes)):
             yield PythonInfo.from_exe(exe_raw, cache, env=env), True
 
-    if spec.path is not None:
-        # Unparsed bare names reach spec.path; only an explicit directory should search the working directory.
-        if os.path.dirname(spec.path) and (exe_raw := _check_exe(spec.path, tested_exes)):
-            yield PythonInfo.from_exe(exe_raw, cache, env=env), True
-    else:
+    if spec.path is None:
         yield from _propose_current_and_windows(spec, cache, env, tested_exes)
 
 
