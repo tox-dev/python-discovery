@@ -373,6 +373,7 @@ Order matters: the parts appear in the sequence shown above. Combine the ABI fla
 ``-machine`` as in ``python3.13d-64-arm64``. Mixing ``d`` with ``-dbg`` in one spec, or swapping the arch
 and machine segments, leaves the string unrecognized, so it falls back to a literal executable-name match on ``PATH``.
 Only a spec with a directory component, such as ``./python3`` or ``venv/bin/python``, searches the working directory.
+On Windows, a literal executable name on ``PATH`` may include ``.exe``, such as ``pythonw.exe``.
 
 **Full examples:**
 

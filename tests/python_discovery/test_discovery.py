@@ -4,6 +4,7 @@ import contextlib
 import logging
 import os
 import platform
+import shutil
 import stat
 import sys
 from copy import deepcopy
@@ -1268,6 +1269,39 @@ def test_path_exe_finder_returns_callable(tmp_path: Path) -> None:
     assert callable(finder)
     results = list(finder(tmp_path))
     assert results == []
+
+
+@pytest.mark.parametrize(
+    ("spec", "name"),
+    [
+        pytest.param("python_custom", "python_custom.exe", id="bare-name"),
+        pytest.param("pythonw.exe", "pythonw.exe", id="exe-suffix"),
+        pytest.param("python3.13t.Exe", "python3.13t.Exe", id="mixed-case-exe-suffix"),
+    ],
+)
+def test_path_exe_finder_win32_direct_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spec: str, name: str
+) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+    (tmp_path / name).touch()
+
+    finder = path_exe_finder(PythonSpec.from_string_spec(spec))
+
+    assert list(finder(tmp_path)) == [(tmp_path / name, False)]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows executable names")
+@pytest.mark.parametrize("name", ["python3.exe", "PYTHON3.EXE", "pythonw.exe"])
+def test_discovery_via_path_exe_suffixed_name(tmp_path: Path, name: str) -> None:  # pragma: win32 cover
+    venv = tmp_path / "venv"
+    check_call([sys.executable, "-m", "venv", "--without-pip", str(venv)])
+    scripts = venv / "Scripts"
+    shutil.copyfile(scripts / "python.exe", scripts / "python3.exe")
+
+    interpreter = get_interpreter(name, [], env={"PATH": str(scripts), "SYSTEMROOT": os.environ["SYSTEMROOT"]})
+
+    assert interpreter is not None
+    assert interpreter.executable == str(scripts / name)
 
 
 def test_propose_interpreters_abs_path_exists(session_cache: DiskCache) -> None:
