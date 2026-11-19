@@ -65,8 +65,6 @@ _CACHE: Final[OrderedDict[tuple[Path, str | None], PythonInfo | Exception]] = Or
 _CACHE[Path(sys.executable), None] = PythonInfo()
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 _PY_INFO_SCRIPT: Final[Path] = Path(__file__).resolve().parent / "_py_info_collect.py"
-# poll(2) limits milliseconds to a signed C int.
-_MAX_QUERY_TIMEOUT: Final[float] = (2**31 - 1) / 1000
 _MAX_QUERY_OUTPUT: Final[int] = 1 << 20
 
 
@@ -280,8 +278,10 @@ def _query_timeout(raw: str | None) -> float | None:
         timeout = float(raw)
     except ValueError:
         timeout = 0.0
+    # poll(2) limits milliseconds to a signed C int.
+    max_query_timeout: float = (2**31 - 1) / 1000
     if timeout > 0:
-        return timeout if timeout <= _MAX_QUERY_TIMEOUT else None
+        return timeout if timeout <= max_query_timeout else None
     _LOGGER.warning(
         "ignoring PY_DISCOVERY_TIMEOUT=%r, not a positive number of seconds; using %s", raw, default_query_timeout
     )
