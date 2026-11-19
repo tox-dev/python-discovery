@@ -374,8 +374,8 @@ def _uv_python_roots(env: Mapping[str, str]) -> Generator[Path, None, None]:
 
 def _uv_state_dirs(env: Mapping[str, str]) -> Generator[Path, None, None]:
     # Yield uv's legacy state directory then its current one, the order uv prefers them in.
-    windows: Final = sys.platform == "win32"
-    home: Final = Path(profile) if (profile := env.get("USERPROFILE" if windows else "HOME")) else None
+    windows: Final[bool] = sys.platform == "win32"
+    home: Final[Path | None] = Path(profile) if (profile := env.get("USERPROFILE" if windows else "HOME")) else None
     if windows:
         app_data = Path(roaming) if (roaming := env.get("APPDATA")) else None
         if app_data is None or not app_data.is_absolute():
