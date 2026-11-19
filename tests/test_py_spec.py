@@ -56,6 +56,16 @@ def test_bad_py_spec(text: str) -> None:
         pytest.param(">=3.12,foo", id="item-without-operator"),
         pytest.param(">=", id="bare-operator"),
         pytest.param(">=3.13t,<3.15", id="modifier-before-last-item"),
+        pytest.param(">=3.12.*", id="wildcard-ge"),
+        pytest.param(">3.*", id="wildcard-gt"),
+        pytest.param("<=3.12.*", id="wildcard-le"),
+        pytest.param("<3.13.*", id="wildcard-lt"),
+        pytest.param("~=3.12.*", id="wildcard-compatible"),
+        pytest.param("===3.12.*", id="wildcard-arbitrary"),
+        pytest.param(">=3.11,<3.13.*", id="wildcard-ordered-last-item"),
+        pytest.param("cpython>=3.12.*t", id="wildcard-ordered-with-modifier"),
+        pytest.param("==3.13rc1.*", id="wildcard-eq-prerelease"),
+        pytest.param("!=3.13.0b1.*", id="wildcard-ne-prerelease"),
     ],
 )
 def test_invalid_specifier_raises(text: str) -> None:
@@ -72,6 +82,8 @@ def test_invalid_specifier_raises(text: str) -> None:
         pytest.param(">=3.11,<3.14t", (">=3.11,<3.14", True, None, None, None), id="set"),
         pytest.param("cpython>=3.12-64-arm64", (">=3.12", None, None, 64, "arm64"), id="arch-machine"),
         pytest.param(">=3.13", (">=3.13", None, None, None, None), id="any-build"),
+        pytest.param("cpython==3.13.*t", ("==3.13.*", True, None, None, None), id="wildcard-eq"),
+        pytest.param("!=3.12.*-64", ("!=3.12.*", None, None, 64, None), id="wildcard-ne"),
     ],
 )
 def test_specifier_modifiers(text: str, expected: tuple[str, bool | None, bool | None, int | None, str | None]) -> None:
