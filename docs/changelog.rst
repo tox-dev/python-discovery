@@ -6,6 +6,29 @@
 
 .. towncrier release notes start
 
+.. _release-1-9-7:
+
+*********************
+ v1.9.7 (2026-11-23)
+*********************
+
+.. _release-1-9-7-fixed:
+
+Fixed
+-----
+
+- :class:`~python_discovery.PythonSpec` now raises :exc:`ValueError` for wildcards on operators other than ``==`` or
+  ``!=``, such as ``>=3.12.*``, and after pre-release suffixes, such as ``==3.13rc1.*`` (:pr:`274`) by
+  :user:`mansur-akhmadi` and :user:`gaborbernat`.
+
+.. _release-1-9-7-performance:
+
+Performance
+-----------
+
+- Defer imports on Python 3.15 until interpreter discovery uses them, reducing package import time (:pr:`272`) by
+  :user:`gaborbernat`.
+
 .. _release-1-9-6:
 
 *********************
