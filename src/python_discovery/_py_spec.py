@@ -304,9 +304,13 @@ def _parse_specifier(string_spec: str) -> PythonSpec | None:
         return None
     spec_text = match["spec"].strip()
     version_specifier = SpecifierSet.from_string(spec_text)
-    # the set never raises: it keeps an unparsable version as None and drops items without an operator
+    # Keep the public specifier set permissive for callers that use it directly.
     items = [item for item in spec_text.split(",") if item.strip()]
-    if len(items) != len(version_specifier.specifiers) or any(spec.version is None for spec in version_specifier):
+    if len(items) != len(version_specifier.specifiers) or any(
+        spec.version is None
+        or (spec.is_wildcard and (spec.operator not in {"==", "!="} or spec.version.pre_type is not None))
+        for spec in version_specifier
+    ):
         msg = f"invalid version specifier {string_spec!r}"
         raise ValueError(msg)
     return _spec_from_match(
