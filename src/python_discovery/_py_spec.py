@@ -299,8 +299,7 @@ def _parse_specifier(string_spec: str) -> PythonSpec | None:
         return None
     spec_text = match["spec"].strip()
     version_specifier = SpecifierSet.from_string(spec_text)
-    # the set never raises: it keeps an unparsable version as None, drops items without an operator, and accepts a
-    # ``.*`` on any operator or pre-release, though PEP 440 allows it only on == and != after a final release
+    # Keep the public specifier set permissive for callers that use it directly.
     items = [item for item in spec_text.split(",") if item.strip()]
     if len(items) != len(version_specifier.specifiers) or any(
         spec.version is None

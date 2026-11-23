@@ -419,8 +419,9 @@ On Windows, a literal executable name on ``PATH`` may include ``.exe``, such as 
 `Version specifiers <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
 (``>=``, ``<=``, ``~=``, ``!=``, ``==``, ``===``) are supported. Multiple specifiers can be comma-separated,
 for example ``>=3.11,<3.13``. Each version is a release of up to three numbers with an optional ``a``, ``b`` or
-``rc`` pre-release suffix, such as ``3.12`` or ``3.13.0rc1``; ``==`` and ``!=`` also take a trailing ``.*``
-wildcard, as in ``==3.12.*``.
+``rc`` pre-release suffix, such as ``3.12`` or ``3.13.0rc1``. A trailing ``.*`` wildcard requires ``==`` or ``!=``
+and a version with no pre-release suffix, as in ``==3.12.*``. Inputs such as ``>=3.12.*`` and ``==3.13rc1.*`` raise
+:exc:`ValueError`.
 
 The ABI flags, ``-arch`` and ``-machine`` parts described above follow the last specifier and apply to the whole set:
 ``>=3.13t`` asks for a free-threaded 3.13 or newer, ``cpython>=3.11,<3.14-64`` for a 64-bit CPython in that range.
