@@ -231,6 +231,8 @@ def _run_subprocess(
                 env=env,
                 encoding="utf-8",
                 errors="backslashreplace",
+                # on macOS the child's pre-exec close() loop can block forever; Python fds are non-inheritable anyway
+                close_fds=False,
             )
             out, err, code = _collect_query_output(process, timeout)
         except OSError as os_error:

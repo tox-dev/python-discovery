@@ -85,6 +85,12 @@ def test_run_subprocess_success() -> None:
     assert isinstance(result, PythonInfo)
 
 
+def test_run_subprocess_skips_child_fd_close_loop(mocker: MockerFixture) -> None:
+    popen: Final[MockType] = mocker.patch("python_discovery._cached_py_info.Popen", autospec=True, side_effect=Popen)
+    failure, result = _run_subprocess(PythonInfo, sys.executable, dict(os.environ))
+    assert (failure, isinstance(result, PythonInfo), popen.call_args.kwargs["close_fds"]) == (None, True, False)
+
+
 def test_run_subprocess_bad_exe() -> None:
     failure, result = _run_subprocess(PythonInfo, "/nonexistent/python", dict(os.environ))
     assert failure is not None
