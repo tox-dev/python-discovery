@@ -6,6 +6,20 @@
 
 .. towncrier release notes start
 
+.. _release-1-9-8:
+
+*********************
+ v1.9.8 (2026-11-28)
+*********************
+
+.. _release-1-9-8-fixed:
+
+Fixed
+-----
+
+- The interpreter probe no longer hangs on macOS when the forked child blocks closing an inherited file descriptor
+  before exec (:pr:`282`) by :user:`gaborbernat`.
+
 .. _release-1-9-7:
 
 *********************
